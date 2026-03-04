@@ -60,6 +60,26 @@
         "defaultRangingOrder": 0
     },
     {
+        "name": "Jacquere (human)",
+        "fileName": "libraries/Jacquere (human).txt",
+        "symbolColumn": 2,
+        "RNAColumn": 1,
+        "RankColumn": null,
+        "citationFileName": "libraries/Jacquere (human).html",
+        "synonymName": "Human",
+        "defaultRangingOrder": 0
+    },
+    {
+        "name": "Julianna (mouse)",
+        "fileName": "libraries/Julianna (mouse).txt",
+        "symbolColumn": 2,
+        "RNAColumn": 1,
+        "RankColumn": null,
+        "citationFileName": "libraries/Julianna (mouse).html",
+        "synonymName": "Mouse",
+        "defaultRangingOrder": 0
+    },
+    {
         "name": "VBC (human)",
         "fileName": "libraries/VBC (human).txt",
         "symbolColumn": 1,
