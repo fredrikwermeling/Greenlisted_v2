@@ -482,18 +482,25 @@ function _triggerDownload(text, filename, filetype) {
     a.click()
 }
 
-function downloadAllDesign() {
+async function downloadAllDesign() {
     const name = settings["outputName"] || "output"
-    _triggerDownload(outputTexts.textOutputAdapter, name + " with Adapters.tsv", "text/tab-separated-values")
-    _triggerDownload(outputTexts.textOutputMAGeCK, name + " MAGeCK.csv", "text/csv")
-    _triggerDownload(outputTexts.textOutputFull, name + " Output.tsv", "text/tab-separated-values")
-    _triggerDownload(outputTexts.textOutputNotFound, name + " not found.tsv", "text/tab-separated-values")
-    _triggerDownload(SET_settingsToStr(), name + " Settings.txt", "text/plain")
+    const files = [
+        [outputTexts.textOutputAdapter, name + " with Adapters.tsv", "text/tab-separated-values"],
+        [outputTexts.textOutputMAGeCK, name + " MAGeCK.csv", "text/csv"],
+        [outputTexts.textOutputFull, name + " Output.tsv", "text/tab-separated-values"],
+        [outputTexts.textOutputNotFound, name + " not found.tsv", "text/tab-separated-values"],
+        [SET_settingsToStr(), name + " Settings.txt", "text/plain"]
+    ]
+    for (const f of files) {
+        _triggerDownload(f[0], f[1], f[2])
+        await new Promise(r => setTimeout(r, 500))
+    }
 }
 
-function downloadAllValidation() {
+async function downloadAllValidation() {
     const name = document.getElementById("outputFileName").value || "validation"
     _triggerDownload(_validateState.resultsOutput, name + " Validation Results.tsv", "text/tab-separated-values")
+    await new Promise(r => setTimeout(r, 500))
     _triggerDownload(_validateState.notFoundOutput, name + " Not Found.tsv", "text/tab-separated-values")
 }
 
