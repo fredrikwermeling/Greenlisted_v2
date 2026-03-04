@@ -482,6 +482,7 @@ body.validate-mode .validate-btn-active {
 }
 
 .validate-btn {
-    font-size: calc(var(--header-scale) * 0.65);
+    font-size: calc(var(--header-scale) * 0.6);
     white-space: nowrap;
+    padding: 0.2rem 0.5rem;
 }
