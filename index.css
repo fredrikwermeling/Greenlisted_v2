@@ -486,3 +486,27 @@ body.validate-mode .validate-btn-active {
     white-space: nowrap;
     padding: 0.2rem 0.5rem;
 }
+
+.validationResultsTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.validationResultsTable th,
+.validationResultsTable td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--outlineColor);
+    white-space: nowrap;
+}
+
+.validationResultsTable th {
+    background-color: var(--mainColor);
+    color: white;
+    font-weight: bold;
+}
+
+.validationResultsTable tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.03);
+}

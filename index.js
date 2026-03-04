@@ -227,14 +227,57 @@ async function runValidation() {
     document.getElementById("outputTable").classList.add("statusFadeIn")
 }
 
+function _renderTsvAsTable(tsv) {
+    const lines = tsv.trim().split("\n").filter(l => l.length > 0)
+    if (lines.length === 0) return "<p>No data</p>"
+    var html = '<table class="validationResultsTable"><thead><tr>'
+    const headers = lines[0].split("\t")
+    for (const h of headers) {
+        html += `<th>${h}</th>`
+    }
+    html += '</tr></thead><tbody>'
+    for (var i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("\t")
+        html += '<tr>'
+        for (const c of cols) {
+            html += `<td>${c}</td>`
+        }
+        html += '</tr>'
+    }
+    html += '</tbody></table>'
+    return html
+}
+
 function showValidationOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", _validateState.resultsOutput, false)
+    const container = document.getElementById("fileContentContainer")
+    container.style.display = "flex"
+    document.getElementById("fileContent").style.display = "none"
+    var tableDiv = document.getElementById("validationTableDiv")
+    if (!tableDiv) {
+        tableDiv = document.createElement("div")
+        tableDiv.id = "validationTableDiv"
+        tableDiv.style.overflowX = "auto"
+        tableDiv.style.width = "100%"
+        container.appendChild(tableDiv)
+    }
+    tableDiv.style.display = "block"
+    tableDiv.innerHTML = _renderTsvAsTable(_validateState.resultsOutput)
 }
 
 function showValidationNotFoundOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", _validateState.notFoundOutput, false)
+    const container = document.getElementById("fileContentContainer")
+    container.style.display = "flex"
+    document.getElementById("fileContent").style.display = "none"
+    var tableDiv = document.getElementById("validationTableDiv")
+    if (!tableDiv) {
+        tableDiv = document.createElement("div")
+        tableDiv.id = "validationTableDiv"
+        tableDiv.style.overflowX = "auto"
+        tableDiv.style.width = "100%"
+        container.appendChild(tableDiv)
+    }
+    tableDiv.style.display = "block"
+    tableDiv.innerHTML = _renderTsvAsTable(_validateState.notFoundOutput)
 }
 
 async function runScreening() {
@@ -397,29 +440,32 @@ function _createDownloadLink(text, name, element, filetype, fileEnding) {
     element.download = name + fileEnding
 }
 
-function showAdapterOutput() {
+function _showTextareaOutput(text) {
     document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", outputTexts.textOutputAdapter, false)
+    document.getElementById("fileContent").style.display = ""
+    var tableDiv = document.getElementById("validationTableDiv")
+    if (tableDiv) tableDiv.style.display = "none"
+    _setStatus("fileContent", text, false)
+}
+
+function showAdapterOutput() {
+    _showTextareaOutput(outputTexts.textOutputAdapter)
 }
 
 function showMAGeCKOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", outputTexts.textOutputMAGeCK, false)
+    _showTextareaOutput(outputTexts.textOutputMAGeCK)
 }
 
 function showFullOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", outputTexts.textOutputFull, false)
+    _showTextareaOutput(outputTexts.textOutputFull)
 }
 
 function showNotFoundOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", outputTexts.textOutputNotFound, false)
+    _showTextareaOutput(outputTexts.textOutputNotFound)
 }
 
 function showSettingsOutput() {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    _setStatus("fileContent", SET_settingsToStr(), false)
+    _showTextareaOutput(SET_settingsToStr())
 }
 
 function dowloadSettingsOutput() {
