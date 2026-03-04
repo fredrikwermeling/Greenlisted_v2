@@ -495,24 +495,32 @@ body.validate-mode .validate-btn-active {
     padding: 0.2rem 0.5rem;
 }
 
+#fileContent {
+    font-family: monospace;
+    font-size: 0.8rem;
+    tab-size: 16;
+    -moz-tab-size: 16;
+    white-space: pre;
+}
+
 .validationResultsTable {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    font-family: monospace;
+    font-size: 0.8rem;
 }
 
 .validationResultsTable th,
 .validationResultsTable td {
-    padding: 6px 10px;
+    padding: 4px 12px;
     text-align: left;
     border-bottom: 1px solid var(--outlineColor);
     white-space: nowrap;
 }
 
 .validationResultsTable th {
-    background-color: var(--mainColor);
-    color: white;
     font-weight: bold;
+    border-bottom: 2px solid var(--mainColor);
 }
 
 .validationResultsTable tbody tr:nth-child(even) {
