@@ -64,20 +64,20 @@
         "fileName": "libraries/Jacquere (human).txt",
         "symbolColumn": 2,
         "RNAColumn": 1,
-        "RankColumn": 5,
+        "RankColumn": 4,
         "citationFileName": "libraries/Jacquere (human).html",
         "synonymName": "Human",
-        "defaultRangingOrder": 0
+        "defaultRangingOrder": 1
     },
     {
         "name": "Julianna (mouse)",
         "fileName": "libraries/Julianna (mouse).txt",
         "symbolColumn": 2,
         "RNAColumn": 1,
-        "RankColumn": 5,
+        "RankColumn": 4,
         "citationFileName": "libraries/Julianna (mouse).html",
         "synonymName": "Mouse",
-        "defaultRangingOrder": 0
+        "defaultRangingOrder": 1
     },
     {
         "name": "VBC (human)",
