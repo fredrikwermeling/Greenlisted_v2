@@ -476,6 +476,12 @@ body.validate-mode #libraries {
     pointer-events: none;
 }
 
+body.validate-mode #searchSymbols {
+    opacity: 1;
+    pointer-events: auto;
+    border: 2px solid var(--mainColor);
+}
+
 body.validate-mode .validate-btn-active {
     background-color: var(--mainColor);
     color: white;
