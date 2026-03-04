@@ -474,6 +474,29 @@ function dowloadSettingsOutput() {
     _createDownloadLink(SET_settingsToStr(), settings["outputName"] + " Settings", element, "text", ".txt")
 }
 
+function _triggerDownload(text, filename, filetype) {
+    var blob = new Blob([text], { type: filetype })
+    var a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+}
+
+function downloadAllDesign() {
+    const name = settings["outputName"] || "output"
+    _triggerDownload(outputTexts.textOutputAdapter, name + " with Adapters.tsv", "text/tab-separated-values")
+    _triggerDownload(outputTexts.textOutputMAGeCK, name + " MAGeCK.csv", "text/csv")
+    _triggerDownload(outputTexts.textOutputFull, name + " Output.tsv", "text/tab-separated-values")
+    _triggerDownload(outputTexts.textOutputNotFound, name + " not found.tsv", "text/tab-separated-values")
+    _triggerDownload(SET_settingsToStr(), name + " Settings.txt", "text/plain")
+}
+
+function downloadAllValidation() {
+    const name = document.getElementById("outputFileName").value || "validation"
+    _triggerDownload(_validateState.resultsOutput, name + " Validation Results.tsv", "text/tab-separated-values")
+    _triggerDownload(_validateState.notFoundOutput, name + " Not Found.tsv", "text/tab-separated-values")
+}
+
 async function _displayLibraryCitation(libraryCitation) {
     const libraryInfoContainer = document.getElementById("libraryInfo")
     libraryInfoContainer.innerHTML = libraryCitation
