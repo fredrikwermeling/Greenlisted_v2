@@ -126,6 +126,7 @@ textarea {
     border: 1px solid var(--outlineColor);
     border-radius: var(--inputRadius);
     height: 200px;
+    font-size: 1rem;
 }
 
 input {
