@@ -474,42 +474,50 @@ function dowloadSettingsOutput() {
     _createDownloadLink(SET_settingsToStr(), settings["outputName"] + " Settings", element, "text", ".txt")
 }
 
-function _triggerDownload(text, filename, filetype) {
-    var blob = new Blob([text], { type: filetype })
-    var a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = filename
-    a.click()
+function _generateZipName(prefix) {
+    const now = new Date()
+    const date = now.toISOString().slice(0, 10)
+    const uid = Math.random().toString(36).slice(2, 6)
+    return `${prefix}_${date}_${uid}`
 }
 
-function downloadAll() {
+async function downloadAll() {
     if (_validateState.isValidateMode) {
-        downloadAllValidation()
+        await downloadAllValidation()
     } else {
-        downloadAllDesign()
+        await downloadAllDesign()
     }
 }
 
 async function downloadAllDesign() {
     const name = settings["outputName"] || "output"
-    const files = [
-        [outputTexts.textOutputAdapter, name + " with Adapters.tsv", "text/tab-separated-values"],
-        [outputTexts.textOutputMAGeCK, name + " MAGeCK.csv", "text/csv"],
-        [outputTexts.textOutputFull, name + " Output.tsv", "text/tab-separated-values"],
-        [outputTexts.textOutputNotFound, name + " not found.tsv", "text/tab-separated-values"],
-        [SET_settingsToStr(), name + " Settings.txt", "text/plain"]
-    ]
-    for (const f of files) {
-        _triggerDownload(f[0], f[1], f[2])
-        await new Promise(r => setTimeout(r, 500))
-    }
+    const folderName = _generateZipName(name)
+    const zip = new JSZip()
+    const folder = zip.folder(folderName)
+    folder.file(name + " with Adapters.tsv", outputTexts.textOutputAdapter)
+    folder.file(name + " MAGeCK.csv", outputTexts.textOutputMAGeCK)
+    folder.file(name + " Output.tsv", outputTexts.textOutputFull)
+    folder.file(name + " not found.tsv", outputTexts.textOutputNotFound)
+    folder.file(name + " Settings.txt", SET_settingsToStr())
+    const blob = await zip.generateAsync({ type: "blob" })
+    var a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = folderName + ".zip"
+    a.click()
 }
 
 async function downloadAllValidation() {
     const name = document.getElementById("outputFileName").value || "validation"
-    _triggerDownload(_validateState.resultsOutput, name + " Validation Results.tsv", "text/tab-separated-values")
-    await new Promise(r => setTimeout(r, 500))
-    _triggerDownload(_validateState.notFoundOutput, name + " Not Found.tsv", "text/tab-separated-values")
+    const folderName = _generateZipName(name)
+    const zip = new JSZip()
+    const folder = zip.folder(folderName)
+    folder.file(name + " Validation Results.tsv", _validateState.resultsOutput)
+    folder.file(name + " Not Found.tsv", _validateState.notFoundOutput)
+    const blob = await zip.generateAsync({ type: "blob" })
+    var a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = folderName + ".zip"
+    a.click()
 }
 
 async function _displayLibraryCitation(libraryCitation) {
