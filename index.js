@@ -111,14 +111,14 @@ var _testSequences = {
     mouse: "GTGTAATAGCTCCTGCATGG\nACAGGTAGAAGCCCCCCATA\nGTTGCATGGAGCAGCTACTA"
 }
 
-var _savedDesignSymbols = ""
-
 function toggleValidateMode(species) {
     const humanBtn = document.getElementById("validateHumanButton")
     const mouseBtn = document.getElementById("validateMouseButton")
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    const textarea = document.getElementById("searchSymbols")
+
+    document.getElementById("outputTable").style.display = "none"
+    document.getElementById("fileContentContainer").style.display = "none"
 
     // If clicking the already-active species, toggle OFF (back to design mode)
     if (_validateState.isValidateMode && _validateState.activeSpecies === species) {
@@ -129,17 +129,9 @@ function toggleValidateMode(species) {
         mouseBtn.classList.remove("validate-btn-active")
         if (symbolsTitle) symbolsTitle.textContent = "Symbols"
         if (inputPlateTitle) inputPlateTitle.textContent = "2. Input symbols"
-        textarea.value = _savedDesignSymbols
-        _setStatus("statusSearchSymbolsRows", "")
-        document.getElementById("outputTable").style.display = "none"
-        document.getElementById("fileContentContainer").style.display = "none"
-        changeSymbols()
+        // Reload default settings to restore a clean design-mode state
+        init()
         return
-    }
-
-    // Save design-mode symbols before entering validate mode
-    if (!_validateState.isValidateMode) {
-        _savedDesignSymbols = textarea.value
     }
 
     // Enter validate mode (or switch species)
@@ -152,11 +144,8 @@ function toggleValidateMode(species) {
 
     if (symbolsTitle) symbolsTitle.textContent = "Enter 1-10 sgRNA sequences"
     if (inputPlateTitle) inputPlateTitle.textContent = "2. Input sgRNA"
-    textarea.value = ""
+    document.getElementById("searchSymbols").value = ""
     _setStatus("statusSearchSymbolsRows", "")
-
-    document.getElementById("outputTable").style.display = "none"
-    document.getElementById("fileContentContainer").style.display = "none"
 }
 
 async function runValidation() {
