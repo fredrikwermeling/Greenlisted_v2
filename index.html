@@ -69,6 +69,7 @@
 
                             <option value="custom">User Upload</option>
                         </select>
+                        <button id="validateModeButton" onclick="toggleValidateMode()">Validate sgRNA</button>
                     </h3>
 
                     <div class="plateContent">
@@ -114,7 +115,7 @@
                 <div class="smallPlate">
                     <h3 class="smallTitle">Symbols</h3>
                     <div class="plateContent">
-                        <form>
+                        <form class="design-only">
                             <label class="justifyCenter">
                                 <input name="a" type="radio" id="enableDirectMatches" onchange="changeSymbols()">
                                 Only direct matches <span></span>
@@ -144,7 +145,7 @@
 
                 </div>
 
-                <div class="smallPlate">
+                <div class="smallPlate design-only">
                     <h3 class="smallTitle">Symbols not found</h3>
                     <div class="plateContent">
                         <textarea readonly class="scrollablePlate" id="displaySynonyms"> </textarea>
@@ -156,7 +157,7 @@
             <h2 class="plateTitle">3. Set parameters & Run</h2>
             <div class="plateContent">
 
-                <div class="smallPlate">
+                <div class="smallPlate design-only">
                     <h3 class="smallTitle">Ranking</h3>
                     <table class="plateContent">
                         <tr>
@@ -177,7 +178,7 @@
                     </table>
                 </div>
 
-                <div class="smallPlate">
+                <div class="smallPlate design-only">
                     <h3 class="smallTitle">Sequence modifications</h3>
                     <div class="plateContent">
                         <table>
@@ -236,25 +237,35 @@
             <h2 class="plateTitle">4. Show output </h2>
             <div class="plateContent">
                 <table id="outputTable">
-                    <tr>
+                    <tr class="design-only">
                         <td> Output with adapters</td>
                         <td><a href="" id="adapterDownload">Download</a></td>
                         <td><button onclick="showAdapterOutput()">Show</button></td>
                     </tr>
-                    <tr>
+                    <tr class="design-only">
                         <td>Output for MAGeCK</td>
                         <td><a href="" id="MAGeCKDownload">Download</a></td>
                         <td><button onclick="showMAGeCKOutput()">Show</button></td>
                     </tr>
-                    <tr>
+                    <tr class="design-only">
                         <td>Full<br> output</td>
                         <td><a href="" id="fullDownload">Download</a></td>
                         <td><button onclick="showFullOutput()">Show</button></td>
                     </tr>
-                    <tr>
+                    <tr class="design-only">
                         <td>Symbols not found</td>
                         <td><a href="" id="notFoundDownload">Download</a></td>
                         <td><button onclick="showNotFoundOutput()">Show</button></td>
+                    </tr>
+                    <tr class="validate-only">
+                        <td>Validation Results</td>
+                        <td><a href="" id="validationDownload">Download</a></td>
+                        <td><button onclick="showValidationOutput()">Show</button></td>
+                    </tr>
+                    <tr class="validate-only">
+                        <td>Sequences Not Found</td>
+                        <td><a href="" id="validationNotFoundDownload">Download</a></td>
+                        <td><button onclick="showValidationNotFoundOutput()">Show</button></td>
                     </tr>
                     <tr>
                         <td>Run<br> Settings</td>
@@ -286,6 +297,7 @@
     <script type="text/javascript" src="settings.js"></script>
     <script type="text/javascript" src="grnaService.js"></script>
     <script type="text/javascript" src="screeningHandler.js"></script>
+    <script type="text/javascript" src="validate.js"></script>
     <script type="text/javascript" src="index.js"></script>
     <script type="text/javascript" src="fileHandler.js"></script>
 

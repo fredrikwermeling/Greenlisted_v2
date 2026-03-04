@@ -99,7 +99,111 @@ async function insertData(data) {
 
 
 
+function toggleValidateMode() {
+    _validateState.isValidateMode = !_validateState.isValidateMode
+    document.body.classList.toggle("validate-mode")
+
+    const btn = document.getElementById("validateModeButton")
+    const sectionTitle = document.querySelector(".plate:nth-child(2) .smallTitle")
+    const textarea = document.getElementById("searchSymbols")
+
+    if (_validateState.isValidateMode) {
+        btn.textContent = "Design sgRNA"
+        if (sectionTitle) sectionTitle.textContent = "sgRNA Sequences"
+        textarea.value = ""
+        _setStatus("statusSearchSymbolsRows", "")
+    } else {
+        btn.textContent = "Validate sgRNA"
+        if (sectionTitle) sectionTitle.textContent = "Symbols"
+        textarea.value = ""
+        _setStatus("statusSearchSymbolsRows", "")
+    }
+
+    document.getElementById("outputTable").style.display = "none"
+    document.getElementById("fileContentContainer").style.display = "none"
+}
+
+async function runValidation() {
+    _toggleLigtBox()
+
+    var statusText = document.getElementById("statusSearch")
+    statusText.classList.add("pulse")
+    await new Promise(r => setTimeout(r, 100))
+
+    try {
+        if (!_validateState.indexLoaded) {
+            _setStatus("statusSearch", "Loading validation index...")
+            await new Promise(r => setTimeout(r, 50))
+            await VAL_loadIndex()
+        }
+
+        const rawInput = document.getElementById("searchSymbols").value
+        const sequences = [...new Set(
+            rawInput.split("\n")
+                .map(s => s.trim().toUpperCase())
+                .filter(s => s.length > 0)
+        )]
+
+        // Validate: max 10 sequences
+        if (sequences.length > 10) {
+            _setStatus("statusSearch", "Error: Maximum 10 sgRNA sequences allowed")
+            _toggleLigtBox()
+            statusText.classList.remove("pulse")
+            return
+        }
+
+        // Validate: only ACGT characters
+        const invalidSeqs = sequences.filter(s => !/^[ACGT]+$/.test(s))
+        if (invalidSeqs.length > 0) {
+            _setStatus("statusSearch", "Error: Sequences must contain only A, C, G, T characters")
+            _toggleLigtBox()
+            statusText.classList.remove("pulse")
+            return
+        }
+
+        if (sequences.length === 0) {
+            _setStatus("statusSearch", "Error: Please enter at least one sgRNA sequence")
+            _toggleLigtBox()
+            statusText.classList.remove("pulse")
+            return
+        }
+
+        const results = VAL_search(sequences)
+        _validateState.resultsOutput = VAL_createResultsOutput(results)
+        _validateState.notFoundOutput = VAL_createNotFoundOutput(results)
+
+        const outputName = document.getElementById("outputFileName").value || "validation"
+        _createDownloadLink(_validateState.resultsOutput, outputName + " Validation Results", document.getElementById("validationDownload"), "text/tab-separated-values", ".tsv")
+        _createDownloadLink(_validateState.notFoundOutput, outputName + " Not Found", document.getElementById("validationNotFoundDownload"), "text/tab-separated-values", ".tsv")
+
+        _setStatus("statusSearch", `Validation complete: ${results.found.length} found, ${results.notFound.length} not found`)
+    } catch (error) {
+        console.error("Validation failed:", error)
+        _setStatus("statusSearch", "Error: Failed to run validation")
+    }
+
+    _toggleLigtBox()
+    statusText.classList.remove("pulse")
+    document.getElementById("outputTable").style.display = "flex"
+    document.getElementById("outputTable").classList.remove("statusFadeOut")
+    document.getElementById("outputTable").classList.add("statusFadeIn")
+}
+
+function showValidationOutput() {
+    document.getElementById("fileContentContainer").style.display = "flex"
+    _setStatus("fileContent", _validateState.resultsOutput, false)
+}
+
+function showValidationNotFoundOutput() {
+    document.getElementById("fileContentContainer").style.display = "flex"
+    _setStatus("fileContent", _validateState.notFoundOutput, false)
+}
+
 async function runScreening() {
+    if (_validateState.isValidateMode) {
+        return runValidation()
+    }
+
     _toggleLigtBox()
 
     button = document.getElementById("startButton")
@@ -347,9 +451,15 @@ async function changeSynonyms() {
 }
 
 function changeSymbols() {
+    if (_validateState.isValidateMode) {
+        const lines = document.getElementById("searchSymbols").value.split("\n").filter(s => s.trim().length > 0)
+        _setStatus("statusSearchSymbolsRows", `${lines.length} sequence(s) entered (max 10)`)
+        return
+    }
+
     const partialMatches = document.getElementById("partialMatches").checked
     const enableSynonyms = document.getElementById("enableSynonyms").checked
-    //sets everything to lower case and clears any extra spaces 
+    //sets everything to lower case and clears any extra spaces
     const searchSymbols = [...new Set(document.getElementById("searchSymbols").value.split("\n").filter(item => { return item.trim() }).map(symbol => symbol.trim().toLowerCase()))]
 
     SET_settingsSetLibrary(searchSymbols, partialMatches, enableSynonyms)

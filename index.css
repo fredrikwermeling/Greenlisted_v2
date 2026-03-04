@@ -458,3 +458,24 @@ a:hover {
         color: black;
     }
 }
+
+
+/* Validate sgRNA mode */
+
+body.validate-mode .design-only {
+    display: none !important;
+}
+
+body:not(.validate-mode) .validate-only {
+    display: none !important;
+}
+
+body.validate-mode #libraries {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+body.validate-mode #validateModeButton {
+    background-color: var(--mainColor);
+    color: white;
+}
