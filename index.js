@@ -482,6 +482,14 @@ function _triggerDownload(text, filename, filetype) {
     a.click()
 }
 
+function downloadAll() {
+    if (_validateState.isValidateMode) {
+        downloadAllValidation()
+    } else {
+        downloadAllDesign()
+    }
+}
+
 async function downloadAllDesign() {
     const name = settings["outputName"] || "output"
     const files = [
