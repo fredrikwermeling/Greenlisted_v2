@@ -64,7 +64,7 @@
         "fileName": "libraries/Jacquere (human).txt",
         "symbolColumn": 2,
         "RNAColumn": 1,
-        "RankColumn": null,
+        "RankColumn": 5,
         "citationFileName": "libraries/Jacquere (human).html",
         "synonymName": "Human",
         "defaultRangingOrder": 0
@@ -74,7 +74,7 @@
         "fileName": "libraries/Julianna (mouse).txt",
         "symbolColumn": 2,
         "RNAColumn": 1,
-        "RankColumn": null,
+        "RankColumn": 5,
         "citationFileName": "libraries/Julianna (mouse).html",
         "synonymName": "Mouse",
         "defaultRangingOrder": 0
