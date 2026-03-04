@@ -150,7 +150,7 @@ function toggleValidateMode(species) {
     humanBtn.classList.toggle("validate-btn-active", species === "human")
     mouseBtn.classList.toggle("validate-btn-active", species === "mouse")
 
-    if (symbolsTitle) symbolsTitle.textContent = "sgRNA Sequences"
+    if (symbolsTitle) symbolsTitle.textContent = "Enter 1-10 sgRNA sequences"
     if (inputPlateTitle) inputPlateTitle.textContent = "2. Input sgRNA"
     textarea.value = ""
     _setStatus("statusSearchSymbolsRows", "")
