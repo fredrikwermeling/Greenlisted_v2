@@ -253,6 +253,18 @@ function showValidationOutput() {
     tableDiv.innerHTML = _renderTsvAsTable(_validateState.resultsOutput)
 }
 
+function copyValidationOutput() {
+    navigator.clipboard.writeText(_validateState.resultsOutput).then(() => {
+        _setStatus("statusSearch", "Validation results copied to clipboard")
+    })
+}
+
+function copyValidationNotFoundOutput() {
+    navigator.clipboard.writeText(_validateState.notFoundOutput).then(() => {
+        _setStatus("statusSearch", "Not found sequences copied to clipboard")
+    })
+}
+
 function showValidationNotFoundOutput() {
     const container = document.getElementById("fileContentContainer")
     container.style.display = "flex"
