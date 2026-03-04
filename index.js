@@ -60,7 +60,7 @@ async function insertData(data) {
     document.getElementById("numberToRank").defaultValue = ""
 
 
-    document.getElementById("searchSymbols").textContent = data.searchSymbols.join("\n")
+    document.getElementById("searchSymbols").value = data.searchSymbols.join("\n")
     document.getElementById("outputFileName").value = data.outputName
     document.getElementById("outputFileName").defaultValue = ""
 
