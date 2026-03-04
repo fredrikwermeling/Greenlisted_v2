@@ -99,25 +99,43 @@ async function insertData(data) {
 
 
 
-function toggleValidateMode() {
-    _validateState.isValidateMode = !_validateState.isValidateMode
-    document.body.classList.toggle("validate-mode")
+var _testSequences = {
+    human: "GAGCGCTGCTCAGATAGCGA\nAAGATGAAGAATGCCCACAA\nGTGGAGTGGACTTCCAGCTA",
+    mouse: "GTGTAATAGCTCCTGCATGG\nACAGGTAGAAGCCCCCCATA\nGTTGCATGGAGCAGCTACTA"
+}
 
-    const btn = document.getElementById("validateModeButton")
+function toggleValidateMode(species) {
+    const humanBtn = document.getElementById("validateHumanButton")
+    const mouseBtn = document.getElementById("validateMouseButton")
     const sectionTitle = document.querySelector(".plate:nth-child(2) .smallTitle")
     const textarea = document.getElementById("searchSymbols")
 
-    if (_validateState.isValidateMode) {
-        btn.textContent = "Design sgRNA"
-        if (sectionTitle) sectionTitle.textContent = "sgRNA Sequences"
-        textarea.value = ""
-        _setStatus("statusSearchSymbolsRows", "")
-    } else {
-        btn.textContent = "Validate sgRNA"
+    // If clicking the already-active species, toggle OFF (back to design mode)
+    if (_validateState.isValidateMode && _validateState.activeSpecies === species) {
+        _validateState.isValidateMode = false
+        _validateState.activeSpecies = null
+        document.body.classList.remove("validate-mode")
+        humanBtn.classList.remove("validate-btn-active")
+        mouseBtn.classList.remove("validate-btn-active")
         if (sectionTitle) sectionTitle.textContent = "Symbols"
         textarea.value = ""
         _setStatus("statusSearchSymbolsRows", "")
+        document.getElementById("outputTable").style.display = "none"
+        document.getElementById("fileContentContainer").style.display = "none"
+        return
     }
+
+    // Enter validate mode (or switch species)
+    _validateState.isValidateMode = true
+    _validateState.activeSpecies = species
+    document.body.classList.add("validate-mode")
+
+    humanBtn.classList.toggle("validate-btn-active", species === "human")
+    mouseBtn.classList.toggle("validate-btn-active", species === "mouse")
+
+    if (sectionTitle) sectionTitle.textContent = "sgRNA Sequences"
+    textarea.value = _testSequences[species]
+    _setStatus("statusSearchSymbolsRows", "3 sequence(s) entered (max 10)")
 
     document.getElementById("outputTable").style.display = "none"
     document.getElementById("fileContentContainer").style.display = "none"
@@ -130,11 +148,13 @@ async function runValidation() {
     statusText.classList.add("pulse")
     await new Promise(r => setTimeout(r, 100))
 
+    const species = _validateState.activeSpecies
     try {
-        if (!_validateState.indexLoaded) {
-            _setStatus("statusSearch", "Loading validation index...")
+        const isLoaded = species === "human" ? _validateState.humanLoaded : _validateState.mouseLoaded
+        if (!isLoaded) {
+            _setStatus("statusSearch", `Loading ${species} validation index...`)
             await new Promise(r => setTimeout(r, 50))
-            await VAL_loadIndex()
+            await VAL_loadIndex(species)
         }
 
         const rawInput = document.getElementById("searchSymbols").value

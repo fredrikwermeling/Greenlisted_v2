@@ -463,7 +463,8 @@ a:hover {
 /* Validate sgRNA mode */
 
 body.validate-mode .design-only {
-    display: none !important;
+    opacity: 0.35;
+    pointer-events: none;
 }
 
 body:not(.validate-mode) .validate-only {
@@ -475,7 +476,12 @@ body.validate-mode #libraries {
     pointer-events: none;
 }
 
-body.validate-mode #validateModeButton {
+body.validate-mode .validate-btn-active {
     background-color: var(--mainColor);
     color: white;
+}
+
+.validate-btn {
+    font-size: calc(var(--header-scale) * 0.65);
+    white-space: nowrap;
 }

@@ -2,23 +2,31 @@
 // GRNA 2.0 - Validate sgRNA Module
 //
 // Provides reverse lookup: sgRNA sequence → gene/library
-// Loads a pre-compiled index file and searches it
+// Loads species-specific pre-compiled index files and searches them
 //
 
 var _validateState = {
-    indexLoaded: false,
-    indexMap: null,       // Map<sgRNA → [{library, symbol, geneId, scores}]>
+    indexMapHuman: null,      // Map<sgRNA → [{library, symbol, geneId, scores}]>
+    indexMapMouse: null,
+    humanLoaded: false,
+    mouseLoaded: false,
+    activeSpecies: null,      // "human" or "mouse"
     isValidateMode: false,
     resultsOutput: "",
     notFoundOutput: ""
 }
 
-async function VAL_loadIndex() {
-    if (_validateState.indexLoaded) return
+async function VAL_loadIndex(species) {
+    if (species === "human" && _validateState.humanLoaded) return
+    if (species === "mouse" && _validateState.mouseLoaded) return
 
-    const text = await FH_fetchTextFile("libraries/sgRNA_validation_index.txt")
+    const filename = species === "human"
+        ? "libraries/sgRNA_validation_index_human.txt"
+        : "libraries/sgRNA_validation_index_mouse.txt"
+
+    const text = await FH_fetchTextFile(filename)
     const lines = text.split("\n")
-    _validateState.indexMap = new Map()
+    const map = new Map()
 
     // Skip header line (line 0)
     for (var i = 1; i < lines.length; i++) {
@@ -32,23 +40,34 @@ async function VAL_loadIndex() {
             geneId: cols[3] || "",
             scores: cols[4] || ""
         }
-        if (_validateState.indexMap.has(sgrna)) {
-            _validateState.indexMap.get(sgrna).push(entry)
+        if (map.has(sgrna)) {
+            map.get(sgrna).push(entry)
         } else {
-            _validateState.indexMap.set(sgrna, [entry])
+            map.set(sgrna, [entry])
         }
     }
-    _validateState.indexLoaded = true
+
+    if (species === "human") {
+        _validateState.indexMapHuman = map
+        _validateState.humanLoaded = true
+    } else {
+        _validateState.indexMapMouse = map
+        _validateState.mouseLoaded = true
+    }
 }
 
 function VAL_search(sgRNAList) {
+    const map = _validateState.activeSpecies === "human"
+        ? _validateState.indexMapHuman
+        : _validateState.indexMapMouse
+
     const found = []
     const notFound = []
 
     for (const seq of sgRNAList) {
         const key = seq.toUpperCase()
-        if (_validateState.indexMap.has(key)) {
-            const entries = _validateState.indexMap.get(key)
+        if (map.has(key)) {
+            const entries = map.get(key)
             for (const entry of entries) {
                 found.push({
                     sgRNA: seq,

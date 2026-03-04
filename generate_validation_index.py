@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Generates libraries/sgRNA_validation_index.txt from all built-in CRISPR libraries.
+Generates species-specific sgRNA validation index files from all built-in CRISPR libraries.
+  - libraries/sgRNA_validation_index_human.txt
+  - libraries/sgRNA_validation_index_mouse.txt
+
 This index is used by the Validate sgRNA feature for reverse lookup (sgRNA → gene).
 
 Usage: python3 generate_validation_index.py
@@ -12,7 +15,25 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settingsLibraries.json")
-OUTPUT_FILE = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index.txt")
+OUTPUT_FILE_HUMAN = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index_human.txt")
+OUTPUT_FILE_MOUSE = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index_mouse.txt")
+
+# Libraries classified by species (based on synonymName in settingsLibraries.json)
+HUMAN_LIBRARIES = {
+    "Brunello (human)",
+    "GeCKO v2 (human) A+B",
+    "Gattinara (human)",
+    "Jacquere (human)",
+    "VBC (human)",
+}
+
+MOUSE_LIBRARIES = {
+    "Brie (mouse)",
+    "GeCKO v2 (mouse) A+B",
+    "Gouda (mouse)",
+    "Julianna (mouse)",
+    "VBC (mouse)",
+}
 
 # Map of known score column header names
 SCORE_HEADERS = {
@@ -92,28 +113,49 @@ def process_library(lib_config):
     return rows
 
 
+def write_index(rows, output_path, label):
+    """Write index rows to a file."""
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("sgRNA Sequence\tLibrary\tGene Symbol\tGene ID\tScores\n")
+        for row in rows:
+            f.write(row + "\n")
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"  {label}: {len(rows)} entries, {size_mb:.1f} MB → {output_path}")
+
+
 def main():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
         libraries = json.load(f)
 
     print(f"Processing {len(libraries)} libraries...")
 
-    all_rows = []
+    human_rows = []
+    mouse_rows = []
     for lib in libraries:
-        print(f"  {lib['name']}...")
+        name = lib["name"]
+        print(f"  {name}...")
         lib_rows = process_library(lib)
-        all_rows.extend(lib_rows)
         print(f"    → {len(lib_rows)} sgRNAs")
 
-    # Write output
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write("sgRNA Sequence\tLibrary\tGene Symbol\tGene ID\tScores\n")
-        for row in all_rows:
-            f.write(row + "\n")
+        if name in HUMAN_LIBRARIES:
+            human_rows.extend(lib_rows)
+        elif name in MOUSE_LIBRARIES:
+            mouse_rows.extend(lib_rows)
+        else:
+            print(f"    WARNING: '{name}' not classified as human or mouse, skipping", file=sys.stderr)
 
-    print(f"\nDone. Wrote {len(all_rows)} entries to {OUTPUT_FILE}")
-    size_mb = os.path.getsize(OUTPUT_FILE) / (1024 * 1024)
-    print(f"File size: {size_mb:.1f} MB")
+    # Write species-specific outputs
+    print()
+    write_index(human_rows, OUTPUT_FILE_HUMAN, "Human")
+    write_index(mouse_rows, OUTPUT_FILE_MOUSE, "Mouse")
+
+    # Remove old combined file if it exists
+    old_combined = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index.txt")
+    if os.path.exists(old_combined):
+        os.remove(old_combined)
+        print(f"\nRemoved old combined index: {old_combined}")
+
+    print(f"\nDone. Total: {len(human_rows)} human + {len(mouse_rows)} mouse = {len(human_rows) + len(mouse_rows)} entries")
 
 
 if __name__ == "__main__":

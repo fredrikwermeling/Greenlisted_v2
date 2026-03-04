@@ -64,12 +64,13 @@
             <h2 class="plateTitle">1. Select library</h2>
             <div class="plateContent">
                 <div class="smallPlate">
-                    <h3 class="smallTitle">
+                    <h3 class="smallTitle" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <select id="libraries" onchange="changeLibrary()" required>
 
                             <option value="custom">User Upload</option>
                         </select>
-                        <button id="validateModeButton" onclick="toggleValidateMode()">Validate sgRNA</button>
+                        <button id="validateHumanButton" class="validate-btn" onclick="toggleValidateMode('human')">Validate human sgRNA</button>
+                        <button id="validateMouseButton" class="validate-btn" onclick="toggleValidateMode('mouse')">Validate mouse sgRNA</button>
                     </h3>
 
                     <div class="plateContent">
