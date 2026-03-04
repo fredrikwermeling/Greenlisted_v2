@@ -481,6 +481,7 @@ body.validate-mode #searchSymbols {
     opacity: 1;
     pointer-events: auto;
     border: 2px solid var(--mainColor);
+    font-size: 0.8rem;
 }
 
 body.validate-mode .validate-btn-active {
