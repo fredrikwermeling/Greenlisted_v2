@@ -24,6 +24,13 @@ async function init() {
 }
 
 async function loadTestSettings() {
+    if (_validateState.isValidateMode && _validateState.activeSpecies) {
+        const textarea = document.getElementById("searchSymbols")
+        textarea.value = _testSequences[_validateState.activeSpecies]
+        changeSymbols()
+        return false
+    }
+
     var data = null
     try {
         data = await SER_getTestSettings()
@@ -104,10 +111,13 @@ var _testSequences = {
     mouse: "GTGTAATAGCTCCTGCATGG\nACAGGTAGAAGCCCCCCATA\nGTTGCATGGAGCAGCTACTA"
 }
 
+var _savedDesignSymbols = ""
+
 function toggleValidateMode(species) {
     const humanBtn = document.getElementById("validateHumanButton")
     const mouseBtn = document.getElementById("validateMouseButton")
-    const sectionTitle = document.querySelector(".plate:nth-child(2) .smallTitle")
+    const symbolsTitle = document.getElementById("symbolsTitle")
+    const inputPlateTitle = document.getElementById("inputPlateTitle")
     const textarea = document.getElementById("searchSymbols")
 
     // If clicking the already-active species, toggle OFF (back to design mode)
@@ -117,12 +127,19 @@ function toggleValidateMode(species) {
         document.body.classList.remove("validate-mode")
         humanBtn.classList.remove("validate-btn-active")
         mouseBtn.classList.remove("validate-btn-active")
-        if (sectionTitle) sectionTitle.textContent = "Symbols"
-        textarea.value = ""
+        if (symbolsTitle) symbolsTitle.textContent = "Symbols"
+        if (inputPlateTitle) inputPlateTitle.textContent = "2. Input symbols"
+        textarea.value = _savedDesignSymbols
         _setStatus("statusSearchSymbolsRows", "")
         document.getElementById("outputTable").style.display = "none"
         document.getElementById("fileContentContainer").style.display = "none"
+        changeSymbols()
         return
+    }
+
+    // Save design-mode symbols before entering validate mode
+    if (!_validateState.isValidateMode) {
+        _savedDesignSymbols = textarea.value
     }
 
     // Enter validate mode (or switch species)
@@ -133,9 +150,10 @@ function toggleValidateMode(species) {
     humanBtn.classList.toggle("validate-btn-active", species === "human")
     mouseBtn.classList.toggle("validate-btn-active", species === "mouse")
 
-    if (sectionTitle) sectionTitle.textContent = "sgRNA Sequences"
-    textarea.value = _testSequences[species]
-    _setStatus("statusSearchSymbolsRows", "3 sequence(s) entered (max 10)")
+    if (symbolsTitle) symbolsTitle.textContent = "sgRNA Sequences"
+    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input sgRNA"
+    textarea.value = ""
+    _setStatus("statusSearchSymbolsRows", "")
 
     document.getElementById("outputTable").style.display = "none"
     document.getElementById("fileContentContainer").style.display = "none"
