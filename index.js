@@ -489,6 +489,15 @@ async function downloadAll() {
     }
 }
 
+function _downloadBlob(blob, filename) {
+    var a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+}
+
 async function downloadAllDesign() {
     const name = settings["outputName"] || "output"
     const folderName = _generateZipName(name)
@@ -500,10 +509,7 @@ async function downloadAllDesign() {
     folder.file(name + " not found.tsv", outputTexts.textOutputNotFound)
     folder.file(name + " Settings.txt", SET_settingsToStr())
     const blob = await zip.generateAsync({ type: "blob" })
-    var a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = folderName + ".zip"
-    a.click()
+    _downloadBlob(blob, folderName + ".zip")
 }
 
 async function downloadAllValidation() {
@@ -514,10 +520,7 @@ async function downloadAllValidation() {
     folder.file(name + " Validation Results.tsv", _validateState.resultsOutput)
     folder.file(name + " Not Found.tsv", _validateState.notFoundOutput)
     const blob = await zip.generateAsync({ type: "blob" })
-    var a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = folderName + ".zip"
-    a.click()
+    _downloadBlob(blob, folderName + ".zip")
 }
 
 async function _displayLibraryCitation(libraryCitation) {
