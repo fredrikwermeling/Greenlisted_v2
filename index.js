@@ -143,7 +143,7 @@ async function runScreening() {
 function _createAdapterOutput(libraryMap) {
     const date = new Date()
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
-    var out = out + "Symbol\tSymbol_ID\tgRNA+adapter\n"
+    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)\n"
 
     for (var symbol of Object.keys(libraryMap)) {
         for (var i = 0; i < libraryMap[symbol].length; i++) {
@@ -174,6 +174,13 @@ function _createMAGeCKOutput(libraryMap) {
 function _createFullTxtOutput(libraryMap, headers) {
     const date = new Date()
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
+    if (settings.libraryName === "Jacquere (human)") {
+        out += `# On-Target Efficacy Score: RS3seq-Chen2013+RS3target (higher = better). Range in library: -1.4 to 2.4. Guides ranked by Pick Order.\n`
+        out += `# Aggregate CFD Score: cumulative off-target activity (lower = fewer off-targets). Range in library: 0 to 4.8 (design cutoff).\n`
+    } else if (settings.libraryName === "Julianna (mouse)") {
+        out += `# On-Target Efficacy Score: RS3seq-Chen2013+RS3target (higher = better). Range in library: -1.7 to 2.2. Guides ranked by Pick Order.\n`
+        out += `# Aggregate CFD Score: cumulative off-target activity (lower = fewer off-targets). Range in library: 0 to 4.8 (design cutoff).\n`
+    }
     var out = out + headers.join("\t") + "\n" //the original headers are placed att the top of the output
     for (var symbol of Object.keys(libraryMap)) {
         libraryMap[symbol].forEach(row => {
