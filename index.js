@@ -251,12 +251,27 @@ function _renderValidationTsvAsTable(tsv) {
     const lines = tsv.trim().split("\n").filter(l => l.length > 0)
     if (lines.length === 0) return "<p>No data</p>"
 
-    const headers = lines[0].split("\t")
+    // Skip comment lines, show as info text
+    var infoHtml = ""
+    var dataStart = 0
+    for (var i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith("#")) {
+            const displayText = lines[i].startsWith("# ") ? lines[i].substring(2) : lines[i].substring(1)
+            infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
+            dataStart = i + 1
+        } else {
+            break
+        }
+    }
+
+    if (dataStart >= lines.length) return infoHtml + "<p>No data</p>"
+
+    const headers = lines[dataStart].split("\t")
 
     // Count how many rows each sgRNA appears in
     const countMap = new Map()
     const rows = []
-    for (var i = 1; i < lines.length; i++) {
+    for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split("\t")
         const seq = cols[0]
         rows.push(cols)
@@ -264,7 +279,7 @@ function _renderValidationTsvAsTable(tsv) {
     }
 
     // Build table: insert "# Libraries" column after first column
-    var html = '<table class="validationResultsTable"><thead><tr>'
+    var html = infoHtml + '<table class="validationResultsTable"><thead><tr>'
     html += `<th>${headers[0]}</th><th># Libraries</th>`
     for (var h = 1; h < headers.length; h++) {
         html += `<th>${headers[h]}</th>`
