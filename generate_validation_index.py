@@ -73,6 +73,14 @@ VALIDATION_ONLY_XLSX = [
         "gene_col": "GENE",
         "seq_col": "SEQUENCE",
     },
+    {
+        "name": "MinLibCas9 (human)",
+        "species": "human",
+        "file": "libraries/minlibcas9_raw.xlsx",
+        "gene_col": "Approved_Symbol",
+        "seq_col": "WGE_Sequence",
+        "trim_pam": 3,  # sequence includes 3bp PAM at end
+    },
 ]
 
 # Map of known score column header names
@@ -187,6 +195,9 @@ def process_xlsx_library(config):
         gene = str(row[gene_idx]).strip() if row[gene_idx] else ""
         seq = str(row[seq_idx]).strip() if row[seq_idx] else ""
         if gene and seq:
+            trim_pam = config.get("trim_pam", 0)
+            if trim_pam:
+                seq = seq[:-trim_pam]
             rows.append(f"{seq}\t{name}\t{gene}\t\t")
 
     wb.close()
