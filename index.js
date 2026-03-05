@@ -208,17 +208,35 @@ async function runValidation() {
     document.getElementById("outputTable").classList.add("statusFadeIn")
 }
 
-function _renderTsvAsTable(tsv) {
+function _renderTsvAsTable(tsv, delimiter) {
+    if (!delimiter) delimiter = "\t"
     const lines = tsv.trim().split("\n").filter(l => l.length > 0)
     if (lines.length === 0) return "<p>No data</p>"
-    var html = '<table class="validationResultsTable"><thead><tr>'
-    const headers = lines[0].split("\t")
+
+    // Separate leading info/comment lines from tabular data
+    var infoHtml = ""
+    var dataStart = 0
+    for (var i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        if (line.startsWith("#") || !line.includes(delimiter)) {
+            const displayText = line.startsWith("# ") ? line.substring(2) : line
+            infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
+            dataStart = i + 1
+        } else {
+            break
+        }
+    }
+
+    if (dataStart >= lines.length) return infoHtml + "<p>No tabular data</p>"
+
+    var html = infoHtml + '<table class="validationResultsTable"><thead><tr>'
+    const headers = lines[dataStart].split(delimiter)
     for (const h of headers) {
         html += `<th>${h}</th>`
     }
     html += '</tr></thead><tbody>'
-    for (var i = 1; i < lines.length; i++) {
-        const cols = lines[i].split("\t")
+    for (var i = dataStart + 1; i < lines.length; i++) {
+        const cols = lines[i].split(delimiter)
         html += '<tr>'
         for (const c of cols) {
             html += `<td>${c}</td>`
@@ -227,6 +245,68 @@ function _renderTsvAsTable(tsv) {
     }
     html += '</tbody></table>'
     return html
+}
+
+function _renderValidationTsvAsTable(tsv) {
+    const lines = tsv.trim().split("\n").filter(l => l.length > 0)
+    if (lines.length === 0) return "<p>No data</p>"
+
+    const headers = lines[0].split("\t")
+
+    // Count how many rows each sgRNA appears in
+    const countMap = new Map()
+    const rows = []
+    for (var i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("\t")
+        const seq = cols[0]
+        rows.push(cols)
+        countMap.set(seq, (countMap.get(seq) || 0) + 1)
+    }
+
+    // Build table: insert "# Libraries" column after first column
+    var html = '<table class="validationResultsTable"><thead><tr>'
+    html += `<th>${headers[0]}</th><th># Libraries</th>`
+    for (var h = 1; h < headers.length; h++) {
+        html += `<th>${headers[h]}</th>`
+    }
+    html += '</tr></thead><tbody>'
+
+    const seen = new Set()
+    for (const cols of rows) {
+        const seq = cols[0]
+        const isFirst = !seen.has(seq)
+        seen.add(seq)
+
+        html += '<tr>'
+        if (isFirst) {
+            html += `<td>${seq}</td><td>${countMap.get(seq)}</td>`
+        } else {
+            html += `<td></td><td></td>`
+        }
+        for (var c = 1; c < cols.length; c++) {
+            html += `<td>${cols[c]}</td>`
+        }
+        html += '</tr>'
+    }
+
+    html += '</tbody></table>'
+    return html
+}
+
+function _showTableOutput(text, delimiter) {
+    const container = document.getElementById("fileContentContainer")
+    container.style.display = "flex"
+    document.getElementById("fileContent").style.display = "none"
+    var tableDiv = document.getElementById("validationTableDiv")
+    if (!tableDiv) {
+        tableDiv = document.createElement("div")
+        tableDiv.id = "validationTableDiv"
+        tableDiv.style.overflowX = "auto"
+        tableDiv.style.width = "100%"
+        container.appendChild(tableDiv)
+    }
+    tableDiv.style.display = "block"
+    tableDiv.innerHTML = _renderTsvAsTable(text, delimiter)
 }
 
 function showValidationOutput() {
@@ -242,7 +322,7 @@ function showValidationOutput() {
         container.appendChild(tableDiv)
     }
     tableDiv.style.display = "block"
-    tableDiv.innerHTML = _renderTsvAsTable(_validateState.resultsOutput)
+    tableDiv.innerHTML = _renderValidationTsvAsTable(_validateState.resultsOutput)
 }
 
 function copyValidationOutput() {
@@ -336,7 +416,7 @@ function _createAdapterOutput(libraryMap) {
 
 
 function _createMAGeCKOutput(libraryMap) {
-    var out = ""
+    var out = "sgRNA_ID,Sequence,Gene\n"
     for (var symbol of Object.keys(libraryMap)) {
 
         for (var i = 0; i < libraryMap[symbol].length; i++) {
@@ -442,19 +522,19 @@ function _showTextareaOutput(text) {
 }
 
 function showAdapterOutput() {
-    _showTextareaOutput(outputTexts.textOutputAdapter)
+    _showTableOutput(outputTexts.textOutputAdapter)
 }
 
 function showMAGeCKOutput() {
-    _showTextareaOutput(outputTexts.textOutputMAGeCK)
+    _showTableOutput(outputTexts.textOutputMAGeCK, ",")
 }
 
 function showFullOutput() {
-    _showTextareaOutput(outputTexts.textOutputFull)
+    _showTableOutput(outputTexts.textOutputFull)
 }
 
 function showNotFoundOutput() {
-    _showTextareaOutput(outputTexts.textOutputNotFound)
+    _showTableOutput(outputTexts.textOutputNotFound)
 }
 
 function showSettingsOutput() {
