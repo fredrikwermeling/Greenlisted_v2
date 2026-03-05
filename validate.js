@@ -28,10 +28,10 @@ async function VAL_loadIndex(species) {
     const lines = text.split("\n")
     const map = new Map()
 
-    // Skip header line (line 0)
-    for (var i = 1; i < lines.length; i++) {
+    // Skip header and comment lines
+    for (var i = 0; i < lines.length; i++) {
         const line = lines[i].trim()
-        if (!line) continue
+        if (!line || line.startsWith("#") || line.startsWith("sgRNA Sequence")) continue
         const cols = line.split("\t")
         const sgrna = cols[0].toUpperCase()
         const entry = {

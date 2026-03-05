@@ -5,6 +5,8 @@ Generates species-specific sgRNA validation index files from all built-in CRISPR
   - libraries/sgRNA_validation_index_mouse.txt
 
 This index is used by the Validate sgRNA feature for reverse lookup (sgRNA → gene).
+Sequences sourced from Addgene (addgene.org) and Broad Institute GPP
+(portals.broadinstitute.org/gpp/public/pool/index).
 
 Usage: python3 generate_validation_index.py
 """
@@ -12,6 +14,12 @@ Usage: python3 generate_validation_index.py
 import json
 import os
 import sys
+
+try:
+    import openpyxl
+except ImportError:
+    print("openpyxl is required: pip3 install openpyxl", file=sys.stderr)
+    sys.exit(1)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settingsLibraries.json")
@@ -34,6 +42,38 @@ MOUSE_LIBRARIES = {
     "Julianna (mouse)",
     "VBC (mouse)",
 }
+
+# Validation-only libraries (XLSX files from Addgene, not used for screen design)
+VALIDATION_ONLY_XLSX = [
+    {
+        "name": "Yusa Human v1",
+        "species": "human",
+        "file": "libraries/yusa_human_v1_raw.xlsx",
+        "gene_col": "Gene",
+        "seq_col": "Guide_sequence",
+    },
+    {
+        "name": "Yusa Mouse v2",
+        "species": "mouse",
+        "file": "libraries/yusa_mouse_v2_raw.xlsx",
+        "gene_col": "gene",
+        "seq_col": "guide_sequence",
+    },
+    {
+        "name": "TKOv3 (human)",
+        "species": "human",
+        "file": "libraries/tkov3_raw.xlsx",
+        "gene_col": "GENE",
+        "seq_col": "SEQUENCE",
+    },
+    {
+        "name": "mTKO (mouse)",
+        "species": "mouse",
+        "file": "libraries/mtko_raw.xlsx",
+        "gene_col": "GENE",
+        "seq_col": "SEQUENCE",
+    },
+]
 
 # Map of known score column header names
 SCORE_HEADERS = {
@@ -113,9 +153,50 @@ def process_library(lib_config):
     return rows
 
 
+def process_xlsx_library(config):
+    """Process a validation-only XLSX library file and return list of index rows."""
+    name = config["name"]
+    filepath = os.path.join(SCRIPT_DIR, config["file"])
+
+    if not os.path.exists(filepath):
+        print(f"  WARNING: File not found: {filepath}", file=sys.stderr)
+        return []
+
+    wb = openpyxl.load_workbook(filepath, read_only=True)
+    ws = wb[wb.sheetnames[0]]
+
+    # Find column indices from header row
+    headers = None
+    gene_idx = None
+    seq_idx = None
+    rows = []
+
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            headers = [str(c).strip() if c else "" for c in row]
+            for j, h in enumerate(headers):
+                if h == config["gene_col"]:
+                    gene_idx = j
+                if h == config["seq_col"]:
+                    seq_idx = j
+            if gene_idx is None or seq_idx is None:
+                print(f"  WARNING: Could not find columns '{config['gene_col']}'/'{config['seq_col']}' in {headers}", file=sys.stderr)
+                return []
+            continue
+
+        gene = str(row[gene_idx]).strip() if row[gene_idx] else ""
+        seq = str(row[seq_idx]).strip() if row[seq_idx] else ""
+        if gene and seq:
+            rows.append(f"{seq}\t{name}\t{gene}\t\t")
+
+    wb.close()
+    return rows
+
+
 def write_index(rows, output_path, label):
     """Write index rows to a file."""
     with open(output_path, "w", encoding="utf-8") as f:
+        f.write("# Sequences sourced from Addgene (addgene.org) and Broad Institute GPP (portals.broadinstitute.org/gpp/public/pool/index)\n")
         f.write("sgRNA Sequence\tLibrary\tGene Symbol\tGene ID\tScores\n")
         for row in rows:
             f.write(row + "\n")
@@ -143,6 +224,18 @@ def main():
             mouse_rows.extend(lib_rows)
         else:
             print(f"    WARNING: '{name}' not classified as human or mouse, skipping", file=sys.stderr)
+
+    # Process validation-only XLSX libraries
+    print(f"\nProcessing {len(VALIDATION_ONLY_XLSX)} validation-only libraries...")
+    for config in VALIDATION_ONLY_XLSX:
+        name = config["name"]
+        print(f"  {name}...")
+        lib_rows = process_xlsx_library(config)
+        print(f"    → {len(lib_rows)} sgRNAs")
+        if config["species"] == "human":
+            human_rows.extend(lib_rows)
+        else:
+            mouse_rows.extend(lib_rows)
 
     # Write species-specific outputs
     print()
