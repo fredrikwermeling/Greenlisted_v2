@@ -142,7 +142,7 @@ function toggleValidateMode(species) {
     humanBtn.classList.toggle("validate-btn-active", species === "human")
     mouseBtn.classList.toggle("validate-btn-active", species === "mouse")
 
-    if (symbolsTitle) symbolsTitle.textContent = "Enter 1-10 sgRNA sequences"
+    if (symbolsTitle) symbolsTitle.textContent = "Enter sgRNA sequences"
     if (inputPlateTitle) inputPlateTitle.textContent = "2. Input sgRNA"
     document.getElementById("searchSymbols").value = ""
     _setStatus("statusSearchSymbolsRows", "")
@@ -170,14 +170,6 @@ async function runValidation() {
                 .map(s => s.trim().toUpperCase())
                 .filter(s => s.length > 0)
         )]
-
-        // Validate: max 10 sequences
-        if (sequences.length > 10) {
-            _setStatus("statusSearch", "Error: Maximum 10 sgRNA sequences allowed")
-            _toggleLigtBox()
-            statusText.classList.remove("pulse")
-            return
-        }
 
         // Validate: only ACGT characters
         const invalidSeqs = sequences.filter(s => !/^[ACGT]+$/.test(s))
@@ -587,7 +579,7 @@ async function changeSynonyms() {
 function changeSymbols() {
     if (_validateState.isValidateMode) {
         const lines = document.getElementById("searchSymbols").value.split("\n").filter(s => s.trim().length > 0)
-        _setStatus("statusSearchSymbolsRows", `${lines.length} sequence(s) entered (max 10)`)
+        _setStatus("statusSearchSymbolsRows", `${lines.length} sequence(s) entered`)
         return
     }
 
