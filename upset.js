@@ -195,15 +195,23 @@ function UPSET_showModal() {
         if (data.mouse) UPSET_render(data.mouse, flex, "Mouse libraries");
         content.appendChild(flex);
 
-        // Library list
+        // Library list with unique %
+        function getUniqueCount(speciesData, idx) {
+            const match = speciesData.intersections.find(
+                d => d.sets.length === 1 && d.sets[0] === idx
+            );
+            return match ? match.size : 0;
+        }
         const libSection = document.createElement("div");
         libSection.style.cssText = "max-width:800px;margin:20px auto 0;padding:0 16px;font-size:0.8rem;color:#555;line-height:1.6;";
-        const allSets = [];
-        if (data.human) data.human.sets.forEach(s => allSets.push({ name: s.name, size: s.size, species: "human" }));
-        if (data.mouse) data.mouse.sets.forEach(s => allSets.push({ name: s.name, size: s.size, species: "mouse" }));
         let libHtml = "<strong>Libraries included:</strong><br>";
-        allSets.forEach(s => {
-            libHtml += `${s.name} (${s.species}) \u2014 ${s.size.toLocaleString()} sgRNAs<br>`;
+        [["human", data.human], ["mouse", data.mouse]].forEach(([species, sd]) => {
+            if (!sd) return;
+            sd.sets.forEach((s, i) => {
+                const unique = getUniqueCount(sd, i);
+                const pct = Math.round((unique / s.size) * 100);
+                libHtml += `${s.name} (${species}) \u2014 ${s.size.toLocaleString()} sgRNAs <span style="color:#999;">(${pct}% unique)</span><br>`;
+            });
         });
         libSection.innerHTML = libHtml;
         content.appendChild(libSection);
