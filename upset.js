@@ -37,8 +37,9 @@ function UPSET_render(speciesData, container, title) {
 
     const matrixW = intersections.length * colW;
     const matrixH = n * rowH;
+    const pctRowH = 20;
     const totalW = labelW + setBarW + countColW + gap + matrixW + padRight;
-    const totalH = padTop + barAreaH + gap + matrixH + 10;
+    const totalH = padTop + barAreaH + gap + matrixH + pctRowH + 4;
 
     const maxBarVal = Math.max(...intersections.map(d => d.size), 1);
     const maxSetVal = Math.max(...sets.map(d => d.size), 1);
@@ -172,6 +173,31 @@ function UPSET_render(speciesData, container, title) {
             svg.appendChild(line);
         }
     }
+
+    // --- Percentage row below dot matrix ---
+    const totalSgrnas = intersections.reduce((sum, d) => sum + d.size, 0);
+    const pctY = matrixTop + matrixH + pctRowH - 4;
+    for (let j = 0; j < intersections.length; j++) {
+        const inter = intersections[j];
+        const x = matrixLeft + j * colW + colW / 2;
+        const pct = ((inter.size / totalSgrnas) * 100);
+        const pctText = pct >= 1 ? Math.round(pct) + "%" : "<1%";
+        const pctEl = el("text", {
+            x: x, y: pctY,
+            "text-anchor": "middle",
+            "font-size": "7.5", fill: "#999"
+        });
+        pctEl.textContent = pctText;
+        svg.appendChild(pctEl);
+    }
+    // "%" label on left side
+    const pctLabel = el("text", {
+        x: matrixLeft - 6, y: pctY,
+        "text-anchor": "end",
+        "font-size": "8", fill: "#999"
+    });
+    pctLabel.textContent = "% of total";
+    svg.appendChild(pctLabel);
 
     // Wrap in a titled div
     const wrapper = document.createElement("div");
