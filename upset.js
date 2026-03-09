@@ -32,17 +32,18 @@ function UPSET_render(speciesData, container, title) {
     const labelW = 110;
     const padTop = 30;
     const padRight = 10;
+    const countColW = 42;
     const gap = 8;
 
     const matrixW = intersections.length * colW;
     const matrixH = n * rowH;
-    const totalW = labelW + setBarW + gap + matrixW + padRight;
+    const totalW = labelW + setBarW + countColW + gap + matrixW + padRight;
     const totalH = padTop + barAreaH + gap + matrixH + 10;
 
     const maxBarVal = Math.max(...intersections.map(d => d.size), 1);
     const maxSetVal = Math.max(...sets.map(d => d.size), 1);
 
-    const matrixLeft = labelW + setBarW + gap;
+    const matrixLeft = labelW + setBarW + countColW + gap;
     const matrixTop = padTop + barAreaH + gap;
 
     // Build SVG
@@ -75,6 +76,15 @@ function UPSET_render(speciesData, container, title) {
     titleEl.textContent = title;
     svg.appendChild(titleEl);
 
+    // --- "sgRNAs" axis label above set size bars ---
+    const axisLabel = el("text", {
+        x: labelW + setBarW / 2, y: matrixTop - 6,
+        "text-anchor": "middle",
+        "font-size": "9", fill: "#999"
+    });
+    axisLabel.textContent = "sgRNAs";
+    svg.appendChild(axisLabel);
+
     // --- Set size bars (left side, horizontal) ---
     for (let i = 0; i < n; i++) {
         const y = matrixTop + i * rowH + rowH / 2;
@@ -96,9 +106,9 @@ function UPSET_render(speciesData, container, title) {
         addTitle(bar, `${sets[i].name}: ${sets[i].size.toLocaleString()} sgRNAs`);
         svg.appendChild(bar);
 
-        // Count text
+        // Count text (in dedicated column after bar area, never overlaps dots)
         const countLabel = el("text", {
-            x: labelW + bw + 3, y: y + 3,
+            x: labelW + setBarW + 4, y: y + 3,
             "font-size": "9", fill: "#666"
         });
         countLabel.textContent = _formatCount(sets[i].size);
@@ -184,6 +194,25 @@ function UPSET_showModal() {
         if (data.human) UPSET_render(data.human, flex, "Human libraries");
         if (data.mouse) UPSET_render(data.mouse, flex, "Mouse libraries");
         content.appendChild(flex);
+
+        // Library list
+        const libSection = document.createElement("div");
+        libSection.style.cssText = "max-width:800px;margin:20px auto 0;padding:0 16px;font-size:0.8rem;color:#555;line-height:1.6;";
+        const allSets = [];
+        if (data.human) data.human.sets.forEach(s => allSets.push({ name: s.name, size: s.size, species: "human" }));
+        if (data.mouse) data.mouse.sets.forEach(s => allSets.push({ name: s.name, size: s.size, species: "mouse" }));
+        let libHtml = "<strong>Libraries included:</strong><br>";
+        allSets.forEach(s => {
+            libHtml += `${s.name} (${s.species}) \u2014 ${s.size.toLocaleString()} sgRNAs<br>`;
+        });
+        libSection.innerHTML = libHtml;
+        content.appendChild(libSection);
+
+        // Attribution
+        const attr = document.createElement("div");
+        attr.style.cssText = "max-width:800px;margin:12px auto 0;padding:0 16px 8px;font-size:0.75rem;color:#999;line-height:1.5;";
+        attr.innerHTML = 'Sequences sourced from <a href="https://www.addgene.org/" target="_blank" style="color:#5050e7;">Addgene</a> and <a href="https://portals.broadinstitute.org/gpp/public/" target="_blank" style="color:#5050e7;">Broad Institute GPP</a>.';
+        content.appendChild(attr);
     }).catch(err => {
         content.innerHTML = `<p style="color:red;text-align:center;">Failed to load data: ${err.message}</p>`;
     });
