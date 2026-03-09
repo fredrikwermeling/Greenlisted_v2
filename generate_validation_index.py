@@ -13,7 +13,9 @@ Usage: python3 generate_validation_index.py
 
 import json
 import os
+import re
 import sys
+from itertools import combinations
 
 try:
     import openpyxl
@@ -25,6 +27,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settingsLibraries.json")
 OUTPUT_FILE_HUMAN = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index_human.txt")
 OUTPUT_FILE_MOUSE = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index_mouse.txt")
+OUTPUT_UPSET_JSON = os.path.join(SCRIPT_DIR, "libraries", "upset_data.json")
 
 # Libraries classified by species (based on synonymName in settingsLibraries.json)
 HUMAN_LIBRARIES = {
@@ -215,6 +218,116 @@ def write_index(rows, output_path, label):
     print(f"  {label}: {len(rows)} entries, {size_mb:.1f} MB → {output_path}")
 
 
+def _clean_library_name(name):
+    """Remove species suffix like '(human)' or '(mouse)' from a library name."""
+    return re.sub(r"\s*\((?:human|mouse)\)\s*", " ", name).strip()
+
+
+def _collect_sgrnas_from_tsv(lib_config):
+    """Return set of sgRNA sequences from a TSV library file."""
+    filepath = os.path.join(SCRIPT_DIR, lib_config["fileName"])
+    rna_col = lib_config["RNAColumn"] - 1
+    seqs = set()
+    if not os.path.exists(filepath):
+        return seqs
+    with open(filepath, "r", encoding="utf-8") as f:
+        f.readline()  # skip header
+        for line in f:
+            line = line.rstrip("\n\r")
+            if not line:
+                continue
+            cols = line.split("\t")
+            if len(cols) > rna_col:
+                seq = cols[rna_col].strip()
+                if seq:
+                    seqs.add(seq)
+    return seqs
+
+
+def _collect_sgrnas_from_xlsx(config):
+    """Return set of sgRNA sequences from an XLSX validation-only library."""
+    filepath = os.path.join(SCRIPT_DIR, config["file"])
+    if not os.path.exists(filepath):
+        return set()
+    wb = openpyxl.load_workbook(filepath, read_only=True)
+    ws = wb[wb.sheetnames[0]]
+    seqs = set()
+    seq_idx = None
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            headers = [str(c).strip() if c else "" for c in row]
+            for j, h in enumerate(headers):
+                if h == config["seq_col"]:
+                    seq_idx = j
+            if seq_idx is None:
+                wb.close()
+                return seqs
+            continue
+        seq = str(row[seq_idx]).strip() if row[seq_idx] else ""
+        if seq:
+            trim_pam = config.get("trim_pam", 0)
+            if trim_pam:
+                seq = seq[:-trim_pam]
+            seqs.add(seq)
+    wb.close()
+    return seqs
+
+
+def generate_upset_data(libraries):
+    """Generate UpSet plot data (exclusive intersection counts) for both species."""
+    # Collect sgRNA sets per library, grouped by species
+    species_libs = {"human": [], "mouse": []}
+
+    for lib in libraries:
+        name = lib["name"]
+        if name in HUMAN_LIBRARIES:
+            species = "human"
+        elif name in MOUSE_LIBRARIES:
+            species = "mouse"
+        else:
+            continue
+        seqs = _collect_sgrnas_from_tsv(lib)
+        species_libs[species].append((_clean_library_name(name), seqs))
+
+    for config in VALIDATION_ONLY_XLSX:
+        species = config["species"]
+        seqs = _collect_sgrnas_from_xlsx(config)
+        species_libs[species].append((_clean_library_name(config["name"]), seqs))
+
+    result = {}
+    for species, lib_list in species_libs.items():
+        n = len(lib_list)
+        sets_info = [{"name": name, "size": len(seqs)} for name, seqs in lib_list]
+
+        # Build sgRNA → frozenset of library indices
+        sgrna_to_libs = {}
+        for idx, (name, seqs) in enumerate(lib_list):
+            for seq in seqs:
+                if seq not in sgrna_to_libs:
+                    sgrna_to_libs[seq] = set()
+                sgrna_to_libs[seq].add(idx)
+
+        # Count each exclusive combination
+        combo_counts = {}
+        for seq, lib_indices in sgrna_to_libs.items():
+            key = frozenset(lib_indices)
+            combo_counts[key] = combo_counts.get(key, 0) + 1
+
+        # Convert to sorted list
+        intersections = []
+        for key, count in combo_counts.items():
+            intersections.append({"sets": sorted(key), "size": count})
+        intersections.sort(key=lambda x: x["size"], reverse=True)
+
+        result[species] = {"sets": sets_info, "intersections": intersections}
+        print(f"  UpSet {species}: {len(sets_info)} libraries, {len(intersections)} exclusive intersections")
+
+    with open(OUTPUT_UPSET_JSON, "w", encoding="utf-8") as f:
+        json.dump(result, f, separators=(",", ":"))
+    size_kb = os.path.getsize(OUTPUT_UPSET_JSON) / 1024
+    print(f"  UpSet data: {size_kb:.1f} KB → {OUTPUT_UPSET_JSON}")
+
+
 def main():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
         libraries = json.load(f)
@@ -252,6 +365,10 @@ def main():
     print()
     write_index(human_rows, OUTPUT_FILE_HUMAN, "Human")
     write_index(mouse_rows, OUTPUT_FILE_MOUSE, "Mouse")
+
+    # Generate UpSet plot data
+    print("\nGenerating UpSet plot data...")
+    generate_upset_data(libraries)
 
     # Remove old combined file if it exists
     old_combined = os.path.join(SCRIPT_DIR, "libraries", "sgRNA_validation_index.txt")

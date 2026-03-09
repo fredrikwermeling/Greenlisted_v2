@@ -61,6 +61,15 @@
                 Screening in progress...
             </div>
         </div>
+        <div id="upsetModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box">
+                <div class="upset-modal-header">
+                    <h3>sgRNA Library Overlap</h3>
+                    <button class="upset-close-btn" onclick="UPSET_closeModal()">&times;</button>
+                </div>
+                <div id="upsetContent" class="upset-modal-body"></div>
+            </div>
+        </div>
         <div class="plate">
             <h2 class="plateTitle">1. Select library</h2>
             <div class="plateContent">
@@ -73,6 +82,7 @@
                         <span style="display: flex; gap: 6px;">
                             <button id="validateHumanButton" class="validate-btn" onclick="toggleValidateMode('human')">Validate human sgRNA</button>
                             <button id="validateMouseButton" class="validate-btn" onclick="toggleValidateMode('mouse')">Validate mouse sgRNA</button>
+                            <button id="upsetButton" class="validate-btn" onclick="UPSET_showModal()">Library overlap</button>
                         </span>
                     </h3>
 
@@ -308,6 +318,7 @@
     <script type="text/javascript" src="grnaService.js"></script>
     <script type="text/javascript" src="screeningHandler.js"></script>
     <script type="text/javascript" src="validate.js"></script>
+    <script type="text/javascript" src="upset.js"></script>
     <script type="text/javascript" src="index.js"></script>
     <script type="text/javascript" src="fileHandler.js"></script>
 
