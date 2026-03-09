@@ -216,7 +216,7 @@ function UPSET_showModal() {
         // Attribution
         const attr = document.createElement("div");
         attr.style.cssText = "max-width:800px;margin:12px auto 0;padding:0 16px 8px;font-size:0.75rem;color:#999;line-height:1.5;";
-        attr.innerHTML = 'Sequences sourced from <a href="https://www.addgene.org/" target="_blank" style="color:#5050e7;">Addgene</a> and <a href="https://portals.broadinstitute.org/gpp/public/" target="_blank" style="color:#5050e7;">Broad Institute GPP</a>.';
+        attr.innerHTML = 'Sequences sourced from <a href="https://www.addgene.org/pooled-library/#crispr" target="_blank" style="color:#5050e7;">Addgene</a> and <a href="https://portals.broadinstitute.org/gpp/public/pool/index" target="_blank" style="color:#5050e7;">Broad Institute GPP</a>.';
         content.appendChild(attr);
     }).catch(err => {
         content.innerHTML = `<p style="color:red;text-align:center;">Failed to load data: ${err.message}</p>`;
