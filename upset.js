@@ -37,9 +37,8 @@ function UPSET_render(speciesData, container, title) {
 
     const matrixW = intersections.length * colW;
     const matrixH = n * rowH;
-    const pctRowH = 20;
     const totalW = labelW + setBarW + countColW + gap + matrixW + padRight;
-    const totalH = padTop + barAreaH + gap + matrixH + pctRowH + 4;
+    const totalH = padTop + barAreaH + gap + matrixH + 10;
 
     const maxBarVal = Math.max(...intersections.map(d => d.size), 1);
     const maxSetVal = Math.max(...sets.map(d => d.size), 1);
@@ -174,31 +173,6 @@ function UPSET_render(speciesData, container, title) {
         }
     }
 
-    // --- Percentage row below dot matrix ---
-    const totalSgrnas = intersections.reduce((sum, d) => sum + d.size, 0);
-    const pctY = matrixTop + matrixH + pctRowH - 4;
-    for (let j = 0; j < intersections.length; j++) {
-        const inter = intersections[j];
-        const x = matrixLeft + j * colW + colW / 2;
-        const pct = ((inter.size / totalSgrnas) * 100);
-        const pctText = pct >= 1 ? Math.round(pct) + "%" : "<1%";
-        const pctEl = el("text", {
-            x: x, y: pctY,
-            "text-anchor": "middle",
-            "font-size": "7.5", fill: "#999"
-        });
-        pctEl.textContent = pctText;
-        svg.appendChild(pctEl);
-    }
-    // "%" label on left side
-    const pctLabel = el("text", {
-        x: matrixLeft - 6, y: pctY,
-        "text-anchor": "end",
-        "font-size": "8", fill: "#999"
-    });
-    pctLabel.textContent = "% of total";
-    svg.appendChild(pctLabel);
-
     // Wrap in a titled div
     const wrapper = document.createElement("div");
     wrapper.style.minWidth = totalW + "px";
@@ -221,22 +195,14 @@ function UPSET_showModal() {
         if (data.mouse) UPSET_render(data.mouse, flex, "Mouse libraries");
         content.appendChild(flex);
 
-        // Library list with unique %
-        function getUniqueCount(speciesData, idx) {
-            const match = speciesData.intersections.find(
-                d => d.sets.length === 1 && d.sets[0] === idx
-            );
-            return match ? match.size : 0;
-        }
+        // Library list
         const libSection = document.createElement("div");
         libSection.style.cssText = "max-width:800px;margin:20px auto 0;padding:0 16px;font-size:0.8rem;color:#555;line-height:1.6;";
         let libHtml = "<strong>Libraries included:</strong><br>";
         [["human", data.human], ["mouse", data.mouse]].forEach(([species, sd]) => {
             if (!sd) return;
-            sd.sets.forEach((s, i) => {
-                const unique = getUniqueCount(sd, i);
-                const pct = Math.round((unique / s.size) * 100);
-                libHtml += `${s.name} (${species}) \u2014 ${s.size.toLocaleString()} sgRNAs <span style="color:#999;">(${pct}% unique)</span><br>`;
+            sd.sets.forEach(s => {
+                libHtml += `${s.name} (${species}) \u2014 ${s.size.toLocaleString()} sgRNAs<br>`;
             });
         });
         libSection.innerHTML = libHtml;
@@ -257,21 +223,59 @@ function UPSET_closeModal() {
     modal.className = "fazeOut upset-modal-overlay";
 }
 
-// Close on click outside
+// --- Generic info modal (reuses same styling) ---
+
+function INFO_showModal(url, title) {
+    const modal = document.getElementById("infoModal");
+    const titleEl = document.getElementById("infoModalTitle");
+    const content = document.getElementById("infoModalContent");
+    titleEl.textContent = title;
+    content.innerHTML = "<p style='text-align:center;color:#888;padding:20px;'>Loading...</p>";
+    modal.className = "fazeIn upset-modal-overlay";
+
+    fetch(url)
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            const plate = doc.querySelector(".plate");
+            if (plate) {
+                const body = plate.querySelector(".plateContent");
+                const img = plate.querySelector("img");
+                let result = body ? body.innerHTML : plate.innerHTML;
+                if (img) result += img.outerHTML;
+                content.innerHTML = result;
+            } else {
+                content.innerHTML = doc.body.innerHTML;
+            }
+        })
+        .catch(err => {
+            content.innerHTML = `<p style="color:red;text-align:center;">Failed to load: ${err.message}</p>`;
+        });
+}
+
+function INFO_closeModal() {
+    document.getElementById("infoModal").className = "fazeOut upset-modal-overlay";
+}
+
+// Close modals on click outside
 document.addEventListener("click", function (e) {
-    const modal = document.getElementById("upsetModal");
-    if (!modal) return;
-    if (modal.classList.contains("fazeIn") && e.target === modal) {
-        UPSET_closeModal();
-    }
+    ["upsetModal", "infoModal"].forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal && modal.classList.contains("fazeIn") && e.target === modal) {
+            modal.className = "fazeOut upset-modal-overlay";
+        }
+    });
 });
 
-// Close on Escape
+// Close modals on Escape
 document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-        const modal = document.getElementById("upsetModal");
-        if (modal && modal.classList.contains("fazeIn")) {
-            UPSET_closeModal();
-        }
+        ["upsetModal", "infoModal"].forEach(id => {
+            const modal = document.getElementById(id);
+            if (modal && modal.classList.contains("fazeIn")) {
+                modal.className = "fazeOut upset-modal-overlay";
+            }
+        });
     }
 });
