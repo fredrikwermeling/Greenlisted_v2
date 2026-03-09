@@ -340,6 +340,8 @@ a:hover {
     padding: 0.5rem;
     background-color: rgba(0, 0, 0, 0.03);
     border-radius: var(--inputRadius);
+    overflow-wrap: break-word;
+    word-break: break-word;
     /* font-family: 'Times New Roman', Times, serif; */
 }
 
