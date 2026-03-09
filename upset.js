@@ -206,7 +206,8 @@ function UPSET_showModal() {
                 details.push(`${s.size.toLocaleString()} sgRNAs`);
                 if (s.genes) details.push(`${s.genes.toLocaleString()} genes`);
                 if (s.sgrnas_per_gene) details.push(`${s.sgrnas_per_gene} sgRNAs/gene`);
-                libHtml += `${s.name} <span style="color:#999;">(${species})</span> \u2014 ${details.join(", ")}<br>`;
+                const targets = s.targets || "Protein-coding genes";
+                libHtml += `${s.name} <span style="color:#999;">(${species})</span> \u2014 ${details.join(", ")}. <span style="color:#999;">${targets}.</span><br>`;
             });
         });
         libSection.innerHTML = libHtml;

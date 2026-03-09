@@ -306,6 +306,24 @@ def _compute_gene_stats(gene_map):
     return {"genes": n_genes, "sgrnas_per_gene": median_val}
 
 
+# Target type descriptions per library (cleaned name → description)
+LIBRARY_TARGETS = {
+    "Brunello": "Protein-coding genes",
+    "Brie": "Protein-coding genes",
+    "GeCKO v2 A+B": "Protein-coding genes + miRNAs",
+    "Gattinara": "Protein-coding genes",
+    "Gouda": "Protein-coding genes",
+    "Jacquere": "Protein-coding genes",
+    "Julianna": "Protein-coding genes",
+    "VBC": "Protein-coding genes",
+    "Yusa Human v1": "Protein-coding genes",
+    "Yusa Mouse v2": "Protein-coding genes",
+    "TKOv3": "Protein-coding genes",
+    "mTKO": "Protein-coding genes",
+    "MinLibCas9": "Protein-coding genes",
+}
+
+
 def generate_upset_data(libraries):
     """Generate UpSet plot data (exclusive intersection counts) for both species."""
     # Collect sgRNA sets and gene maps per library, grouped by species
@@ -338,6 +356,7 @@ def generate_upset_data(libraries):
                 "size": len(seqs),
                 "genes": stats["genes"],
                 "sgrnas_per_gene": stats["sgrnas_per_gene"],
+                "targets": LIBRARY_TARGETS.get(name, "Protein-coding genes"),
             })
 
         # Build sgRNA → frozenset of library indices
