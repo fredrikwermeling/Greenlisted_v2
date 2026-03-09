@@ -223,13 +223,15 @@ def _clean_library_name(name):
     return re.sub(r"\s*\((?:human|mouse)\)\s*", " ", name).strip()
 
 
-def _collect_sgrnas_from_tsv(lib_config):
-    """Return set of sgRNA sequences from a TSV library file."""
+def _collect_from_tsv(lib_config):
+    """Return (set_of_sgRNAs, dict_of_gene_to_sgrna_set) from a TSV library file."""
     filepath = os.path.join(SCRIPT_DIR, lib_config["fileName"])
     rna_col = lib_config["RNAColumn"] - 1
+    symbol_col = lib_config["symbolColumn"] - 1
     seqs = set()
+    gene_map = {}
     if not os.path.exists(filepath):
-        return seqs
+        return seqs, gene_map
     with open(filepath, "r", encoding="utf-8") as f:
         f.readline()  # skip header
         for line in f:
@@ -237,45 +239,76 @@ def _collect_sgrnas_from_tsv(lib_config):
             if not line:
                 continue
             cols = line.split("\t")
-            if len(cols) > rna_col:
+            if len(cols) > max(rna_col, symbol_col):
                 seq = cols[rna_col].strip()
+                gene = cols[symbol_col].strip()
                 if seq:
                     seqs.add(seq)
-    return seqs
+                    if gene:
+                        if gene not in gene_map:
+                            gene_map[gene] = set()
+                        gene_map[gene].add(seq)
+    return seqs, gene_map
 
 
-def _collect_sgrnas_from_xlsx(config):
-    """Return set of sgRNA sequences from an XLSX validation-only library."""
+def _collect_from_xlsx(config):
+    """Return (set_of_sgRNAs, dict_of_gene_to_sgrna_set) from an XLSX library."""
     filepath = os.path.join(SCRIPT_DIR, config["file"])
     if not os.path.exists(filepath):
-        return set()
+        return set(), {}
     wb = openpyxl.load_workbook(filepath, read_only=True)
     ws = wb[wb.sheetnames[0]]
     seqs = set()
+    gene_map = {}
     seq_idx = None
+    gene_idx = None
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
             headers = [str(c).strip() if c else "" for c in row]
             for j, h in enumerate(headers):
                 if h == config["seq_col"]:
                     seq_idx = j
-            if seq_idx is None:
+                if h == config["gene_col"]:
+                    gene_idx = j
+            if seq_idx is None or gene_idx is None:
                 wb.close()
-                return seqs
+                return seqs, gene_map
             continue
         seq = str(row[seq_idx]).strip() if row[seq_idx] else ""
+        gene = str(row[gene_idx]).strip() if row[gene_idx] else ""
         if seq:
             trim_pam = config.get("trim_pam", 0)
             if trim_pam:
                 seq = seq[:-trim_pam]
             seqs.add(seq)
+            if gene:
+                if gene not in gene_map:
+                    gene_map[gene] = set()
+                gene_map[gene].add(seq)
     wb.close()
-    return seqs
+    return seqs, gene_map
+
+
+def _compute_gene_stats(gene_map):
+    """Compute gene statistics from a gene→sgRNA_set map."""
+    if not gene_map:
+        return {"genes": 0, "sgrnas_per_gene": 0}
+    counts = [len(sgrnas) for sgrnas in gene_map.values()]
+    n_genes = len(gene_map)
+    median_idx = n_genes // 2
+    sorted_counts = sorted(counts)
+    if n_genes % 2 == 1:
+        median_val = sorted_counts[median_idx]
+    else:
+        median_val = (sorted_counts[median_idx - 1] + sorted_counts[median_idx]) / 2
+    # Use int if whole number, otherwise one decimal
+    median_val = int(median_val) if median_val == int(median_val) else round(median_val, 1)
+    return {"genes": n_genes, "sgrnas_per_gene": median_val}
 
 
 def generate_upset_data(libraries):
     """Generate UpSet plot data (exclusive intersection counts) for both species."""
-    # Collect sgRNA sets per library, grouped by species
+    # Collect sgRNA sets and gene maps per library, grouped by species
     species_libs = {"human": [], "mouse": []}
 
     for lib in libraries:
@@ -286,22 +319,30 @@ def generate_upset_data(libraries):
             species = "mouse"
         else:
             continue
-        seqs = _collect_sgrnas_from_tsv(lib)
-        species_libs[species].append((_clean_library_name(name), seqs))
+        seqs, gene_map = _collect_from_tsv(lib)
+        species_libs[species].append((_clean_library_name(name), seqs, gene_map))
 
     for config in VALIDATION_ONLY_XLSX:
         species = config["species"]
-        seqs = _collect_sgrnas_from_xlsx(config)
-        species_libs[species].append((_clean_library_name(config["name"]), seqs))
+        seqs, gene_map = _collect_from_xlsx(config)
+        species_libs[species].append((_clean_library_name(config["name"]), seqs, gene_map))
 
     result = {}
     for species, lib_list in species_libs.items():
         n = len(lib_list)
-        sets_info = [{"name": name, "size": len(seqs)} for name, seqs in lib_list]
+        sets_info = []
+        for name, seqs, gene_map in lib_list:
+            stats = _compute_gene_stats(gene_map)
+            sets_info.append({
+                "name": name,
+                "size": len(seqs),
+                "genes": stats["genes"],
+                "sgrnas_per_gene": stats["sgrnas_per_gene"],
+            })
 
         # Build sgRNA → frozenset of library indices
         sgrna_to_libs = {}
-        for idx, (name, seqs) in enumerate(lib_list):
+        for idx, (name, seqs, gene_map) in enumerate(lib_list):
             for seq in seqs:
                 if seq not in sgrna_to_libs:
                     sgrna_to_libs[seq] = set()

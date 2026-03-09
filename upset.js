@@ -202,7 +202,11 @@ function UPSET_showModal() {
         [["human", data.human], ["mouse", data.mouse]].forEach(([species, sd]) => {
             if (!sd) return;
             sd.sets.forEach(s => {
-                libHtml += `${s.name} (${species}) \u2014 ${s.size.toLocaleString()} sgRNAs<br>`;
+                const details = [];
+                details.push(`${s.size.toLocaleString()} sgRNAs`);
+                if (s.genes) details.push(`${s.genes.toLocaleString()} genes`);
+                if (s.sgrnas_per_gene) details.push(`${s.sgrnas_per_gene} sgRNAs/gene`);
+                libHtml += `${s.name} <span style="color:#999;">(${species})</span> \u2014 ${details.join(", ")}<br>`;
             });
         });
         libSection.innerHTML = libHtml;
