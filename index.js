@@ -943,6 +943,16 @@ function _sexGlyph(sex) {
     return `<span style="color:#9ca3af; font-weight:700;" title="Sex unknown / not recorded">?</span>`
 }
 
+function _wgdBadge(wgd, ploidy) {
+    // Small "WGD" pill for lines that have undergone whole-genome doubling
+    // (a near-tetraploid baseline of ~4 copies instead of 2). Shown next
+    // to the cell-line name everywhere the line appears so the user knows
+    // the "≈ N copies" estimates have been scaled appropriately.
+    if (wgd !== true) return ""
+    const pStr = ploidy != null && !isNaN(ploidy) ? ` (~${ploidy.toFixed(1)}N)` : ""
+    return ` <span title="Whole-genome doubled — the line's baseline ploidy is ~tetraploid${pStr}. CN values are reported relative to this baseline; the &lsquo;≈ N copies&rsquo; estimate already multiplies by the measured ploidy." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD${pStr}</span>`
+}
+
 function _renderCnPicker(list) {
     const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
     const html = list.slice(0, 500).map(c => {
@@ -951,7 +961,7 @@ function _renderCnPicker(list) {
         return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
             <span>${sel ? "☑" : "☐"}</span>
             <span>
-                <span class="cn-picker-name">${c.name}</span>
+                <span class="cn-picker-name">${c.name}</span>${_wgdBadge(c.wgd, c.ploidy)}
                 <span class="cn-picker-meta">&nbsp;${_sexGlyph(c.sex)}${c.lineage ? " &middot; " + c.lineage : ""}</span>
             </span>
             <span class="cn-picker-cancer" title="${cancer.replace(/"/g, "&quot;")}">${cancer}</span>
@@ -1060,7 +1070,7 @@ async function CN_runLookup() {
                 for (const cl of _cnState.selectedCellLines) {
                     const v = CN_lookup(cl.id, resolved)
                     if (v != null) anyHit = true
-                    perLine[cl.id] = { value: v, tier: CN_tier(v), copies: CN_approxCopies(v) }
+                    perLine[cl.id] = { value: v, tier: CN_tier(v), copies: CN_approxCopies(v, cl.ploidy) }
                 }
             } else {
                 for (const cl of _cnState.selectedCellLines) {
@@ -1092,8 +1102,13 @@ async function CN_runLookup() {
 
 function _cnBuildTsv(rows) {
     if (!rows.length) return ""
+    // Prefix-row: cell-line ploidy / WGD context so TSV is self-describing.
+    const ploidyHeader = "# Cell-line ploidy: " + _cnState.selectedCellLines.map(c =>
+        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown"}`
+    ).join("; ")
+    const sourceLine = "# Data: DepMap OmicsCNGeneWGS — relative CN (1.0 = line's own modal baseline). '~copies' = round(CN × ploidy × 2) / 2."
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
-    const lines = [header]
+    const lines = [sourceLine, ploidyHeader, header]
     for (const r of rows) {
         const cnCells = _cnState.selectedCellLines.map(cl => {
             const v = r.perLine[cl.id]?.value
@@ -1120,9 +1135,13 @@ function CN_showResults() {
     // line and the raw relative-CN number on a small second line.
     const headerCells = _cnState.selectedCellLines.map(cl => {
         const cancer = [cl.disease, cl.subtype].filter(Boolean).join(" · ")
+        const ploidyNote = cl.knownPloidy
+            ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
+            : ""
         return `<th title="${cancer.replace(/"/g, "&quot;")}">
-            <div style="text-align:center;">${_sexGlyph(cl.sex)} ${cl.name}</div>
-            <div style="font-size:0.7rem; color:#9ca3af; font-weight:400; text-align:center; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cancer}</div>
+            <div style="text-align:center;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}</div>
+            <div style="font-size:0.7rem; color:#9ca3af; font-weight:400; text-align:center; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cancer}</div>
+            ${ploidyNote ? `<div style="font-size:0.65rem; color:#6b7280; text-align:center;">${ploidyNote}</div>` : ""}
         </th>`
     }).join("")
 
@@ -1156,10 +1175,16 @@ function CN_showResults() {
     if (_cnState.results.notFound.length) {
         tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.join(", ")}</code></div>`
     }
-    // Footer: data source + interpretation note + correlate link.
+    // Footer: data source + ploidy / WGD explanation + tier legend + link.
+    const wgdLines = _cnState.selectedCellLines.filter(c => c.wgd === true)
+    const wgdNote = wgdLines.length > 0
+        ? `<div style="margin-bottom:6px;"><b>WGD note:</b> ${wgdLines.length} of your selected line(s) (${wgdLines.map(c => c.name).join(", ")}) are flagged as <b>whole-genome doubled</b> — the baseline ploidy is ~tetraploid (~4 copies), not diploid. DepMap's CN value is relative to this per-line baseline; the &ldquo;≈ N copies&rdquo; column already multiplies by the measured ploidy so the numbers reflect the actual copy count.</div>`
+        : ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGeneWGS</a> &mdash; relative copy number where <b>1.0 = diploid baseline (≈ 2 copies)</b>. &ldquo;≈ N copies&rdquo; is computed as <code>round(2·CN)</code> to the nearest 0.5 &mdash; values can be fractional because the WGS readout is a <i>population average</i> across the cell line (sub-clonal gains or whole-arm trisomies that aren&rsquo;t fully clonal).</div>
-        <div style="margin-bottom:6px;"><b>Tiers:</b>
+        <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGeneWGS</a> &mdash; relative copy number where <b>1.0 = the cell line&rsquo;s own modal baseline</b>. For a diploid line that&rsquo;s ≈ 2 actual copies; for a WGD (whole-genome-doubled) line it&rsquo;s ≈ 4. The &ldquo;≈ N copies&rdquo; estimate is <code>round(2 · CN · ploidy / 2)</code> with the per-line measured ploidy so the count reflects actual biology.</div>
+        ${wgdNote}
+        <div style="margin-bottom:6px;"><b>Fractional copies?</b> A reading like &ldquo;1.5 copies&rdquo; doesn&rsquo;t exist in a single cell &mdash; copy number is integer per cell. WGS reads an average across millions of cells in the flask, so fractional values reflect <i>sub-clonal heterogeneity</i> (e.g. half the cells lost a copy and half kept both → averages to 1.5). For CRISPR knockout this means the line is a mixed substrate: some cells need 1 edit, others need 2.</div>
+        <div style="margin-bottom:6px;"><b>Tiers</b> (on the relative CN scale, independent of ploidy):
             <span style="background:#fee2e2; color:#7f1d1d; padding:1px 5px; border-radius:8px;">deep del</span> CN &lt; 0.3 &nbsp;
             <span style="background:#fef2f2; color:#991b1b; padding:1px 5px; border-radius:8px;">het loss</span> 0.3&ndash;0.7 &nbsp;
             <span style="background:#f3f4f6; color:#6b7280; padding:1px 5px; border-radius:8px;">WT</span> 0.7&ndash;1.3 &nbsp;

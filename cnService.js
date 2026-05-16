@@ -25,7 +25,8 @@ const _CN_STATE = {
     metadata: null,            // {genes, cellLines, nGenes, nCellLines, scaleFactor, naValue}
     geneIndex: null,           // Map<UPPER_SYMBOL, row index>
     cellLineIndex: null,       // Map<cell line ID, column index>
-    cellLineMeta: null         // {cellLines, cellLineName, sex, primaryDisease, subtype, lineage}
+    cellLineMeta: null,        // {cellLines, cellLineName, sex, primaryDisease, subtype, lineage}
+    globalSignatures: null     // per-line WGD / Ploidy / Aneuploidy / CIN
 }
 
 function CN_isLoaded() { return _CN_STATE.loaded }
@@ -39,6 +40,13 @@ async function CN_loadIfNeeded() {
         // first since it's small and gates the picker UI.
         const metaRes = await fetch("cellLineMetadata.json")
         _CN_STATE.cellLineMeta = await metaRes.json()
+        // Genome signatures (per-line WGD + measured ploidy). Used to map
+        // DepMap relative CN → actual copy estimate. Without ploidy, a
+        // WGD line's "CN 1.0" would read as 2 copies when it's really 4.
+        try {
+            const gsRes = await fetch("globalSignatures.json")
+            if (gsRes.ok) _CN_STATE.globalSignatures = await gsRes.json()
+        } catch (e) { console.warn("Could not load globalSignatures.json:", e) }
         // CN metadata (gene list + cell-line list + scale factor).
         const cnMetaRes = await fetch("cn_metadata.json")
         _CN_STATE.metadata = await cnMetaRes.json()
@@ -64,8 +72,21 @@ async function CN_loadIfNeeded() {
     return _CN_STATE.loading
 }
 
+// Per-line ploidy + WGD flag. Falls back to assumed-diploid (2.0) when
+// not available — the conservative choice (avoids fabricating WGD where
+// we have no data).
+function CN_genomeStats(cellLineId) {
+    const gs = _CN_STATE.globalSignatures?.byCellLine?.[cellLineId]
+    if (!gs) return { ploidy: 2.0, wgd: null, knownPloidy: false }
+    return {
+        ploidy: (gs.Ploidy != null && !isNaN(gs.Ploidy)) ? gs.Ploidy : 2.0,
+        wgd: gs.WGD == null ? null : Boolean(gs.WGD),
+        knownPloidy: gs.Ploidy != null && !isNaN(gs.Ploidy)
+    }
+}
+
 // Returns the cell-line catalogue sorted alphabetically by display name,
-// each entry annotated with sex + primary disease + subtype.
+// each entry annotated with sex + primary disease + subtype + WGD + ploidy.
 function CN_listCellLines() {
     if (!_CN_STATE.metadata) return []
     const m = _CN_STATE.cellLineMeta || {}
@@ -75,19 +96,25 @@ function CN_listCellLines() {
     for (let i = 0; i < idsByMeta.length; i++) {
         const id = idsByMeta[i]
         if (!present.has(id)) continue
+        const gs = CN_genomeStats(id)
         list.push({
             id,
             name: (m.cellLineName && m.cellLineName[id]) || id,
             sex: (m.sex && m.sex[id]) || "",
             disease: (m.primaryDisease && m.primaryDisease[id]) || "",
             subtype: (m.subtype && m.subtype[id]) || "",
-            lineage: (m.lineage && m.lineage[id]) || ""
+            lineage: (m.lineage && m.lineage[id]) || "",
+            ploidy: gs.ploidy,
+            wgd: gs.wgd,
+            knownPloidy: gs.knownPloidy
         })
     }
     // Add any CN-only cell lines that aren't in the metadata file.
     for (const id of _CN_STATE.metadata.cellLines) {
         if (!m.cellLineName || !m.cellLineName[id]) {
-            list.push({ id, name: id, sex: "", disease: "", subtype: "", lineage: "" })
+            const gs = CN_genomeStats(id)
+            list.push({ id, name: id, sex: "", disease: "", subtype: "", lineage: "",
+                        ploidy: gs.ploidy, wgd: gs.wgd, knownPloidy: gs.knownPloidy })
         }
     }
     list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
@@ -128,11 +155,23 @@ function CN_resolveSymbol(symbol, synonymMap) {
 }
 
 // Approximate actual copies (rounded to nearest 0.5) from the DepMap
-// relative-CN value (where 1.0 = diploid). 1.0 → ~2 copies, 1.5 → ~3,
-// 0.5 → ~1, 3.0 → ~6. Useful for biological readability.
-function CN_approxCopies(v) {
+// relative-CN value and the cell line's measured ploidy.
+//
+// DepMap's CN is normalised to the line's own modal ploidy: a "balanced"
+// region in a tetraploid (WGD) line still reads as 1.0, even though it
+// has 4 actual copies. Multiplying by the measured ploidy recovers the
+// biological copy count.
+//
+//   non-WGD line (ploidy ≈ 2): CN 1.0 → ≈ 2 copies, CN 0.5 → ≈ 1 copy
+//   WGD line   (ploidy ≈ 3.5): CN 1.0 → ≈ 3.5 copies (rounded to 3.5),
+//                              CN 0.5 → ≈ 1.5 (lost ~2 of 4)
+//
+// Fallback: if ploidy is unknown the calculation uses diploid baseline,
+// which under-counts copies in WGD lines but doesn't fabricate biology.
+function CN_approxCopies(v, ploidy) {
     if (v == null || isNaN(v)) return null
-    const c = Math.round(v * 4) / 2  // 0.5 resolution
+    const p = (ploidy != null && !isNaN(ploidy)) ? ploidy : 2.0
+    const c = Math.round(v * p * 2) / 2  // 0.5 resolution
     return c
 }
 
