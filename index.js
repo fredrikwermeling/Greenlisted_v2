@@ -30,6 +30,22 @@ async function loadTestSettings() {
         changeSymbols()
         return false
     }
+    if (_cnState && _cnState.isMode) {
+        // Common CN-varying cancer genes: classic focal amplifications
+        // (MYC, ERBB2, CDK4, MDM2, EGFR, CCNE1, MET, CCND1, BCL2),
+        // canonical tumour-suppressor deletions (CDKN2A, RB1, PTEN,
+        // BRCA1/2, ATM, STK11), plus a couple of housekeeping diploid
+        // controls (TP53 — almost always 2 copies but often mutated).
+        const testGenes = [
+            "MYC", "ERBB2", "CDK4", "MDM2", "EGFR", "CCNE1", "MET",
+            "CCND1", "BCL2", "FGFR1", "KRAS",
+            "CDKN2A", "RB1", "PTEN", "BRCA1", "BRCA2", "ATM", "STK11",
+            "SMAD4", "APC", "NF1", "VHL", "TP53"
+        ].join("\n")
+        document.getElementById("searchSymbols").value = testGenes
+        _setStatus("statusSearchSymbolsRows", "23 common CN-varying genes loaded")
+        return false
+    }
 
     var data = null
     try {
@@ -917,17 +933,26 @@ function CN_closeModal() {
     document.getElementById("cnModal").className = "fazeOut upset-modal-overlay"
 }
 
+function _sexGlyph(sex) {
+    // ♀ / ♂ / ? glyph for the cell-line picker rows and result-table
+    // headers, matching the visual language used elsewhere in the lab's
+    // apps (Correlate, MouseCLB).
+    const s = (sex || "").toLowerCase()
+    if (s === "female") return `<span style="color:#db2777; font-weight:700;" title="Female">♀</span>`
+    if (s === "male")   return `<span style="color:#1d4ed8; font-weight:700;" title="Male">♂</span>`
+    return `<span style="color:#9ca3af; font-weight:700;" title="Sex unknown / not recorded">?</span>`
+}
+
 function _renderCnPicker(list) {
     const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
     const html = list.slice(0, 500).map(c => {
         const sel = selectedIds.has(c.id)
-        const sex = c.sex ? `<span style="color:${c.sex.toLowerCase() === "female" ? "#db2777" : c.sex.toLowerCase() === "male" ? "#1d4ed8" : "#9ca3af"};">${c.sex.charAt(0).toUpperCase()}</span>` : ""
         const cancer = [c.disease, c.subtype].filter(Boolean).join(" · ")
         return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
             <span>${sel ? "☑" : "☐"}</span>
             <span>
                 <span class="cn-picker-name">${c.name}</span>
-                <span class="cn-picker-meta">${sex ? " &middot; " + sex : ""} ${c.lineage ? " &middot; " + c.lineage : ""}</span>
+                <span class="cn-picker-meta">&nbsp;${_sexGlyph(c.sex)}${c.lineage ? " &middot; " + c.lineage : ""}</span>
             </span>
             <span class="cn-picker-cancer" title="${cancer.replace(/"/g, "&quot;")}">${cancer}</span>
         </div>`
@@ -1020,24 +1045,38 @@ async function CN_runLookup() {
             _setStatus("statusSearch", "Loading CN matrix...")
             await CN_loadIfNeeded()
         }
+        // Hand the active synonym map (loaded by the rest of the app) to
+        // the CN service so unmapped symbols can still resolve. Without
+        // this, MAGI3 → STK11 (or similar aliases) miss even though the
+        // app's synonym mode is on.
+        const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
         const rows = []
         const notFound = []
         for (const g of genes) {
+            const { resolved, viaSynonym } = CN_resolveSymbol(g, synonymMap)
             const perLine = {}
             let anyHit = false
-            for (const cl of _cnState.selectedCellLines) {
-                const v = CN_lookup(cl.id, g)
-                if (v != null) anyHit = true
-                perLine[cl.id] = { value: v, tier: CN_tier(v) }
+            if (resolved) {
+                for (const cl of _cnState.selectedCellLines) {
+                    const v = CN_lookup(cl.id, resolved)
+                    if (v != null) anyHit = true
+                    perLine[cl.id] = { value: v, tier: CN_tier(v), copies: CN_approxCopies(v) }
+                }
+            } else {
+                for (const cl of _cnState.selectedCellLines) {
+                    perLine[cl.id] = { value: null, tier: CN_tier(null), copies: null }
+                }
             }
-            if (!anyHit) notFound.push(g)
-            rows.push({ gene: g, perLine })
+            if (!resolved) notFound.push(g)
+            rows.push({ gene: g, resolved: resolved || g, viaSynonym, perLine })
         }
         _cnState.results = { rows, notFound }
         _cnState.tsvOutput = _cnBuildTsv(rows)
         _createDownloadLink(_cnState.tsvOutput, "CN lookup", document.getElementById("cnDownload"), "text/tab-separated-values", ".tsv")
         const hitGenes = rows.length - notFound.length
-        _setStatus("statusSearch", `CN lookup complete: ${hitGenes}/${rows.length} genes found in ${_cnState.selectedCellLines.length} cell line(s)${notFound.length ? `; ${notFound.length} symbol(s) not in matrix` : ""}.`)
+        const synN = rows.filter(r => r.viaSynonym).length
+        const synNote = synN > 0 ? `, ${synN} via synonym` : ""
+        _setStatus("statusSearch", `CN lookup complete: ${hitGenes}/${rows.length} genes found in ${_cnState.selectedCellLines.length} cell line(s)${synNote}${notFound.length ? `; ${notFound.length} symbol(s) not in matrix` : ""}.`)
         // Auto-show the results table.
         CN_showResults()
     } catch (err) {
@@ -1053,15 +1092,18 @@ async function CN_runLookup() {
 
 function _cnBuildTsv(rows) {
     if (!rows.length) return ""
-    const header = ["Gene", ..._cnState.selectedCellLines.map(c => c.name)].join("\t")
+    const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
     const lines = [header]
     for (const r of rows) {
-        const cells = [r.gene]
-        for (const cl of _cnState.selectedCellLines) {
+        const cnCells = _cnState.selectedCellLines.map(cl => {
             const v = r.perLine[cl.id]?.value
-            cells.push(v == null ? "" : v.toFixed(3))
-        }
-        lines.push(cells.join("\t"))
+            return v == null ? "" : v.toFixed(2)
+        })
+        const copyCells = _cnState.selectedCellLines.map(cl => {
+            const c = r.perLine[cl.id]?.copies
+            return c == null ? "" : String(c)
+        })
+        lines.push([r.gene, r.resolved || "", r.viaSynonym || "", ...cnCells, ...copyCells].join("\t"))
     }
     return lines.join("\n")
 }
@@ -1070,34 +1112,63 @@ function CN_showResults() {
     if (!_cnState.results) return
     const container = document.getElementById("fileContentContainer")
     container.style.display = "block"
-    // Replace the <textarea#fileContent> contents with a coloured HTML
-    // table when in CN mode. We wrap the table in a div so the textarea
-    // can be restored later when leaving CN mode.
-    let tableHtml = '<table class="cn-results-table">'
-    tableHtml += "<thead><tr><th>Gene</th>"
-    for (const cl of _cnState.selectedCellLines) {
-        const sex = cl.sex ? ` <span style="color:#9ca3af; font-weight:400;">(${cl.sex.charAt(0).toUpperCase()})</span>` : ""
-        const cancer = cl.disease || cl.lineage || ""
-        tableHtml += `<th title="${cancer.replace(/"/g, "&quot;")}">${cl.name}${sex}</th>`
-    }
-    tableHtml += "</tr></thead><tbody>"
+
+    // Header note + table layout. Per-cell-line columns are fixed-width
+    // (90px) and headers are centred over the data cells, so 2 cell lines
+    // doesn't blow the table out to full page width. Each result cell
+    // shows the biological copy estimate ("≈ 3 copies") on the first
+    // line and the raw relative-CN number on a small second line.
+    const headerCells = _cnState.selectedCellLines.map(cl => {
+        const cancer = [cl.disease, cl.subtype].filter(Boolean).join(" · ")
+        return `<th title="${cancer.replace(/"/g, "&quot;")}">
+            <div style="text-align:center;">${_sexGlyph(cl.sex)} ${cl.name}</div>
+            <div style="font-size:0.7rem; color:#9ca3af; font-weight:400; text-align:center; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cancer}</div>
+        </th>`
+    }).join("")
+
+    let tableHtml = `<table class="cn-results-table" style="width:auto;">`
+    tableHtml += `<thead><tr><th style="text-align:left;">Gene</th>${headerCells}</tr></thead><tbody>`
     for (const r of _cnState.results.rows) {
-        tableHtml += `<tr><td style="font-family:ui-monospace, monospace; font-weight:600;">${r.gene}</td>`
+        const synNote = r.viaSynonym
+            ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${r.resolved}</span>`
+            : ""
+        tableHtml += `<tr><td style="font-family:ui-monospace, monospace; font-weight:600; white-space:nowrap;">${r.gene}${synNote}</td>`
         for (const cl of _cnState.selectedCellLines) {
             const cell = r.perLine[cl.id]
-            const v = cell?.value, t = cell?.tier
+            const v = cell?.value, t = cell?.tier, copies = cell?.copies
             if (v == null) {
-                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff;">—</td>`
+                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff; min-width:90px; max-width:120px;">—</td>`
             } else {
-                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg};">${t.label} <span class="cn-num">${v.toFixed(2)}</span></td>`
+                const copyStr = copies != null
+                    ? (copies === Math.floor(copies)
+                        ? `≈ ${copies} cop${copies === 1 ? 'y' : 'ies'}`
+                        : `≈ ${copies} copies`)
+                    : ""
+                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg}; min-width:90px; max-width:120px;">
+                    <div style="font-weight:600;">${copyStr}</div>
+                    <div style="font-size:0.7rem; opacity:0.75; margin-top:1px;">${t.label} · CN ${v.toFixed(1)}</div>
+                </td>`
             }
         }
         tableHtml += "</tr>"
     }
     tableHtml += "</tbody></table>"
     if (_cnState.results.notFound.length) {
-        tableHtml += `<div style="font-size:0.8rem; color:#9ca3af; margin-top:8px;">Not in matrix: ${_cnState.results.notFound.join(", ")}</div>`
+        tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.join(", ")}</code></div>`
     }
-    tableHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">CN values are DepMap OmicsCNGeneWGS relative to diploid (1.0 = WT). Tiers: deep del &lt; 0.3 · het loss 0.3&ndash;0.7 · WT 0.7&ndash;1.3 · low gain 1.3&ndash;2.0 · gain 2.0&ndash;3.0 · amp 3.0&ndash;5.0 · strong amp &ge; 5.0.</div>`
+    // Footer: data source + interpretation note + correlate link.
+    tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
+        <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGeneWGS</a> &mdash; relative copy number where <b>1.0 = diploid baseline (≈ 2 copies)</b>. &ldquo;≈ N copies&rdquo; is computed as <code>round(2·CN)</code> to the nearest 0.5 &mdash; values can be fractional because the WGS readout is a <i>population average</i> across the cell line (sub-clonal gains or whole-arm trisomies that aren&rsquo;t fully clonal).</div>
+        <div style="margin-bottom:6px;"><b>Tiers:</b>
+            <span style="background:#fee2e2; color:#7f1d1d; padding:1px 5px; border-radius:8px;">deep del</span> CN &lt; 0.3 &nbsp;
+            <span style="background:#fef2f2; color:#991b1b; padding:1px 5px; border-radius:8px;">het loss</span> 0.3&ndash;0.7 &nbsp;
+            <span style="background:#f3f4f6; color:#6b7280; padding:1px 5px; border-radius:8px;">WT</span> 0.7&ndash;1.3 &nbsp;
+            <span style="background:#eef2ff; color:#3730a3; padding:1px 5px; border-radius:8px;">low gain</span> 1.3&ndash;2.0 &nbsp;
+            <span style="background:#dbeafe; color:#1e40af; padding:1px 5px; border-radius:8px;">gain</span> 2.0&ndash;3.0 &nbsp;
+            <span style="background:#bfdbfe; color:#1e3a8a; padding:1px 5px; border-radius:8px;">amp</span> 3.0&ndash;5.0 &nbsp;
+            <span style="background:#93c5fd; color:#1e3a8a; padding:1px 5px; border-radius:8px;">strong amp</span> &ge; 5.0
+        </div>
+        <div>For deeper exploration of human cell line information see the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">correlate.cmm.se</a>.</div>
+    </div>`
     container.innerHTML = tableHtml
 }

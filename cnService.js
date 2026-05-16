@@ -104,6 +104,38 @@ function CN_lookup(cellLineId, geneSymbol) {
     return isNaN(v) ? null : v
 }
 
+// Resolve the user-input symbol against the CN gene list, falling back to
+// the library-level synonym map when there's no direct match. Returns the
+// canonical CN-matrix symbol (upper-case) plus the synonym actually used
+// (if any), or null if neither the input nor any of its synonyms are in
+// the matrix.
+function CN_resolveSymbol(symbol, synonymMap) {
+    if (!_CN_STATE.loaded) return { resolved: null, viaSynonym: null }
+    const upper = String(symbol).toUpperCase()
+    if (_CN_STATE.geneIndex.has(upper)) return { resolved: upper, viaSynonym: null }
+    // Synonym map is keyed by lower-case symbols. Try each synonym
+    // against the CN gene list in turn — first hit wins.
+    if (synonymMap) {
+        const synSet = synonymMap[symbol.toLowerCase()]
+        if (synSet) {
+            for (const syn of synSet) {
+                const su = syn.toUpperCase()
+                if (_CN_STATE.geneIndex.has(su)) return { resolved: su, viaSynonym: syn }
+            }
+        }
+    }
+    return { resolved: null, viaSynonym: null }
+}
+
+// Approximate actual copies (rounded to nearest 0.5) from the DepMap
+// relative-CN value (where 1.0 = diploid). 1.0 → ~2 copies, 1.5 → ~3,
+// 0.5 → ~1, 3.0 → ~6. Useful for biological readability.
+function CN_approxCopies(v) {
+    if (v == null || isNaN(v)) return null
+    const c = Math.round(v * 4) / 2  // 0.5 resolution
+    return c
+}
+
 // Bucket a CN value into a labeled tier matching the Correlate V2 UI:
 //   deep del   < 0.3   (red)
 //   het loss   0.3–0.7 (light red)
