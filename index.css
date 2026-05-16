@@ -465,7 +465,8 @@ a:hover {
 
 /* Validate sgRNA mode */
 
-body.validate-mode .design-only {
+body.validate-mode .design-only,
+body.cn-mode .design-only {
     opacity: 0.35;
     pointer-events: none;
 }
@@ -474,12 +475,18 @@ body:not(.validate-mode) .validate-only {
     display: none !important;
 }
 
-body.validate-mode #libraries {
+body:not(.cn-mode) .cn-only {
+    display: none !important;
+}
+
+body.validate-mode #libraries,
+body.cn-mode #libraries {
     opacity: 0.5;
     pointer-events: none;
 }
 
-body.validate-mode #searchSymbols {
+body.validate-mode #searchSymbols,
+body.cn-mode #searchSymbols {
     opacity: 1;
     pointer-events: auto;
     border: 2px solid var(--mainColor);
@@ -491,10 +498,66 @@ body.validate-mode .validate-btn-active {
     color: white;
 }
 
+body.cn-mode #cnButton {
+    background-color: var(--mainColor);
+    color: white;
+}
+
+body.validate-mode #validateButton {
+    background-color: var(--mainColor);
+    color: white;
+}
+
 .validate-btn {
     font-size: calc(var(--header-scale) * 0.6);
     white-space: nowrap;
     padding: 0.2rem 0.5rem;
+}
+
+/* CN picker — cell-line list rows in the modal */
+.cn-picker-row {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    font-size: 0.85rem;
+    align-items: baseline;
+}
+.cn-picker-row:hover { background: #f0fdf4; }
+.cn-picker-row.selected { background: #ecfdf5; }
+.cn-picker-row .cn-picker-name { font-weight: 600; color: #15803d; }
+.cn-picker-row .cn-picker-meta { font-size: 0.75rem; color: #6b7280; }
+.cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: right; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* CN results table — coloured tiers per cell */
+.cn-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.cn-results-table th, .cn-results-table td {
+    padding: 4px 8px;
+    border: 1px solid #e5e7eb;
+    text-align: left;
+}
+.cn-results-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #15803d;
+    position: sticky;
+    top: 0;
+}
+.cn-results-table td.cn-tier {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.cn-results-table td.cn-tier .cn-num {
+    font-size: 0.7rem;
+    color: #6b7280;
+    margin-left: 4px;
 }
 
 footer.plate {

@@ -375,6 +375,9 @@ async function runScreening() {
     if (_validateState.isValidateMode) {
         return runValidation()
     }
+    if (typeof _cnState !== "undefined" && _cnState.isMode) {
+        return CN_runLookup()
+    }
 
     _toggleLigtBox()
 
@@ -852,4 +855,249 @@ function _setStatus(elemId, text, isNotInnerHtml) {
         element.style.color = "";
     }
 
+}
+
+// =============================================================================
+// Validate sgRNA — species picker modal (consolidates the old Mouse / Human
+// buttons into one button that asks which genome to validate against)
+// =============================================================================
+
+function openValidateSpeciesModal() {
+    // Toggle off if already in validate mode — restores design mode.
+    if (_validateState.isValidateMode) {
+        toggleValidateMode(_validateState.activeSpecies)
+        return
+    }
+    document.getElementById("validateSpeciesModal").className = "fazeIn upset-modal-overlay"
+}
+function closeValidateSpeciesModal() {
+    document.getElementById("validateSpeciesModal").className = "fazeOut upset-modal-overlay"
+}
+function confirmValidateSpecies(species) {
+    closeValidateSpeciesModal()
+    toggleValidateMode(species)
+}
+
+// =============================================================================
+// Copy-number reference (DepMap human) — picker modal + lookup mode
+// =============================================================================
+
+// Module-level state for the CN mode. Mirrors _validateState in shape.
+var _cnState = {
+    isMode: false,            // are we currently in CN-lookup mode?
+    selectedCellLines: [],    // [{id, name, sex, disease, lineage}, ...]
+    fullCatalogue: [],        // populated from CN_listCellLines() once loaded
+    results: null,            // { rows: [{gene, perLine: {id: {value, tier}}}], notFound: [genes] }
+    tsvOutput: ""             // TSV of the results table for download
+}
+
+async function CN_openModal() {
+    // Toggling off — leave CN mode and clear selection.
+    if (_cnState.isMode) {
+        _cnExitMode()
+        return
+    }
+    const modal = document.getElementById("cnModal")
+    modal.className = "fazeIn upset-modal-overlay"
+    document.getElementById("cnPickerStatus").textContent = "Loading catalogue (cell-line metadata + CN matrix)…"
+    document.getElementById("cnPickerConfirmBtn").disabled = true
+    _cnState.selectedCellLines = []
+    _updateCnPickerSelectedCount()
+    try {
+        await CN_loadIfNeeded()
+        _cnState.fullCatalogue = CN_listCellLines()
+        document.getElementById("cnPickerStatus").textContent =
+            `${_cnState.fullCatalogue.length} human cell lines available. Type to filter; click rows to (de)select.`
+        _renderCnPicker(_cnState.fullCatalogue)
+    } catch (err) {
+        document.getElementById("cnPickerStatus").textContent = "Failed to load: " + err.message
+    }
+}
+function CN_closeModal() {
+    document.getElementById("cnModal").className = "fazeOut upset-modal-overlay"
+}
+
+function _renderCnPicker(list) {
+    const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
+    const html = list.slice(0, 500).map(c => {
+        const sel = selectedIds.has(c.id)
+        const sex = c.sex ? `<span style="color:${c.sex.toLowerCase() === "female" ? "#db2777" : c.sex.toLowerCase() === "male" ? "#1d4ed8" : "#9ca3af"};">${c.sex.charAt(0).toUpperCase()}</span>` : ""
+        const cancer = [c.disease, c.subtype].filter(Boolean).join(" · ")
+        return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
+            <span>${sel ? "☑" : "☐"}</span>
+            <span>
+                <span class="cn-picker-name">${c.name}</span>
+                <span class="cn-picker-meta">${sex ? " &middot; " + sex : ""} ${c.lineage ? " &middot; " + c.lineage : ""}</span>
+            </span>
+            <span class="cn-picker-cancer" title="${cancer.replace(/"/g, "&quot;")}">${cancer}</span>
+        </div>`
+    }).join("")
+    const overflow = list.length > 500
+        ? `<div style="padding:6px 10px; font-size:0.75rem; color:#9ca3af; text-align:center;">Showing first 500 of ${list.length}. Type to narrow.</div>`
+        : ""
+    document.getElementById("cnPickerList").innerHTML = html + overflow
+}
+
+function CN_filterPicker() {
+    const q = document.getElementById("cnPickerSearch").value.trim().toLowerCase()
+    if (!q) { _renderCnPicker(_cnState.fullCatalogue); return }
+    const filtered = _cnState.fullCatalogue.filter(c => {
+        const hay = [c.name, c.disease, c.subtype, c.lineage, c.id].join(" ").toLowerCase()
+        return hay.includes(q)
+    })
+    _renderCnPicker(filtered)
+}
+
+function CN_togglePickerRow(id) {
+    const idx = _cnState.selectedCellLines.findIndex(c => c.id === id)
+    if (idx >= 0) {
+        _cnState.selectedCellLines.splice(idx, 1)
+    } else {
+        const entry = _cnState.fullCatalogue.find(c => c.id === id)
+        if (entry) _cnState.selectedCellLines.push(entry)
+    }
+    _updateCnPickerSelectedCount()
+    CN_filterPicker()  // re-render so the checkbox glyph flips
+}
+
+function _updateCnPickerSelectedCount() {
+    const n = _cnState.selectedCellLines.length
+    document.getElementById("cnPickerSelectedCount").textContent = String(n)
+    document.getElementById("cnPickerConfirmBtn").disabled = (n === 0)
+}
+
+function CN_confirmSelection() {
+    if (_cnState.selectedCellLines.length === 0) return
+    CN_closeModal()
+    _cnEnterMode()
+}
+
+function _cnEnterMode() {
+    // Drop the user out of any other mode first.
+    if (_validateState.isValidateMode) {
+        toggleValidateMode(_validateState.activeSpecies)
+    }
+    _cnState.isMode = true
+    document.body.classList.add("cn-mode")
+    document.getElementById("outputTable").style.display = "none"
+    document.getElementById("fileContentContainer").style.display = "none"
+    const symbolsTitle = document.getElementById("symbolsTitle")
+    const inputPlateTitle = document.getElementById("inputPlateTitle")
+    if (symbolsTitle) symbolsTitle.textContent =
+        `Gene symbols (CN lookup in ${_cnState.selectedCellLines.length} cell line${_cnState.selectedCellLines.length === 1 ? "" : "s"}: ${_cnState.selectedCellLines.map(c => c.name).slice(0, 5).join(", ")}${_cnState.selectedCellLines.length > 5 ? ", …" : ""})`
+    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input gene symbols"
+    document.getElementById("searchSymbols").value = ""
+    _setStatus("statusSearchSymbolsRows", "")
+}
+
+function _cnExitMode() {
+    _cnState.isMode = false
+    _cnState.selectedCellLines = []
+    document.body.classList.remove("cn-mode")
+    const symbolsTitle = document.getElementById("symbolsTitle")
+    const inputPlateTitle = document.getElementById("inputPlateTitle")
+    if (symbolsTitle) symbolsTitle.textContent = "Symbols"
+    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input symbols"
+    init()
+}
+
+async function CN_runLookup() {
+    _toggleLigtBox()
+    var statusText = document.getElementById("statusSearch")
+    statusText.classList.add("pulse")
+    await new Promise(r => setTimeout(r, 50))
+
+    try {
+        const raw = document.getElementById("searchSymbols").value
+        const genes = [...new Set(
+            raw.split(/[\s,;\n\r\t]+/).map(s => s.trim()).filter(Boolean)
+        )]
+        if (genes.length === 0) {
+            _setStatus("statusSearch", "Error: Please enter at least one gene symbol")
+            _toggleLigtBox(); statusText.classList.remove("pulse"); return
+        }
+        if (!CN_isLoaded()) {
+            _setStatus("statusSearch", "Loading CN matrix...")
+            await CN_loadIfNeeded()
+        }
+        const rows = []
+        const notFound = []
+        for (const g of genes) {
+            const perLine = {}
+            let anyHit = false
+            for (const cl of _cnState.selectedCellLines) {
+                const v = CN_lookup(cl.id, g)
+                if (v != null) anyHit = true
+                perLine[cl.id] = { value: v, tier: CN_tier(v) }
+            }
+            if (!anyHit) notFound.push(g)
+            rows.push({ gene: g, perLine })
+        }
+        _cnState.results = { rows, notFound }
+        _cnState.tsvOutput = _cnBuildTsv(rows)
+        _createDownloadLink(_cnState.tsvOutput, "CN lookup", document.getElementById("cnDownload"), "text/tab-separated-values", ".tsv")
+        const hitGenes = rows.length - notFound.length
+        _setStatus("statusSearch", `CN lookup complete: ${hitGenes}/${rows.length} genes found in ${_cnState.selectedCellLines.length} cell line(s)${notFound.length ? `; ${notFound.length} symbol(s) not in matrix` : ""}.`)
+        // Auto-show the results table.
+        CN_showResults()
+    } catch (err) {
+        console.error("CN lookup failed:", err)
+        _setStatus("statusSearch", "Error: " + err.message)
+    }
+    _toggleLigtBox()
+    statusText.classList.remove("pulse")
+    document.getElementById("outputTable").style.display = "flex"
+    document.getElementById("outputTable").classList.remove("statusFadeOut")
+    document.getElementById("outputTable").classList.add("statusFadeIn")
+}
+
+function _cnBuildTsv(rows) {
+    if (!rows.length) return ""
+    const header = ["Gene", ..._cnState.selectedCellLines.map(c => c.name)].join("\t")
+    const lines = [header]
+    for (const r of rows) {
+        const cells = [r.gene]
+        for (const cl of _cnState.selectedCellLines) {
+            const v = r.perLine[cl.id]?.value
+            cells.push(v == null ? "" : v.toFixed(3))
+        }
+        lines.push(cells.join("\t"))
+    }
+    return lines.join("\n")
+}
+
+function CN_showResults() {
+    if (!_cnState.results) return
+    const container = document.getElementById("fileContentContainer")
+    container.style.display = "block"
+    // Replace the <textarea#fileContent> contents with a coloured HTML
+    // table when in CN mode. We wrap the table in a div so the textarea
+    // can be restored later when leaving CN mode.
+    let tableHtml = '<table class="cn-results-table">'
+    tableHtml += "<thead><tr><th>Gene</th>"
+    for (const cl of _cnState.selectedCellLines) {
+        const sex = cl.sex ? ` <span style="color:#9ca3af; font-weight:400;">(${cl.sex.charAt(0).toUpperCase()})</span>` : ""
+        const cancer = cl.disease || cl.lineage || ""
+        tableHtml += `<th title="${cancer.replace(/"/g, "&quot;")}">${cl.name}${sex}</th>`
+    }
+    tableHtml += "</tr></thead><tbody>"
+    for (const r of _cnState.results.rows) {
+        tableHtml += `<tr><td style="font-family:ui-monospace, monospace; font-weight:600;">${r.gene}</td>`
+        for (const cl of _cnState.selectedCellLines) {
+            const cell = r.perLine[cl.id]
+            const v = cell?.value, t = cell?.tier
+            if (v == null) {
+                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff;">—</td>`
+            } else {
+                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg};">${t.label} <span class="cn-num">${v.toFixed(2)}</span></td>`
+            }
+        }
+        tableHtml += "</tr>"
+    }
+    tableHtml += "</tbody></table>"
+    if (_cnState.results.notFound.length) {
+        tableHtml += `<div style="font-size:0.8rem; color:#9ca3af; margin-top:8px;">Not in matrix: ${_cnState.results.notFound.join(", ")}</div>`
+    }
+    tableHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">CN values are DepMap OmicsCNGeneWGS relative to diploid (1.0 = WT). Tiers: deep del &lt; 0.3 · het loss 0.3&ndash;0.7 · WT 0.7&ndash;1.3 · low gain 1.3&ndash;2.0 · gain 2.0&ndash;3.0 · amp 3.0&ndash;5.0 · strong amp &ge; 5.0.</div>`
+    container.innerHTML = tableHtml
 }

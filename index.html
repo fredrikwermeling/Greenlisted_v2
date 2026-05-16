@@ -79,6 +79,57 @@
                 <div id="infoModalContent" class="upset-modal-body"></div>
             </div>
         </div>
+
+        <!-- Validate sgRNA: species picker. Opens when the user clicks
+             "Validate sgRNA"; on choice it routes to the existing
+             toggleValidateMode() flow. -->
+        <div id="validateSpeciesModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box" style="max-width:420px;">
+                <div class="upset-modal-header">
+                    <h3>Validate sgRNA &mdash; species?</h3>
+                    <button class="upset-close-btn" onclick="closeValidateSpeciesModal()">&times;</button>
+                </div>
+                <div class="upset-modal-body">
+                    <p>Select the genome you want to validate sgRNA sequences against.</p>
+                    <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+                        <button class="validate-btn" onclick="confirmValidateSpecies('human')">Human</button>
+                        <button class="validate-btn" onclick="confirmValidateSpecies('mouse')">Mouse</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copy number: cell-line picker. Opens when the user clicks
+             "Copy number (human)". -->
+        <div id="cnModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box" style="max-width:620px;">
+                <div class="upset-modal-header">
+                    <h3>Copy number reference &mdash; pick cell line(s)</h3>
+                    <button class="upset-close-btn" onclick="CN_closeModal()">&times;</button>
+                </div>
+                <div class="upset-modal-body">
+                    <p style="margin:0 0 8px 0; font-size:0.9rem;">
+                        Copy-number values from the <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">DepMap OmicsCNGeneWGS</a>
+                        dataset. Values are relative to diploid (1.0 = WT, &ge; 3.0 = amplification, &le; 0.5 = deletion).
+                        For deeper exploration of human cell-line biology see
+                        <a href="https://correlate.cmm.se" target="_blank" rel="noopener">correlate.cmm.se</a>.
+                    </p>
+                    <div id="cnPickerStatus" style="font-size:0.85rem; color:#92400e; margin:8px 0;">Loading catalogue…</div>
+                    <input type="text" id="cnPickerSearch" placeholder="Search cell line by name, cancer type, or lineage…"
+                           style="width:100%; padding:6px 10px; font-size:0.85rem; border:1px solid #d1d5db; border-radius:4px; margin-bottom:8px;"
+                           oninput="CN_filterPicker()">
+                    <div id="cnPickerList" style="max-height:280px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;"></div>
+                    <div style="margin-top:10px; font-size:0.85rem;">
+                        <span style="color:#6b7280;">Selected:</span>
+                        <span id="cnPickerSelectedCount">0</span> cell line(s).
+                    </div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+                        <button class="validate-btn" onclick="CN_closeModal()" style="background:#f3f4f6; color:#374151;">Cancel</button>
+                        <button class="validate-btn" id="cnPickerConfirmBtn" onclick="CN_confirmSelection()" disabled>Activate CN mode →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="plate">
             <h2 class="plateTitle">1. Select library</h2>
             <div class="plateContent">
@@ -89,10 +140,15 @@
                             <option value="custom">User Upload</option>
                         </select>
                         <span style="display: flex; gap: 6px;">
-                            <button id="validateHumanButton" class="validate-btn" onclick="toggleValidateMode('human')">Validate human sgRNA</button>
-                            <button id="validateMouseButton" class="validate-btn" onclick="toggleValidateMode('mouse')">Validate mouse sgRNA</button>
+                            <button id="validateButton" class="validate-btn" onclick="openValidateSpeciesModal()">Validate sgRNA</button>
+                            <button id="cnButton" class="validate-btn" onclick="CN_openModal()">Copy number (human)</button>
                             <button id="upsetButton" class="validate-btn" onclick="UPSET_showModal()">Library overlap</button>
                         </span>
+                        <!-- Hidden legacy buttons preserved for the existing toggleValidateMode logic.
+                             The visible "Validate sgRNA" button above asks the user mouse-or-human in
+                             a modal, then calls toggleValidateMode() which still targets these. -->
+                        <button id="validateHumanButton" style="display:none;"></button>
+                        <button id="validateMouseButton" style="display:none;"></button>
                     </h3>
 
                     <div class="plateContent">
@@ -296,6 +352,11 @@
                         <td><a href="" id="validationNotFoundDownload">Download</a></td>
                         <td><button onclick="showValidationNotFoundOutput()">Show</button></td>
                     </tr>
+                    <tr class="cn-only">
+                        <td>Copy-number table</td>
+                        <td><a href="" id="cnDownload">Download</a></td>
+                        <td><button onclick="CN_showResults()">Show</button></td>
+                    </tr>
                     <tr>
                         <td>Download<br> all</td>
                         <td><button onclick="downloadAll()">Download all</button></td>
@@ -328,6 +389,7 @@
     <script type="text/javascript" src="screeningHandler.js"></script>
     <script type="text/javascript" src="validate.js"></script>
     <script type="text/javascript" src="upset.js"></script>
+    <script type="text/javascript" src="cnService.js"></script>
     <script type="text/javascript" src="index.js"></script>
     <script type="text/javascript" src="fileHandler.js"></script>
 
