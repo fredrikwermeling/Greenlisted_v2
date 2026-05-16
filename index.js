@@ -945,12 +945,12 @@ function _sexGlyph(sex) {
 
 function _wgdBadge(wgd, ploidy) {
     // Small "WGD" pill for lines that have undergone whole-genome doubling
-    // (a near-tetraploid baseline of ~4 copies instead of 2). Shown next
-    // to the cell-line name everywhere the line appears so the user knows
-    // the "≈ N copies" estimates have been scaled appropriately.
+    // (the genome was duplicated at some point in the line's history, so
+    // the baseline is ~tetraploid). Shown next to the cell-line name
+    // everywhere the line appears so the user knows the "≈ N copies"
+    // estimates have been scaled to the line's actual ploidy.
     if (wgd !== true) return ""
-    const pStr = ploidy != null && !isNaN(ploidy) ? ` (~${ploidy.toFixed(1)}N)` : ""
-    return ` <span title="Whole-genome doubled — the line's baseline ploidy is ~tetraploid${pStr}. CN values are reported relative to this baseline; the &lsquo;≈ N copies&rsquo; estimate already multiplies by the measured ploidy." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD${pStr}</span>`
+    return ` <span title="Whole-genome-doubled: this line's genome was duplicated at some point, so its baseline is roughly tetraploid (≈ 4 copies of each gene, not 2). DepMap reports CN relative to that line-specific baseline, and the &lsquo;≈ N copies&rsquo; column already multiplies by the measured ploidy to give a true copy count." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD</span>`
 }
 
 function _renderCnPicker(list) {
@@ -1138,10 +1138,13 @@ function CN_showResults() {
         const ploidyNote = cl.knownPloidy
             ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
             : ""
-        return `<th title="${cancer.replace(/"/g, "&quot;")}">
-            <div style="text-align:center;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}</div>
-            <div style="font-size:0.7rem; color:#9ca3af; font-weight:400; text-align:center; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cancer}</div>
-            ${ploidyNote ? `<div style="font-size:0.65rem; color:#6b7280; text-align:center;">${ploidyNote}</div>` : ""}
+        // Columns are sized to comfortably hold the cell-line name +
+        // WGD pill + cancer-type subtitle on its own lines without
+        // truncation. Cancer-type wraps to 2-3 lines as needed.
+        return `<th style="min-width:170px; max-width:240px; padding:6px 10px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
+            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}</div>
+            <div style="font-size:0.72rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.3; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
+            ${ploidyNote ? `<div style="font-size:0.65rem; color:#9ca3af; text-align:center; margin-top:2px;">${ploidyNote}</div>` : ""}
         </th>`
     }).join("")
 
@@ -1156,16 +1159,16 @@ function CN_showResults() {
             const cell = r.perLine[cl.id]
             const v = cell?.value, t = cell?.tier, copies = cell?.copies
             if (v == null) {
-                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff; min-width:90px; max-width:120px;">—</td>`
+                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff; min-width:170px; max-width:240px; padding:6px 10px;">—</td>`
             } else {
                 const copyStr = copies != null
                     ? (copies === Math.floor(copies)
                         ? `≈ ${copies} cop${copies === 1 ? 'y' : 'ies'}`
                         : `≈ ${copies} copies`)
                     : ""
-                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg}; min-width:90px; max-width:120px;">
+                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg}; min-width:170px; max-width:240px; padding:6px 10px;">
                     <div style="font-weight:600;">${copyStr}</div>
-                    <div style="font-size:0.7rem; opacity:0.75; margin-top:1px;">${t.label} · CN ${v.toFixed(1)}</div>
+                    <div style="font-size:0.7rem; opacity:0.75; margin-top:2px;">${t.label} · CN ${v.toFixed(1)}</div>
                 </td>`
             }
         }

@@ -529,7 +529,7 @@ body.validate-mode #validateButton {
 .cn-picker-row.selected { background: #ecfdf5; }
 .cn-picker-row .cn-picker-name { font-weight: 600; color: #15803d; }
 .cn-picker-row .cn-picker-meta { font-size: 0.75rem; color: #6b7280; }
-.cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: right; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: right; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 8px; }
 
 /* CN results table — coloured tiers per cell */
 .cn-results-table {
