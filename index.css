@@ -517,7 +517,10 @@ body.validate-mode #validateButton {
 /* CN picker — cell-line list rows in the modal */
 .cn-picker-row {
     display: grid;
-    grid-template-columns: 24px 1fr auto;
+    /* checkbox | name+lineage (auto width) | cancer-type (takes the rest,
+       so the text starts close to the cell-line name instead of being
+       pinned to the right edge of the modal). */
+    grid-template-columns: 24px auto 1fr;
     gap: 8px;
     padding: 4px 8px;
     border-bottom: 1px solid #f3f4f6;
@@ -529,7 +532,7 @@ body.validate-mode #validateButton {
 .cn-picker-row.selected { background: #ecfdf5; }
 .cn-picker-row .cn-picker-name { font-weight: 600; color: #15803d; }
 .cn-picker-row .cn-picker-meta { font-size: 0.75rem; color: #6b7280; }
-.cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: right; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 8px; }
+.cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; min-width: 0; }
 
 /* CN results table — coloured tiers per cell */
 .cn-results-table {

@@ -1151,7 +1151,7 @@ function _cnBuildTsv(rows) {
     const ploidyHeader = "# Cell-line ploidy: " + _cnState.selectedCellLines.map(c =>
         `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown"}`
     ).join("; ")
-    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene.csv (24Q4 release). Values are relative copy number where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
+    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene dataset (24Q4 release). Values are relative copy number where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
     const lines = [sourceLine, ploidyHeader, header]
     for (const r of rows) {
@@ -1232,7 +1232,7 @@ function CN_showResults() {
     // explains what the badge means.
     const wesNote = ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener"><code>OmicsCNGene.csv</code></a> (24Q4 release). Values are relative copy number, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to estimate the actual copy count.</div>
+        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene dataset</a> (24Q4 release). Values are relative copy number, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to estimate the actual copy count.</div>
         ${wgdNote}
         ${wesNote}
         <div style="margin-bottom:6px;">Non-integer values reflect sub-clonal heterogeneity within the cell line. Sequencing averages across millions of cells, so a value of 1.5 typically means part of the population lost a copy and part retained both. Lines with non-integer copy number are a mixed substrate for knockout: some cells need a single cut, others need two.</div>
