@@ -1125,10 +1125,8 @@ const _CN_EXAMPLES = [
     { genes: ["MYCN"],   line: "IMR-32",     note: "neuroblastoma, MYCN amplified" },
     { genes: ["ERBB2"],  line: "SK-BR-3",    note: "HER2-amplified breast cancer" },
     { genes: ["EGFR"],   line: "A-431",      note: "EGFR-amplified epidermoid carcinoma" },
-    { genes: ["MET"],    line: "MKN-45",     note: "gastric, MET amplification" },
     { genes: ["CDKN2A"], line: "U-87 MG",    note: "glioblastoma, CDKN2A deep deletion" },
     { genes: ["RB1"],    line: "WERI-Rb-1",  note: "retinoblastoma, RB1 homozygous deletion" },
-    { genes: ["PTEN"],   line: "PC-3",       note: "prostate cancer, PTEN deletion" },
 ]
 
 function _renderCnPickerExamples() {
@@ -1436,14 +1434,17 @@ function CN_showResults() {
             ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
             : ""
         const sourceTag = ""
-        return `<th style="min-width:170px; max-width:240px; padding:6px 10px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
+        return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
             <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
-            <div style="font-size:0.72rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.3; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
+            <div style="font-size:0.7rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.25; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
             ${ploidyNote ? `<div style="font-size:0.65rem; color:#9ca3af; text-align:center; margin-top:2px;">${ploidyNote}</div>` : ""}
         </th>`
     }).join("")
 
-    let tableHtml = `<table class="cn-results-table" style="width:auto;">`
+    // Wrap the table in a horizontally-scrollable container so the
+    // results never overflow their parent — wide panels (many cell
+    // lines × many genes) scroll instead of pushing the page sideways.
+    let tableHtml = `<div style="overflow-x:auto; width:100%; max-width:100%;"><table class="cn-results-table" style="width:auto;">`
     tableHtml += `<thead><tr><th style="text-align:left;">Gene</th>${headerCells}</tr></thead><tbody>`
     for (const r of _cnState.results.rows) {
         const synNote = r.viaSynonym
@@ -1454,14 +1455,14 @@ function CN_showResults() {
             const cell = r.perLine[cl.id]
             const v = cell?.value, t = cell?.tier, copies = cell?.copies
             if (v == null) {
-                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff; min-width:170px; max-width:240px; padding:6px 10px;">—</td>`
+                tableHtml += `<td class="cn-tier" style="color:#9ca3af; background:#fff; min-width:115px; max-width:170px; padding:6px 8px;">—</td>`
             } else {
                 const copyStr = copies != null
                     ? (copies === Math.floor(copies)
                         ? `≈ ${copies} cop${copies === 1 ? 'y' : 'ies'}`
                         : `≈ ${copies} copies`)
                     : ""
-                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg}; min-width:170px; max-width:240px; padding:6px 10px;">
+                tableHtml += `<td class="cn-tier" style="color:${t.fg}; background:${t.bg}; min-width:115px; max-width:170px; padding:6px 8px;">
                     <div style="font-weight:600;">${copyStr}</div>
                     <div style="font-size:0.7rem; opacity:0.75; margin-top:2px;">${t.label} · CN ${v.toFixed(1)}</div>
                 </td>`
@@ -1469,7 +1470,7 @@ function CN_showResults() {
         }
         tableHtml += "</tr>"
     }
-    tableHtml += "</tbody></table>"
+    tableHtml += "</tbody></table></div>"
     if (_cnState.results.notFound.length) {
         tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.join(", ")}</code></div>`
     }
