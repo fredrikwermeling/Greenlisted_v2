@@ -996,11 +996,10 @@ function _wgdBadge(wgd, ploidy) {
 
 function _renderCnPicker(list) {
     // WGD is intentionally NOT shown in the picker — it only matters
-    // once you're interpreting the CN values, and showing it on every
-    // row in a 500-entry list adds clutter without helping selection.
-    // The WGD pill + ploidy line stay on the result-table headers.
+    // once you're interpreting the CN values. The WGD pill + ploidy line
+    // stay on the result-table headers.
     const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
-    const html = list.slice(0, 500).map(c => {
+    const html = list.map(c => {
         const sel = selectedIds.has(c.id)
         const cancer = [c.disease, c.subtype].filter(Boolean).join(" · ")
         return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
@@ -1012,10 +1011,7 @@ function _renderCnPicker(list) {
             <span class="cn-picker-cancer" title="${cancer.replace(/"/g, "&quot;")}">${cancer}</span>
         </div>`
     }).join("")
-    const overflow = list.length > 500
-        ? `<div style="padding:6px 10px; font-size:0.75rem; color:#9ca3af; text-align:center;">Showing first 500 of ${list.length}. Type to narrow.</div>`
-        : ""
-    document.getElementById("cnPickerList").innerHTML = html + overflow
+    document.getElementById("cnPickerList").innerHTML = html
 }
 
 function CN_filterPicker() {
