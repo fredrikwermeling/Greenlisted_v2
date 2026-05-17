@@ -22,11 +22,17 @@ const _CN_STATE = {
     loaded: false,
     loading: null,
     data: null,                // Float32Array, gene-major
-    metadata: null,            // {genes, cellLines, nGenes, nCellLines, scaleFactor, naValue}
+    metadata: null,            // {genes, cellLines, nGenes, nCellLines, scaleFactor, naValue, cellLineSource}
     geneIndex: null,           // Map<UPPER_SYMBOL, row index>
     cellLineIndex: null,       // Map<cell line ID, column index>
+    cellLineSource: null,      // Map<cell line ID, "WGS"|"WES">
     cellLineMeta: null,        // {cellLines, cellLineName, sex, primaryDisease, subtype, lineage}
     globalSignatures: null     // per-line WGD / Ploidy / Aneuploidy / CIN
+}
+
+function CN_sourceOf(cellLineId) {
+    if (!_CN_STATE.cellLineSource) return null
+    return _CN_STATE.cellLineSource.get(cellLineId) || null
 }
 
 function CN_isLoaded() { return _CN_STATE.loaded }
@@ -54,6 +60,11 @@ async function CN_loadIfNeeded() {
         _CN_STATE.metadata.genes.forEach((g, i) => _CN_STATE.geneIndex.set(g.toUpperCase(), i))
         _CN_STATE.cellLineIndex = new Map()
         _CN_STATE.metadata.cellLines.forEach((cl, i) => _CN_STATE.cellLineIndex.set(cl, i))
+        // Per-line provenance: WGS (cleanest) or WES (24Q4 fallback for
+        // lines DepMap never WGS'd).
+        _CN_STATE.cellLineSource = new Map()
+        const srcArr = _CN_STATE.metadata.cellLineSource || []
+        srcArr.forEach((s, i) => _CN_STATE.cellLineSource.set(_CN_STATE.metadata.cellLines[i], s))
         // Binary blob — browser-native gzip decode.
         const binRes = await fetch("cn.bin.gz")
         const stream = binRes.body.pipeThrough(new DecompressionStream("gzip"))
@@ -106,7 +117,8 @@ function CN_listCellLines() {
             lineage: (m.lineage && m.lineage[id]) || "",
             ploidy: gs.ploidy,
             wgd: gs.wgd,
-            knownPloidy: gs.knownPloidy
+            knownPloidy: gs.knownPloidy,
+            source: CN_sourceOf(id)
         })
     }
     // Add any CN-only cell lines that aren't in the metadata file.
@@ -114,7 +126,8 @@ function CN_listCellLines() {
         if (!m.cellLineName || !m.cellLineName[id]) {
             const gs = CN_genomeStats(id)
             list.push({ id, name: id, sex: "", disease: "", subtype: "", lineage: "",
-                        ploidy: gs.ploidy, wgd: gs.wgd, knownPloidy: gs.knownPloidy })
+                        ploidy: gs.ploidy, wgd: gs.wgd, knownPloidy: gs.knownPloidy,
+                        source: CN_sourceOf(id) })
         }
     }
     list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))

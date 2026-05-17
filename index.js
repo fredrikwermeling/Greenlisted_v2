@@ -1142,11 +1142,14 @@ function CN_showResults() {
         const ploidyNote = cl.knownPloidy
             ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
             : ""
-        // Columns are sized to comfortably hold the cell-line name +
-        // WGD pill + cancer-type subtitle on its own lines without
-        // truncation. Cancer-type wraps to 2-3 lines as needed.
+        // Small "WES" pill for lines DepMap never WGS'd (Jurkat, K562,
+        // etc.). CN values for these came from the 24Q4 OmicsCNGene
+        // fallback — slightly noisier for focal events than WGS calls.
+        const sourceTag = cl.source === "WES"
+            ? ` <span title="CN inferred from WES (24Q4 OmicsCNGene fallback). DepMap has never WGS'd this line; focal-CN calls are slightly noisier than WGS-derived data." style="font-size:0.6rem; padding:1px 4px; border-radius:6px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; font-weight:600; letter-spacing:0.04em;">WES</span>`
+            : ""
         return `<th style="min-width:170px; max-width:240px; padding:6px 10px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
-            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}</div>
+            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
             <div style="font-size:0.72rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.3; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
             ${ploidyNote ? `<div style="font-size:0.65rem; color:#9ca3af; text-align:center; margin-top:2px;">${ploidyNote}</div>` : ""}
         </th>`
@@ -1187,9 +1190,14 @@ function CN_showResults() {
     const wgdNote = wgdLines.length > 0
         ? `<div style="margin-bottom:6px;"><b>WGD note:</b> ${wgdLines.length} of your selected line(s) (${wgdLines.map(c => c.name).join(", ")}) are flagged as <b>whole-genome doubled</b> — the baseline ploidy is ~tetraploid (~4 copies), not diploid. DepMap's CN value is relative to this per-line baseline; the &ldquo;≈ N copies&rdquo; column already multiplies by the measured ploidy so the numbers reflect the actual copy count.</div>`
         : ""
+    const wesLines = _cnState.selectedCellLines.filter(c => c.source === "WES")
+    const wesNote = wesLines.length > 0
+        ? `<div style="margin-bottom:6px;"><b>WES note:</b> ${wesLines.length} of your selected line(s) (${wesLines.map(c => c.name).join(", ")}) have a <b>WES</b> tag — these lines were never WGS'd by DepMap, and the CN values are filled from the 24Q4 <code>OmicsCNGene</code> fallback file. Focal copy-number calls (single-gene amp/del events) are slightly noisier than WGS-derived calls; whole-arm trends are reliable.</div>`
+        : ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
         <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGeneWGS</a> &mdash; relative copy number where <b>1.0 = the cell line&rsquo;s own modal baseline</b>. For a diploid line that&rsquo;s ≈ 2 actual copies; for a WGD (whole-genome-doubled) line it&rsquo;s ≈ 4. The &ldquo;≈ N copies&rdquo; estimate is <code>round(2 · CN · ploidy / 2)</code> with the per-line measured ploidy so the count reflects actual biology.</div>
         ${wgdNote}
+        ${wesNote}
         <div style="margin-bottom:6px;"><b>Fractional copies?</b> A reading like &ldquo;1.5 copies&rdquo; doesn&rsquo;t exist in a single cell &mdash; copy number is integer per cell. WGS reads an average across millions of cells in the flask, so fractional values reflect <i>sub-clonal heterogeneity</i> (e.g. half the cells lost a copy and half kept both → averages to 1.5). For CRISPR knockout this means the line is a mixed substrate: some cells need 1 edit, others need 2.</div>
         <div style="margin-bottom:6px;"><b>Tiers</b> (on the relative CN scale, independent of ploidy):
             <span style="background:#fee2e2; color:#7f1d1d; padding:1px 5px; border-radius:8px;">deep del</span> CN &lt; 0.3 &nbsp;
