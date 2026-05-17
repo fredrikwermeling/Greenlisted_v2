@@ -971,41 +971,24 @@ function confirmValidateSpecies(species) {
 // Module-level state for the CN mode. Mirrors _validateState in shape.
 var _cnState = {
     isMode: false,            // are we currently in CN-lookup mode?
-    modalContext: 'cn-mode',  // 'cn-mode' or 'screening' — what the picker's confirm should do
-    selectedCellLines: [],    // [{id, name, sex, disease, lineage}, ...] — picker working set
-    screeningCellLines: [],   // persistent selection for the section-3 screening integration
+    selectedCellLines: [],    // working set for the CN-mode modal picker
+    screeningCellLines: [],   // section-3 single-line annotation slot (array of 0 or 1)
     fullCatalogue: [],        // populated from CN_listCellLines() once loaded
     results: null,            // { rows: [{gene, perLine: {id: {value, tier}}}], notFound: [genes] }
     tsvOutput: ""             // TSV of the results table for download
 }
 
-// CN_openModalForScreening is just a thin wrapper that pre-seeds the
-// modal context so its confirm button stores the selection on the
-// screening-annotation slot instead of switching the app into CN mode.
-function CN_openModalForScreening() { return CN_openModal('screening') }
-
-async function CN_openModal(context = 'cn-mode') {
-    // In CN mode, the button toggles you OUT of CN mode. In screening
-    // mode it's just "edit selection" — always opens the picker.
-    if (context !== 'screening' && _cnState.isMode) {
+async function CN_openModal() {
+    // Toggling off — leave CN mode and clear selection.
+    if (_cnState.isMode) {
         _cnExitMode()
         return
     }
-    _cnState.modalContext = context
     const modal = document.getElementById("cnModal")
     modal.className = "fazeIn upset-modal-overlay"
     document.getElementById("cnPickerStatus").textContent = "Loading catalogue (cell-line metadata + CN matrix)…"
     document.getElementById("cnPickerConfirmBtn").disabled = true
-    // Pre-load the existing screening selection when re-opening so users
-    // can incrementally add/remove without losing what's already chosen.
-    _cnState.selectedCellLines = context === 'screening'
-        ? [...(_cnState.screeningCellLines || [])]
-        : []
-    // Confirm-button label reflects what the click will do.
-    const confirmBtn = document.getElementById("cnPickerConfirmBtn")
-    if (confirmBtn) confirmBtn.textContent = context === 'screening'
-        ? "Use selection for screening →"
-        : "Activate CN mode →"
+    _cnState.selectedCellLines = []
     _updateCnPickerSelectedCount()
     // Wire the download-progress bar — only meaningful on the first open
     // of this session (subsequent opens hit the warm cache and the bar
@@ -1146,39 +1129,49 @@ function _updateCnPickerSelectedCount() {
 function CN_confirmSelection() {
     if (_cnState.selectedCellLines.length === 0) return
     CN_closeModal()
-    if (_cnState.modalContext === 'screening') {
-        // Stash the picked lines on the screening-annotation slot and
-        // refresh the inline display in section 3. The app stays in
-        // normal screening mode — no view switch.
-        _cnState.screeningCellLines = [..._cnState.selectedCellLines]
-        _updateScreeningCellLinesDisplay()
-        return
-    }
     _cnEnterMode()
 }
 
-function _updateScreeningCellLinesDisplay() {
-    const box = document.getElementById("screeningCellLinesDisplay")
-    const clearBtn = document.getElementById("clearScreeningCellLinesBtn")
-    const list = _cnState.screeningCellLines || []
-    if (!box) return
-    if (list.length === 0) {
-        box.innerHTML = `<span style="color:#6b7280;">No cell line selected. The output will not include a copy-number file.</span>`
-        if (clearBtn) clearBtn.style.display = "none"
-    } else {
-        const chips = list.map(c =>
-            `<span style="display:inline-block; background:#ecfdf5; color:#065f46; padding:2px 8px; border-radius:10px; font-size:0.8rem; margin:2px 4px 2px 0; border:1px solid #a7f3d0;">${c.name}</span>`
-        ).join("")
-        box.innerHTML = `<span style="color:#374151;">Selected: ${list.length} cell line${list.length === 1 ? "" : "s"}.</span><br>${chips}`
-        if (clearBtn) clearBtn.style.display = "inline-block"
+// Typeahead handler for the "Pick cell line (human; optional)" input in
+// section 3. Single cell line only. First keystroke triggers a lazy CN
+// matrix load + datalist population; subsequent input is matched against
+// the catalogue and the screening-annotation slot is updated when an
+// exact match is found.
+let _screeningDatalistPopulated = false
+async function CN_handleScreeningCellLineInput() {
+    const inp = document.getElementById("screeningCellLineInput")
+    const status = document.getElementById("screeningCellLineStatus")
+    const dl = document.getElementById("screeningCellLineList")
+    if (!_screeningDatalistPopulated) {
+        if (status) status.textContent = "Loading cell-line catalogue…"
+        await CN_loadIfNeeded()
+        const list = CN_listCellLines()
+        if (dl) {
+            dl.innerHTML = list.map(c => {
+                const ann = [c.disease, c.lineage].filter(Boolean).join(" · ")
+                return `<option value="${c.name}">${ann}</option>`
+            }).join("")
+        }
+        _screeningDatalistPopulated = true
+        if (status) status.textContent = ""
     }
-}
-
-function CN_clearScreeningCellLines() {
-    _cnState.screeningCellLines = []
-    _updateScreeningCellLinesDisplay()
+    const val = inp.value.trim()
+    const list = _cnState.fullCatalogue && _cnState.fullCatalogue.length
+        ? _cnState.fullCatalogue : CN_listCellLines()
+    const match = list.find(c => c.name === val)
     const row = document.getElementById("cnAnnotationOutputRow")
-    if (row) row.style.display = "none"
+    if (match) {
+        _cnState.screeningCellLines = [match]
+        if (status) {
+            const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""
+            const cancer = [match.disease, match.lineage].filter(Boolean).join(" · ")
+            status.innerHTML = `<span style="color:#065f46;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
+        }
+    } else {
+        _cnState.screeningCellLines = []
+        if (row) row.style.display = "none"
+        if (status) status.textContent = val ? "No match yet. Pick a name from the suggestions." : ""
+    }
 }
 
 function _cnEnterMode() {

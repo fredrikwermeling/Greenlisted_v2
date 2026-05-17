@@ -291,16 +291,14 @@
 
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Human cell line (optional)</h3>
-                    <div class="plateContent" style="font-size:0.85rem;">
-                        <p style="margin:0 0 6px 0; color:#374151;">
-                            Annotate the screening output with each gene&rsquo;s DepMap copy number in one or more human cell lines &mdash; useful for pruning targets that are already deleted, or prioritising amplified ones.
-                        </p>
-                        <div id="screeningCellLinesDisplay" style="font-size:0.85rem; color:#6b7280; margin:6px 0;">
-                            No cell line selected. The output will not include a copy-number file.
-                        </div>
-                        <button class="validate-btn" onclick="CN_openModalForScreening()" style="background:#f3f4f6; color:#374151;">Pick cell line(s)&hellip;</button>
-                        <button class="validate-btn" id="clearScreeningCellLinesBtn" onclick="CN_clearScreeningCellLines()" style="background:#f3f4f6; color:#374151; display:none; margin-left:6px;">Clear</button>
+                    <h3 class="smallTitle">Pick cell line (human; optional)</h3>
+                    <div class="plateContent">
+                        <input type="text" id="screeningCellLineInput" list="screeningCellLineList"
+                               placeholder="Type to search&hellip;" autocomplete="off"
+                               oninput="CN_handleScreeningCellLineInput()"
+                               style="width:100%; padding:5px 8px; font-size:0.85rem; border:1px solid #d1d5db; border-radius:4px;">
+                        <datalist id="screeningCellLineList"></datalist>
+                        <div id="screeningCellLineStatus" style="font-size:0.78rem; color:#065f46; margin-top:3px; min-height:1em;"></div>
                     </div>
                 </div>
 
