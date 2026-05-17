@@ -1253,7 +1253,7 @@ function CN_showResults() {
             <span style="background:#bfdbfe; color:#1e3a8a; padding:1px 5px; border-radius:8px;">amp</span> 3.0&ndash;5.0 &nbsp;
             <span style="background:#93c5fd; color:#1e3a8a; padding:1px 5px; border-radius:8px;">strong amp</span> &ge; 5.0
         </div>
-        <div>For deeper exploration of human cell line information see the cell line browser at <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">correlate.cmm.se</a>.</div>
+        <div>For deeper exploration of human cell line data see <a href="https://depmap.org" target="_blank" rel="noopener">depmap.org</a> or the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">Correlate</a>, Green Listed&rsquo;s linked sister app.</div>
     </div>`
     container.innerHTML = tableHtml
 }
