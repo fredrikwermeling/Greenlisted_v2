@@ -1084,6 +1084,7 @@ async function CN_openModal() {
         document.getElementById("cnPickerStatus").textContent =
             `${_cnState.fullCatalogue.length} human cell lines available. Type to filter; click rows to (de)select.`
         _renderCnPicker(_cnState.fullCatalogue)
+        _renderCnPickerExamples()
     } catch (err) {
         document.getElementById("cnPickerStatus").textContent = "Failed to load: " + err.message
         if (progBox) progBox.style.display = "none"
@@ -1111,6 +1112,56 @@ function _wgdBadge(wgd, ploidy) {
     // estimates have been scaled to the line's actual ploidy.
     if (wgd !== true) return ""
     return ` <span title="Whole-genome-doubled: this line's genome was duplicated at some point, so its baseline is roughly tetraploid (≈ 4 copies of each gene, not 2). DepMap reports CN relative to that line-specific baseline, and the &lsquo;≈ N copies&rsquo; column already multiplies by the measured ploidy to give a true copy count." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD</span>`
+}
+
+// Canonical gene/line combinations the user can click to pre-fill the
+// picker — chosen because they show CN values far from baseline and
+// illustrate the kind of biology the feature is meant to surface.
+// `cancerLine` is the DepMap canonical CellLineName. Verified against
+// the current binary: every CN value listed in `note` is what the
+// matrix actually returns at the time these examples were added.
+const _CN_EXAMPLES = [
+    { genes: ["MDM2"],   line: "SJSA-1",     note: "osteosarcoma, massive MDM2 amplification" },
+    { genes: ["MYCN"],   line: "IMR-32",     note: "neuroblastoma, MYCN amplified" },
+    { genes: ["ERBB2"],  line: "SK-BR-3",    note: "HER2-amplified breast cancer" },
+    { genes: ["EGFR"],   line: "A-431",      note: "EGFR-amplified epidermoid carcinoma" },
+    { genes: ["MET"],    line: "MKN-45",     note: "gastric, MET amplification" },
+    { genes: ["CDKN2A"], line: "U-87 MG",    note: "glioblastoma, CDKN2A deep deletion" },
+    { genes: ["RB1"],    line: "WERI-Rb-1",  note: "retinoblastoma, RB1 homozygous deletion" },
+    { genes: ["PTEN"],   line: "PC-3",       note: "prostate cancer, PTEN deletion" },
+]
+
+function _renderCnPickerExamples() {
+    const box = document.getElementById("cnPickerExamples")
+    if (!box) return
+    const chips = _CN_EXAMPLES.map((ex, i) => {
+        const label = `${ex.genes.join(", ")} in ${ex.line}`
+        return `<a href="javascript:void(0)" onclick="CN_loadExample(${i})" title="${ex.note}" style="display:inline-block; padding:1px 8px; margin:2px 4px 2px 0; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:10px; font-size:0.75rem; text-decoration:none; cursor:pointer;">${label}</a>`
+    }).join("")
+    box.innerHTML = `<span style="font-weight:600; color:#374151;">Try a classic example:</span> ${chips}`
+}
+
+function CN_loadExample(i) {
+    const ex = _CN_EXAMPLES[i]
+    if (!ex) return
+    // Find the cell line in the catalogue by either canonical name or
+    // stripped form (DepMap stores both — "A-431" / "A431").
+    const list = _cnState.fullCatalogue || []
+    const cl = list.find(c => c.name === ex.line) || list.find(c => c.stripped === ex.line)
+    if (!cl) {
+        console.warn("CN example: line not found", ex.line)
+        return
+    }
+    _cnState.selectedCellLines = [cl]
+    _cnState.pendingTestGenes = ex.genes.slice()
+    // Sync the picker UI to show this line as selected.
+    const search = document.getElementById("cnPickerSearch")
+    if (search) search.value = ""
+    CN_filterPicker()
+    _updateCnPickerSelectedCount()
+    // Auto-confirm so the user lands in CN mode with the example loaded
+    // — a single click takes them from "what is this?" to seeing data.
+    CN_confirmSelection()
 }
 
 function _renderCnPicker(list) {
@@ -1246,7 +1297,16 @@ function _cnEnterMode() {
     if (symbolsTitle) symbolsTitle.textContent =
         `Gene symbols (CN lookup in ${_cnState.selectedCellLines.length} cell line${_cnState.selectedCellLines.length === 1 ? "" : "s"}: ${_cnState.selectedCellLines.map(c => c.name).slice(0, 5).join(", ")}${_cnState.selectedCellLines.length > 5 ? ", …" : ""})`
     if (inputPlateTitle) inputPlateTitle.textContent = "2. Input gene symbols"
-    document.getElementById("searchSymbols").value = ""
+    // If the user came in via a "classic example" chip, the gene list
+    // was queued on _cnState.pendingTestGenes — pre-fill the textarea
+    // and clear the queue so subsequent entries don't get stale.
+    const pending = _cnState.pendingTestGenes
+    if (pending && pending.length) {
+        document.getElementById("searchSymbols").value = pending.join("\n")
+        _cnState.pendingTestGenes = null
+    } else {
+        document.getElementById("searchSymbols").value = ""
+    }
     _setStatus("statusSearchSymbolsRows", "")
 }
 

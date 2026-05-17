@@ -17,8 +17,13 @@
 
             <h3>2026</h3>
             <p>
-                <strong>Copy number (human) — gene list tightened</strong> /
-                The DepMap copy-number lookup is now restricted to genes that are targetable by at least one of the built-in human CRISPR libraries (Brunello, Gattinara, GeCKO v2, Jacquere, VBC, MinLibCas9, TKOv3, Yusa v1), expanded through the human synonym table so alias hits count. Genes with no sgRNA in any library — residual pseudogenes, immunoglobulin / TCR gene segments, mitochondrial pseudogenes, and obscure long non-coding RNAs with no library coverage — are dropped, since they can't be screened anyway. Gene count went from ~32 k → ~20.8 k (close to the realistic ~20 k protein-coding count); the underlying CN matrix shrank from 92 MB to 59 MB, so the page loads faster.
+                <strong>Copy number for human cell lines</strong> /
+                A new <em>Copy number (human)</em> feature uses DepMap&rsquo;s gene-level copy-number data to inform CRISPR screen design. Two ways to use it:
+                <ul style="margin-top:6px;">
+                    <li><strong>Dedicated search</strong> &mdash; pick one or more human cell lines from the ~1 900-line DepMap catalogue and look up the relative copy number of any list of genes. Results show both the raw CN value (relative to each line&rsquo;s genome-wide baseline) and an estimated actual copy count per cell, rescaled using the line&rsquo;s measured ploidy.</li>
+                    <li><strong>Integrated with the sgRNA search</strong> &mdash; optionally pick one human cell line in section 3 and, in addition to the regular sgRNA outputs, get a per-gene copy-number file alongside. Useful for flagging genes that are heavily amplified (potentially harder to knock out) or already deleted (likely not screenable) in the line you plan to screen.</li>
+                </ul>
+                The dataset is DepMap&rsquo;s <em>OmicsCNGene</em> (24Q4 release). The gene list is restricted to genes targetable by at least one of the built-in CRISPR libraries, since those are the genes you can actually screen.
             </p>
             <p>
                 <strong>Library overlap visualization</strong> /
