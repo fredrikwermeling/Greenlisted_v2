@@ -193,15 +193,11 @@ function CN_listCellLines() {
             source: CN_sourceOf(id)
         })
     }
-    // Add any CN-only cell lines that aren't in the metadata file.
-    for (const id of _CN_STATE.metadata.cellLines) {
-        if (!m.cellLineName || !m.cellLineName[id]) {
-            const gs = CN_genomeStats(id)
-            list.push({ id, name: id, sex: "", disease: "", subtype: "", lineage: "",
-                        ploidy: gs.ploidy, wgd: gs.wgd, knownPloidy: gs.knownPloidy,
-                        source: CN_sourceOf(id) })
-        }
-    }
+    // Lines present in the CN matrix but missing from cellLineMetadata
+    // would surface in the picker only as a bare DepMap ACH-... ID, with
+    // no cancer-type or sex annotation — not useful for selection. Skip
+    // them; the CN values are still retrievable via the lookup API for
+    // any external caller that happens to know the ACH-ID.
     list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
     return list
 }
