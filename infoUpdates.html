@@ -15,46 +15,59 @@
         <h1 class="plateTitle">Updates</h1>
         <div class="plateContent">
 
+            <style>
+                .updateEntry { margin: 0 0 18px 0; padding: 10px 14px; border-left: 3px solid #10b981; background: #f9fafb; border-radius: 0 4px 4px 0; }
+                .updateEntry > .updateTitle { font-size: 1.05rem; font-weight: 600; color: #065f46; margin: 0 0 6px 0; }
+                .updateEntry > p { margin: 0 0 6px 0; }
+                .updateSubFeature { margin: 8px 0 0 0; padding: 8px 12px; background: #ffffff; border-left: 2px solid #a7f3d0; border-radius: 0 4px 4px 0; }
+                .updateSubFeature > p { margin: 0; }
+                .updateSubFeature .subTitle { font-weight: 600; color: #065f46; }
+            </style>
+
             <h3>2026</h3>
-            <p>
-                <strong>Copy number for human cell lines</strong> /
-                A new <em>Copy number (human)</em> feature uses DepMap&rsquo;s gene-level copy-number data to inform CRISPR screen design. Two ways to use it:
-                <ul style="margin-top:6px;">
-                    <li><strong>Dedicated search</strong> &mdash; pick one or more human cell lines from the ~1 900-line DepMap catalogue and look up the relative copy number of any list of genes. Results show both the raw CN value (relative to each line&rsquo;s genome-wide baseline) and an estimated actual copy count per cell, rescaled using the line&rsquo;s measured ploidy.</li>
-                    <li><strong>Integrated with the sgRNA search</strong> &mdash; optionally pick one human cell line in section 3 and, in addition to the regular sgRNA outputs, get a per-gene copy-number file alongside. Useful for flagging genes that are heavily amplified (potentially harder to knock out) or already deleted (likely not screenable) in the line you plan to screen.</li>
-                </ul>
-                The dataset is DepMap&rsquo;s <em>OmicsCNGene</em> (24Q4 release). The gene list is restricted to genes targetable by at least one of the built-in CRISPR libraries, since those are the genes you can actually screen.
-            </p>
-            <p>
-                <strong>Library overlap visualization</strong> /
-                A new "Library overlap" button shows an UpSet plot of how sgRNA sequences are shared across all built-in CRISPR libraries, for both human and mouse. This makes it easy to see which libraries have unique content and where sequences overlap.
-            </p>
-            <p>
-                <strong>Validate sgRNA feature</strong> /
-                A new validation tool that lets you search any number of sgRNA sequences and find whether they are present in any of the embedded libraries. The validation index includes top-ranked sgRNAs from several widely used CRISPR knockout libraries sourced from
-                <a target="_blank" href="https://www.addgene.org/pooled-library/#crispr">Addgene</a> and the
-                <a target="_blank" href="https://portals.broadinstitute.org/gpp/public/pool/index">Broad Institute GPP</a>,
-                including Brunello, Brie, GeCKO v2, Gattinara, Gouda, Jacquere, Julianna, VBC, Yusa Human v1, Yusa Mouse v2, TKOv3, mTKO, and MinLibCas9.
-                The tool returns the matched gene symbol, library name, gene ID, and available on-target/off-target scores for each sequence. Separate indices are available for human and mouse libraries.
-            </p>
-            <p>
-                <strong>Jacquere (human) and Julianna (mouse) libraries</strong> /
-                Added two new CRISPR knockout libraries from the Broad Institute/<a target="_blank" href="https://www.broadinstitute.org/bios/john-doench">John Doench</a> lab, designed with the latest on-target and off-target scoring (RS3 and CFD). These libraries replace Brunello and Brie as the recommended next-generation libraries for human and mouse screens, respectively.
-                See Drepanos LM et al. <em>Balancing off-target and on-target considerations for optimized Cas9 CRISPR knockout library design.</em>
-                bioRxiv 2025. doi: 10.1101/2025.08.26.672375
-                (<a target="_blank" href="https://www.biorxiv.org/content/10.1101/2025.08.26.672375v1">link to preprint</a>).
-            </p>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Copy number for human cell lines</div>
+                <p>A new <em>Copy number (human)</em> feature uses DepMap&rsquo;s gene-level copy-number data to inform CRISPR screen design. Dataset: DepMap&rsquo;s <em>OmicsCNGene</em> (24Q4 release); the gene list is restricted to genes targetable by at least one of the built-in CRISPR libraries, since those are the genes you can actually screen. The feature has two complementary ways to use it:</p>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">1. Dedicated copy-number search.</span> Pick one or more human cell lines from the ~1 900-line DepMap catalogue and look up the relative copy number of any list of genes. Results show both the raw CN value (relative to each line&rsquo;s genome-wide baseline) and an estimated actual copy count per cell, rescaled using the line&rsquo;s measured ploidy. Reached from the &ldquo;Copy number (human)&rdquo; button at the top of the app.</p>
+                </div>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">2. Copy number integrated into the sgRNA search.</span> In section 3 of the regular sgRNA flow, optionally pick one human cell line. The screening output will then include a per-gene copy-number file alongside the regular Full / Adapters / MAGeCK outputs. Useful for flagging genes that are heavily amplified (potentially harder to knock out) or already deleted (likely not screenable) in the line you plan to screen.</p>
+                </div>
+            </div>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Library overlap visualisation</div>
+                <p>A new &ldquo;Library overlap&rdquo; button shows an UpSet plot of how sgRNA sequences are shared across all built-in CRISPR libraries, for both human and mouse. This makes it easy to see which libraries have unique content and where sequences overlap.</p>
+            </div>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Validate sgRNA feature</div>
+                <p>A new validation tool that lets you search any number of sgRNA sequences and find whether they are present in any of the embedded libraries. The validation index includes top-ranked sgRNAs from several widely used CRISPR knockout libraries sourced from
+                    <a target="_blank" href="https://www.addgene.org/pooled-library/#crispr">Addgene</a> and the
+                    <a target="_blank" href="https://portals.broadinstitute.org/gpp/public/pool/index">Broad Institute GPP</a>,
+                    including Brunello, Brie, GeCKO v2, Gattinara, Gouda, Jacquere, Julianna, VBC, Yusa Human v1, Yusa Mouse v2, TKOv3, mTKO, and MinLibCas9.
+                    The tool returns the matched gene symbol, library name, gene ID, and available on-target/off-target scores for each sequence. Separate indices are available for human and mouse libraries.</p>
+            </div>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Jacquere (human) and Julianna (mouse) libraries</div>
+                <p>Added two new CRISPR knockout libraries from the Broad Institute/<a target="_blank" href="https://www.broadinstitute.org/bios/john-doench">John Doench</a> lab, designed with the latest on-target and off-target scoring (RS3 and CFD). These libraries replace Brunello and Brie as the recommended next-generation libraries for human and mouse screens, respectively.
+                    See Drepanos LM et al. <em>Balancing off-target and on-target considerations for optimized Cas9 CRISPR knockout library design.</em>
+                    bioRxiv 2025. doi: 10.1101/2025.08.26.672375
+                    (<a target="_blank" href="https://www.biorxiv.org/content/10.1101/2025.08.26.672375v1">link to preprint</a>).</p>
+            </div>
 
             <h3>2025</h3>
-            <p>
-                <strong>Launch of Green Listed v2.0</strong> /
-                A complete redesign of the Green Listed web application with an updated user interface, improved backend, and expanded library support.
-            </p>
-            <p>
-                Henkel E, Li Z, Uvehag D, Schmierer B, Henkel M, Wermeling F. <em>Green Listed v2.0: A Web Application for Streamlined Design of Custom CRISPR Screens.</em>
-                CRISPR J. 2025 Jun;8(3):216-223. doi: 10.1089/crispr.2025.0023.<br/>
-                <a target="_blank" href="https://pubmed.ncbi.nlm.nih.gov/40329823/">Link to article</a>
-            </p>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Launch of Green Listed v2.0</div>
+                <p>A complete redesign of the Green Listed web application with an updated user interface, improved backend, and expanded library support.</p>
+                <p>Henkel E, Li Z, Uvehag D, Schmierer B, Henkel M, Wermeling F. <em>Green Listed v2.0: A Web Application for Streamlined Design of Custom CRISPR Screens.</em>
+                    CRISPR J. 2025 Jun;8(3):216-223. doi: 10.1089/crispr.2025.0023.<br/>
+                    <a target="_blank" href="https://pubmed.ncbi.nlm.nih.gov/40329823/">Link to article</a></p>
+            </div>
 
         </div>
     </div>
