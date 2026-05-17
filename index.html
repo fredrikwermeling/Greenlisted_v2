@@ -115,6 +115,15 @@
                         <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">correlate.cmm.se</a>.
                     </p>
                     <div id="cnPickerStatus" style="font-size:0.85rem; color:#92400e; margin:8px 0;">Loading catalogue…</div>
+                    <div id="cnDownloadProgress" style="display:none; margin:6px 0 10px 0;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#6b7280; margin-bottom:3px;">
+                            <span id="cnDownloadLabel">Downloading copy-number matrix…</span>
+                            <span id="cnDownloadEta">…</span>
+                        </div>
+                        <div style="height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+                            <div id="cnDownloadBar" style="height:100%; width:0%; background:#10b981; transition:width 0.2s ease;"></div>
+                        </div>
+                    </div>
                     <input type="text" id="cnPickerSearch" placeholder="Search cell line by name, cancer type, or lineage…"
                            style="width:100%; padding:6px 10px; font-size:0.85rem; border:1px solid #d1d5db; border-radius:4px; margin-bottom:8px;"
                            oninput="CN_filterPicker()">

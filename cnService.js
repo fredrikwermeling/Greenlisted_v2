@@ -27,7 +27,22 @@ const _CN_STATE = {
     cellLineIndex: null,       // Map<cell line ID, column index>
     cellLineSource: null,      // Map<cell line ID, "WGS"|"WES">
     cellLineMeta: null,        // {cellLines, cellLineName, sex, primaryDisease, subtype, lineage}
-    globalSignatures: null     // per-line WGD / Ploidy / Aneuploidy / CIN
+    globalSignatures: null,    // per-line WGD / Ploidy / Aneuploidy / CIN
+    synIndex: null,            // Map<lower-symbol, Set<lower-synonym>>  (CN-internal fallback)
+    synIndexLoading: null,
+    progress: { phase: "idle", received: 0, total: 0, elapsedMs: 0 }
+}
+
+// External progress listener — UI registers a callback to redraw the
+// download bar / ETA. Receives the live _CN_STATE.progress object. Kept as
+// a simple module-scope hook so the service stays UI-agnostic.
+let _CN_PROGRESS_LISTENER = null
+function CN_onProgress(fn) { _CN_PROGRESS_LISTENER = fn }
+function _cnEmitProgress(phase, received, total, elapsedMs) {
+    _CN_STATE.progress = { phase, received, total, elapsedMs }
+    if (_CN_PROGRESS_LISTENER) {
+        try { _CN_PROGRESS_LISTENER(_CN_STATE.progress) } catch (_) {}
+    }
 }
 
 function CN_sourceOf(cellLineId) {
@@ -65,10 +80,25 @@ async function CN_loadIfNeeded() {
         _CN_STATE.cellLineSource = new Map()
         const srcArr = _CN_STATE.metadata.cellLineSource || []
         srcArr.forEach((s, i) => _CN_STATE.cellLineSource.set(_CN_STATE.metadata.cellLines[i], s))
-        // Binary blob — browser-native gzip decode.
+        // Binary blob — streamed download with byte-level progress so the
+        // UI can show received / total / ETA. The Content-Length header is
+        // the gzipped size; the gzip stream is then piped through the
+        // browser-native DecompressionStream.
+        _cnEmitProgress("starting", 0, 0, 0)
         const binRes = await fetch("cn.bin.gz")
-        const stream = binRes.body.pipeThrough(new DecompressionStream("gzip"))
+        const total = +binRes.headers.get("content-length") || 0
+        let received = 0
+        const tDl = performance.now()
+        const counter = new TransformStream({
+            transform(chunk, controller) {
+                received += chunk.length
+                _cnEmitProgress("downloading", received, total, performance.now() - tDl)
+                controller.enqueue(chunk)
+            }
+        })
+        const stream = binRes.body.pipeThrough(counter).pipeThrough(new DecompressionStream("gzip"))
         const buf = await new Response(stream).arrayBuffer()
+        _cnEmitProgress("decoding", received, total, performance.now() - tDl)
         const int16 = new Int16Array(buf)
         const sf = _CN_STATE.metadata.scaleFactor
         const na = _CN_STATE.metadata.naValue
@@ -78,9 +108,51 @@ async function CN_loadIfNeeded() {
         }
         _CN_STATE.data = out
         _CN_STATE.loaded = true
+        _cnEmitProgress("done", received, total, performance.now() - tDl)
+        // Synonym index loads in parallel — it's small (~10 MB text but
+        // gets discarded after building the Map), and most lookups will
+        // need it. We don't await here on the cold path; the resolver
+        // does its own await on demand.
+        CN_loadSynonymsIfNeeded()
         console.log(`CN matrix loaded: ${_CN_STATE.metadata.nGenes} genes × ${_CN_STATE.metadata.nCellLines} cell lines in ${((performance.now() - t0)/1000).toFixed(1)}s`)
     })()
     return _CN_STATE.loading
+}
+
+// Loads libraries/human+mouse synonym.txt directly into a CN-internal
+// Map, so symbol resolution (p53 → TP53) works even if the main app's
+// _library.synonymMap hasn't been populated yet. Tab-separated, two-column
+// (alias, canonical); we add both directions so either side resolves.
+async function CN_loadSynonymsIfNeeded() {
+    if (_CN_STATE.synIndex) return _CN_STATE.synIndex
+    if (_CN_STATE.synIndexLoading) return _CN_STATE.synIndexLoading
+    _CN_STATE.synIndexLoading = (async () => {
+        try {
+            const res = await fetch("libraries/human+mouse synonym.txt")
+            if (!res.ok) throw new Error("HTTP " + res.status)
+            const txt = await res.text()
+            const idx = new Map()
+            const lines = txt.split("\n")
+            for (let i = 1; i < lines.length; i++) {  // skip header
+                const row = lines[i].split("\t")
+                if (row.length < 2) continue
+                const a = row[0].trim().toLowerCase()
+                const b = row[1].trim().toLowerCase()
+                if (!a || !b) continue
+                if (!idx.has(a)) idx.set(a, new Set())
+                idx.get(a).add(b)
+                if (!idx.has(b)) idx.set(b, new Set())
+                idx.get(b).add(a)
+            }
+            _CN_STATE.synIndex = idx
+            console.log(`CN synonym index: ${idx.size} symbols`)
+        } catch (e) {
+            console.warn("CN synonym index unavailable:", e)
+            _CN_STATE.synIndex = new Map()  // empty, lets lookups fall through cleanly
+        }
+        return _CN_STATE.synIndex
+    })()
+    return _CN_STATE.synIndexLoading
 }
 
 // Per-line ploidy + WGD flag. Falls back to assumed-diploid (2.0) when
@@ -145,26 +217,46 @@ function CN_lookup(cellLineId, geneSymbol) {
 }
 
 // Resolve the user-input symbol against the CN gene list, falling back to
-// the library-level synonym map when there's no direct match. Returns the
-// canonical CN-matrix symbol (upper-case) plus the synonym actually used
-// (if any), or null if neither the input nor any of its synonyms are in
-// the matrix.
+// (a) the library-level synonym map when present, then (b) the CN-internal
+// synonym index loaded directly from libraries/human+mouse synonym.txt.
+// The internal index makes alias resolution work even if the main app's
+// _library.synonymMap hasn't finished loading. Returns the canonical
+// CN-matrix symbol (upper-case) plus the synonym actually used (if any),
+// or null if no match.
 function CN_resolveSymbol(symbol, synonymMap) {
     if (!_CN_STATE.loaded) return { resolved: null, viaSynonym: null }
     const upper = String(symbol).toUpperCase()
     if (_CN_STATE.geneIndex.has(upper)) return { resolved: upper, viaSynonym: null }
-    // Synonym map is keyed by lower-case symbols. Try each synonym
-    // against the CN gene list in turn — first hit wins.
+    const lower = String(symbol).toLowerCase()
+    // (a) main-app synonym map (Set-valued, lower-cased keys).
     if (synonymMap) {
-        const synSet = synonymMap[symbol.toLowerCase()]
+        const synSet = synonymMap[lower]
         if (synSet) {
             for (const syn of synSet) {
+                const su = String(syn).toUpperCase()
+                if (_CN_STATE.geneIndex.has(su)) return { resolved: su, viaSynonym: syn }
+            }
+        }
+    }
+    // (b) CN-internal synonym index (Map<string, Set<string>>).
+    if (_CN_STATE.synIndex) {
+        const synSet2 = _CN_STATE.synIndex.get(lower)
+        if (synSet2) {
+            for (const syn of synSet2) {
                 const su = syn.toUpperCase()
                 if (_CN_STATE.geneIndex.has(su)) return { resolved: su, viaSynonym: syn }
             }
         }
     }
     return { resolved: null, viaSynonym: null }
+}
+
+// Awaitable variant: ensures the CN-internal synonym index has finished
+// loading before resolving, so a cold-cache lookup of "p53" doesn't miss
+// just because the synonym file hadn't arrived yet.
+async function CN_resolveSymbolAsync(symbol, synonymMap) {
+    await CN_loadSynonymsIfNeeded()
+    return CN_resolveSymbol(symbol, synonymMap)
 }
 
 // Approximate actual copies (rounded to nearest 0.5) from the DepMap

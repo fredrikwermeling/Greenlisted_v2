@@ -919,6 +919,46 @@ async function CN_openModal() {
     document.getElementById("cnPickerConfirmBtn").disabled = true
     _cnState.selectedCellLines = []
     _updateCnPickerSelectedCount()
+    // Wire the download-progress bar — only meaningful on the first open
+    // of this session (subsequent opens hit the warm cache and the bar
+    // stays hidden because no "downloading" event fires).
+    const progBox = document.getElementById("cnDownloadProgress")
+    const progBar = document.getElementById("cnDownloadBar")
+    const progEta = document.getElementById("cnDownloadEta")
+    const progLbl = document.getElementById("cnDownloadLabel")
+    if (CN_isLoaded()) {
+        if (progBox) progBox.style.display = "none"
+    } else {
+        if (progBox) progBox.style.display = "block"
+        if (progBar) progBar.style.width = "0%"
+        if (progEta) progEta.textContent = "starting…"
+        CN_onProgress(p => {
+            if (!progBox) return
+            const mbR = (p.received / 1048576).toFixed(1)
+            const mbT = p.total ? (p.total / 1048576).toFixed(1) : "?"
+            const pct = p.total ? Math.round(100 * p.received / p.total) : 0
+            if (p.phase === "downloading") {
+                progBar.style.width = pct + "%"
+                progLbl.textContent = `Downloading CN matrix — ${mbR} / ${mbT} MB (${pct}%)`
+                if (p.received > 0 && p.elapsedMs > 200 && p.total > 0) {
+                    const rateBps = p.received / (p.elapsedMs / 1000)
+                    const remainSec = (p.total - p.received) / rateBps
+                    progEta.textContent = remainSec < 1 ? "< 1 s left"
+                                        : remainSec < 60 ? `~${Math.ceil(remainSec)} s left`
+                                        : `~${Math.ceil(remainSec / 60)} min left`
+                }
+            } else if (p.phase === "decoding") {
+                progBar.style.width = "100%"
+                progLbl.textContent = `Decompressing & decoding (${mbR} MB)…`
+                progEta.textContent = "almost there"
+            } else if (p.phase === "done") {
+                progLbl.textContent = `Loaded ${mbR} MB in ${(p.elapsedMs/1000).toFixed(1)} s`
+                progEta.textContent = "✓"
+                // Fade out after a short delay so the user sees the success state.
+                setTimeout(() => { if (progBox) progBox.style.display = "none" }, 1500)
+            }
+        })
+    }
     try {
         await CN_loadIfNeeded()
         _cnState.fullCatalogue = CN_listCellLines()
@@ -927,6 +967,7 @@ async function CN_openModal() {
         _renderCnPicker(_cnState.fullCatalogue)
     } catch (err) {
         document.getElementById("cnPickerStatus").textContent = "Failed to load: " + err.message
+        if (progBox) progBox.style.display = "none"
     }
 }
 function CN_closeModal() {
@@ -1064,6 +1105,10 @@ async function CN_runLookup() {
         // this, MAGI3 → STK11 (or similar aliases) miss even though the
         // app's synonym mode is on.
         const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
+        // Make sure the CN-internal synonym index is loaded so aliases
+        // like p53 → TP53 resolve even on a cold cache. await once here,
+        // then sync-resolve each symbol inside the loop.
+        await CN_loadSynonymsIfNeeded()
         const rows = []
         const notFound = []
         for (const g of genes) {
