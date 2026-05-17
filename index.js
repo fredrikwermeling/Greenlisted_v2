@@ -1001,7 +1001,11 @@ function _renderCnPicker(list) {
     const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
     const html = list.map(c => {
         const sel = selectedIds.has(c.id)
-        const cancer = [c.disease, c.subtype].filter(Boolean).join(" · ")
+        // Oncotree often duplicates the primaryDisease as the subtype when
+        // there's no finer subclassification (Melanoma · Melanoma); skip
+        // the subtype in that case so the row reads cleanly.
+        const subtypeShown = c.subtype && c.subtype.toLowerCase() !== (c.disease || "").toLowerCase() ? c.subtype : ""
+        const cancer = [c.disease, subtypeShown].filter(Boolean).join(" · ")
         return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
             <span>${sel ? "☑" : "☐"}</span>
             <span>
@@ -1179,7 +1183,10 @@ function CN_showResults() {
     // shows the biological copy estimate ("≈ 3 copies") on the first
     // line and the raw relative-CN number on a small second line.
     const headerCells = _cnState.selectedCellLines.map(cl => {
-        const cancer = [cl.disease, cl.subtype].filter(Boolean).join(" · ")
+        // Oncotree often duplicates the primaryDisease as the subtype when
+        // there's no finer subclassification; skip it in that case.
+        const subtypeShown = cl.subtype && cl.subtype.toLowerCase() !== (cl.disease || "").toLowerCase() ? cl.subtype : ""
+        const cancer = [cl.disease, subtypeShown].filter(Boolean).join(" · ")
         const ploidyNote = cl.knownPloidy
             ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
             : ""
