@@ -22,10 +22,9 @@ const _CN_STATE = {
     loaded: false,
     loading: null,
     data: null,                // Float32Array, gene-major
-    metadata: null,            // {genes, cellLines, nGenes, nCellLines, scaleFactor, naValue, cellLineSource}
+    metadata: null,            // {genes, cellLines, nGenes, nCellLines, scaleFactor, naValue}
     geneIndex: null,           // Map<UPPER_SYMBOL, row index>
     cellLineIndex: null,       // Map<cell line ID, column index>
-    cellLineSource: null,      // Map<cell line ID, "WGS"|"WES">
     cellLineMeta: null,        // {cellLines, cellLineName, sex, primaryDisease, subtype, lineage}
     globalSignatures: null,    // per-line WGD / Ploidy / Aneuploidy / CIN
     synIndex: null,            // Map<lower-symbol, Set<lower-synonym>>  (CN-internal fallback)
@@ -43,11 +42,6 @@ function _cnEmitProgress(phase, received, total, elapsedMs) {
     if (_CN_PROGRESS_LISTENER) {
         try { _CN_PROGRESS_LISTENER(_CN_STATE.progress) } catch (_) {}
     }
-}
-
-function CN_sourceOf(cellLineId) {
-    if (!_CN_STATE.cellLineSource) return null
-    return _CN_STATE.cellLineSource.get(cellLineId) || null
 }
 
 function CN_isLoaded() { return _CN_STATE.loaded }
@@ -75,11 +69,6 @@ async function CN_loadIfNeeded() {
         _CN_STATE.metadata.genes.forEach((g, i) => _CN_STATE.geneIndex.set(g.toUpperCase(), i))
         _CN_STATE.cellLineIndex = new Map()
         _CN_STATE.metadata.cellLines.forEach((cl, i) => _CN_STATE.cellLineIndex.set(cl, i))
-        // Per-line provenance: WGS (cleanest) or WES (24Q4 fallback for
-        // lines DepMap never WGS'd).
-        _CN_STATE.cellLineSource = new Map()
-        const srcArr = _CN_STATE.metadata.cellLineSource || []
-        srcArr.forEach((s, i) => _CN_STATE.cellLineSource.set(_CN_STATE.metadata.cellLines[i], s))
         // Binary blob — streamed download with byte-level progress so the
         // UI can show received / total / ETA. The Content-Length header is
         // the gzipped size; the gzip stream is then piped through the
@@ -189,8 +178,7 @@ function CN_listCellLines() {
             lineage: (m.lineage && m.lineage[id]) || "",
             ploidy: gs.ploidy,
             wgd: gs.wgd,
-            knownPloidy: gs.knownPloidy,
-            source: CN_sourceOf(id)
+            knownPloidy: gs.knownPloidy
         })
     }
     // Lines present in the CN matrix but missing from cellLineMetadata
