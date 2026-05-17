@@ -419,6 +419,29 @@ async function runScreening() {
         _createDownloadLink(fullOutput, settings["outputName"] + " Output", document.getElementById("fullDownload"), "text/tab-separated-values", ".tsv")
         _createDownloadLink(notFoundOutput, settings["outputName"] + " not found", document.getElementById("notFoundDownload"), "text/tab-separated-values", ".tsv")
         _createDownloadLink(MAGeCKOutput, settings["outputName"] + " MAGeCK", document.getElementById("MAGeCKDownload"), "text/csv", ".csv")
+
+        // Optional CN annotation: emit a per-gene copy-number table for
+        // the cell lines picked in section 3. Loaded lazily so users who
+        // don't use this feature don't pay the ~60 MB matrix download.
+        const screeningCl = (_cnState && _cnState.screeningCellLines) ? _cnState.screeningCellLines : []
+        const cnRow = document.getElementById("cnAnnotationOutputRow")
+        if (screeningCl.length > 0) {
+            try {
+                if (!CN_isLoaded()) {
+                    _setStatus("statusSearch", `Loading copy-number data for ${screeningCl.length} cell line(s)…`)
+                    await CN_loadIfNeeded()
+                }
+                const cnOutput = _createCnAnnotationOutput(searchOutput.filteredLibraryMap, screeningCl)
+                outputTexts["textOutputCn"] = cnOutput
+                _createDownloadLink(cnOutput, settings["outputName"] + " copy number", document.getElementById("cnAnnotationDownload"), "text/tab-separated-values", ".tsv")
+                if (cnRow) cnRow.style.display = ""
+            } catch (e) {
+                console.error("CN annotation failed:", e)
+                if (cnRow) cnRow.style.display = "none"
+            }
+        } else if (cnRow) {
+            cnRow.style.display = "none"
+        }
     }
     catch (error) {
         console.error(`Screening failed:\n`, error);
@@ -464,6 +487,53 @@ function _createMAGeCKOutput(libraryMap) {
         }
     }
     return out
+}
+
+// Per-gene CN annotation TSV — one row per gene in the screening output,
+// columns are (CN) and (~copies) for each selected cell line. Mirrors the
+// layout of the standalone CN-mode TSV so users with both files can join
+// them in Excel by gene symbol.
+function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
+    const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
+    const ploidyHeader = "# Cell-line ploidy: " + screeningCellLines.map(c =>
+        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown (assumed 2.0)"}`
+    ).join("; ")
+    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene dataset (24Q4 release). CN values are relative to each line's own genome-wide baseline (1.0 = typical, >=3 = amplification, <=0.5 = deletion). The '~copies' column rescales by the line's measured ploidy: round(CN * ploidy * 2) / 2."
+    const colHeader = [
+        "Gene",
+        "ResolvedSymbol",
+        ...screeningCellLines.map(c => `${c.name} (CN)`),
+        ...screeningCellLines.map(c => `${c.name} (~copies)`)
+    ].join("\t")
+    const lines = [sourceLine, ploidyHeader, colHeader]
+    // Use the screening output's gene order — these are the genes the
+    // user actually got sgRNAs for (post-synonym resolution + library
+    // intersection). Symbols come back capitalised but stored
+    // lower-case in libraryMap; uppercase for the CN lookup either way.
+    for (const sym of Object.keys(libraryMap)) {
+        const upper = sym.toUpperCase()
+        const { resolved } = CN_resolveSymbol(upper, synonymMap)
+        const cnCells = screeningCellLines.map(cl => {
+            if (!resolved) return ""
+            const v = CN_lookup(cl.id, resolved)
+            return v == null ? "" : v.toFixed(2)
+        })
+        const copyCells = screeningCellLines.map(cl => {
+            if (!resolved) return ""
+            const v = CN_lookup(cl.id, resolved)
+            const c = CN_approxCopies(v, cl.ploidy)
+            return c == null ? "" : (Number.isInteger(c) ? c.toString() : c.toFixed(1))
+        })
+        lines.push([upper, resolved || "", ...cnCells, ...copyCells].join("\t"))
+    }
+    return lines.join("\n") + "\n"
+}
+
+function showCnAnnotationOutput() {
+    if (outputTexts && outputTexts.textOutputCn) {
+        _setStatus("fileContent", outputTexts.textOutputCn.replace(/(?:\r\n|\r|\n)/g, '<br>'))
+        document.getElementById("fileContentContainer").style.display = "flex"
+    }
 }
 
 function _createFullTxtOutput(libraryMap, headers) {
@@ -901,23 +971,41 @@ function confirmValidateSpecies(species) {
 // Module-level state for the CN mode. Mirrors _validateState in shape.
 var _cnState = {
     isMode: false,            // are we currently in CN-lookup mode?
-    selectedCellLines: [],    // [{id, name, sex, disease, lineage}, ...]
+    modalContext: 'cn-mode',  // 'cn-mode' or 'screening' — what the picker's confirm should do
+    selectedCellLines: [],    // [{id, name, sex, disease, lineage}, ...] — picker working set
+    screeningCellLines: [],   // persistent selection for the section-3 screening integration
     fullCatalogue: [],        // populated from CN_listCellLines() once loaded
     results: null,            // { rows: [{gene, perLine: {id: {value, tier}}}], notFound: [genes] }
     tsvOutput: ""             // TSV of the results table for download
 }
 
-async function CN_openModal() {
-    // Toggling off — leave CN mode and clear selection.
-    if (_cnState.isMode) {
+// CN_openModalForScreening is just a thin wrapper that pre-seeds the
+// modal context so its confirm button stores the selection on the
+// screening-annotation slot instead of switching the app into CN mode.
+function CN_openModalForScreening() { return CN_openModal('screening') }
+
+async function CN_openModal(context = 'cn-mode') {
+    // In CN mode, the button toggles you OUT of CN mode. In screening
+    // mode it's just "edit selection" — always opens the picker.
+    if (context !== 'screening' && _cnState.isMode) {
         _cnExitMode()
         return
     }
+    _cnState.modalContext = context
     const modal = document.getElementById("cnModal")
     modal.className = "fazeIn upset-modal-overlay"
     document.getElementById("cnPickerStatus").textContent = "Loading catalogue (cell-line metadata + CN matrix)…"
     document.getElementById("cnPickerConfirmBtn").disabled = true
-    _cnState.selectedCellLines = []
+    // Pre-load the existing screening selection when re-opening so users
+    // can incrementally add/remove without losing what's already chosen.
+    _cnState.selectedCellLines = context === 'screening'
+        ? [...(_cnState.screeningCellLines || [])]
+        : []
+    // Confirm-button label reflects what the click will do.
+    const confirmBtn = document.getElementById("cnPickerConfirmBtn")
+    if (confirmBtn) confirmBtn.textContent = context === 'screening'
+        ? "Use selection for screening →"
+        : "Activate CN mode →"
     _updateCnPickerSelectedCount()
     // Wire the download-progress bar — only meaningful on the first open
     // of this session (subsequent opens hit the warm cache and the bar
@@ -1058,7 +1146,39 @@ function _updateCnPickerSelectedCount() {
 function CN_confirmSelection() {
     if (_cnState.selectedCellLines.length === 0) return
     CN_closeModal()
+    if (_cnState.modalContext === 'screening') {
+        // Stash the picked lines on the screening-annotation slot and
+        // refresh the inline display in section 3. The app stays in
+        // normal screening mode — no view switch.
+        _cnState.screeningCellLines = [..._cnState.selectedCellLines]
+        _updateScreeningCellLinesDisplay()
+        return
+    }
     _cnEnterMode()
+}
+
+function _updateScreeningCellLinesDisplay() {
+    const box = document.getElementById("screeningCellLinesDisplay")
+    const clearBtn = document.getElementById("clearScreeningCellLinesBtn")
+    const list = _cnState.screeningCellLines || []
+    if (!box) return
+    if (list.length === 0) {
+        box.innerHTML = `<span style="color:#6b7280;">No cell line selected. The output will not include a copy-number file.</span>`
+        if (clearBtn) clearBtn.style.display = "none"
+    } else {
+        const chips = list.map(c =>
+            `<span style="display:inline-block; background:#ecfdf5; color:#065f46; padding:2px 8px; border-radius:10px; font-size:0.8rem; margin:2px 4px 2px 0; border:1px solid #a7f3d0;">${c.name}</span>`
+        ).join("")
+        box.innerHTML = `<span style="color:#374151;">Selected: ${list.length} cell line${list.length === 1 ? "" : "s"}.</span><br>${chips}`
+        if (clearBtn) clearBtn.style.display = "inline-block"
+    }
+}
+
+function CN_clearScreeningCellLines() {
+    _cnState.screeningCellLines = []
+    _updateScreeningCellLinesDisplay()
+    const row = document.getElementById("cnAnnotationOutputRow")
+    if (row) row.style.display = "none"
 }
 
 function _cnEnterMode() {

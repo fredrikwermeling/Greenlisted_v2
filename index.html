@@ -247,7 +247,7 @@
             <div class="plateContent">
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Ranking</h3>
+                    <h3 class="smallTitle">Ranking (optional)</h3>
                     <table class="plateContent">
                         <tr>
                             <td>Ranking order</td>
@@ -268,7 +268,7 @@
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Sequence modifications</h3>
+                    <h3 class="smallTitle">Sequence modifications (optional)</h3>
                     <div class="plateContent">
                         <table>
                             <tr>
@@ -289,6 +289,20 @@
                     </div>
                 </div>
 
+
+                <div class="smallPlate design-only">
+                    <h3 class="smallTitle">Human cell line (optional)</h3>
+                    <div class="plateContent" style="font-size:0.85rem;">
+                        <p style="margin:0 0 6px 0; color:#374151;">
+                            Annotate the screening output with each gene&rsquo;s DepMap copy number in one or more human cell lines &mdash; useful for pruning targets that are already deleted, or prioritising amplified ones.
+                        </p>
+                        <div id="screeningCellLinesDisplay" style="font-size:0.85rem; color:#6b7280; margin:6px 0;">
+                            No cell line selected. The output will not include a copy-number file.
+                        </div>
+                        <button class="validate-btn" onclick="CN_openModalForScreening()" style="background:#f3f4f6; color:#374151;">Pick cell line(s)&hellip;</button>
+                        <button class="validate-btn" id="clearScreeningCellLinesBtn" onclick="CN_clearScreeningCellLines()" style="background:#f3f4f6; color:#374151; display:none; margin-left:6px;">Clear</button>
+                    </div>
+                </div>
 
                 <div class="smallPlate">
                     <h3 class="smallTitle">Run</h3>
@@ -340,6 +354,11 @@
                         <td>Full<br> output</td>
                         <td><a href="" id="fullDownload">Download</a></td>
                         <td><button onclick="showFullOutput()">Show</button></td>
+                    </tr>
+                    <tr class="design-only" id="cnAnnotationOutputRow" style="display:none;">
+                        <td>Copy number<br> (per gene)</td>
+                        <td><a href="" id="cnAnnotationDownload">Download</a></td>
+                        <td><button onclick="showCnAnnotationOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td>Symbols not found</td>
