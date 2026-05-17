@@ -1155,7 +1155,7 @@ function _cnBuildTsv(rows) {
     const ploidyHeader = "# Cell-line ploidy: " + _cnState.selectedCellLines.map(c =>
         `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown"}`
     ).join("; ")
-    const sourceLine = "# Data: DepMap OmicsCNGeneWGS — relative CN (1.0 = line's own modal baseline). '~copies' = round(CN × ploidy × 2) / 2."
+    const sourceLine = "# Data: DepMap OmicsCNGene (24Q4 hybrid; WGS-derived where available, WES fallback otherwise). Values are relative copy number where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
     const lines = [sourceLine, ploidyHeader, header]
     for (const r of rows) {
@@ -1233,18 +1233,18 @@ function CN_showResults() {
     // Footer: data source + ploidy / WGD explanation + tier legend + link.
     const wgdLines = _cnState.selectedCellLines.filter(c => c.wgd === true)
     const wgdNote = wgdLines.length > 0
-        ? `<div style="margin-bottom:6px;"><b>WGD note:</b> ${wgdLines.length} of your selected line(s) (${wgdLines.map(c => c.name).join(", ")}) are flagged as <b>whole-genome doubled</b> — the baseline ploidy is ~tetraploid (~4 copies), not diploid. DepMap's CN value is relative to this per-line baseline; the &ldquo;≈ N copies&rdquo; column already multiplies by the measured ploidy so the numbers reflect the actual copy count.</div>`
+        ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => c.name).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
         : ""
     const wesLines = _cnState.selectedCellLines.filter(c => c.source === "WES")
     const wesNote = wesLines.length > 0
-        ? `<div style="margin-bottom:6px;"><b>WES note:</b> ${wesLines.length} of your selected line(s) (${wesLines.map(c => c.name).join(", ")}) have a <b>WES</b> tag — these lines were never WGS'd by DepMap, and the CN values are filled from the 24Q4 <code>OmicsCNGene</code> fallback file. Focal copy-number calls (single-gene amp/del events) are slightly noisier than WGS-derived calls; whole-arm trends are reliable.</div>`
+        ? `<div style="margin-bottom:6px;"><b>WES-derived lines in this selection:</b> ${wesLines.map(c => c.name).join(", ")}. Copy number for these lines was inferred from exome sequencing rather than whole-genome sequencing. Focal single-gene calls are slightly noisier than WGS-derived calls; chromosome-arm-level trends remain reliable.</div>`
         : ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGeneWGS</a> &mdash; relative copy number where <b>1.0 = the cell line&rsquo;s own modal baseline</b>. For a diploid line that&rsquo;s ≈ 2 actual copies; for a WGD (whole-genome-doubled) line it&rsquo;s ≈ 4. The &ldquo;≈ N copies&rdquo; estimate is <code>round(2 · CN · ploidy / 2)</code> with the per-line measured ploidy so the count reflects actual biology.</div>
+        <div style="margin-bottom:6px;"><b>Data:</b> DepMap <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene</a> (24Q4 hybrid &mdash; values are WGS-derived for lines that DepMap has whole-genome sequenced, with a WES fallback for the remaining lines). Values are relative copy number, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents &ldquo;as many copies as the rest of the genome,&rdquo;</b> which is roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to recover an estimate of the actual copy count.</div>
         ${wgdNote}
         ${wesNote}
-        <div style="margin-bottom:6px;"><b>Fractional copies?</b> A reading like &ldquo;1.5 copies&rdquo; doesn&rsquo;t exist in a single cell &mdash; copy number is integer per cell. WGS reads an average across millions of cells in the flask, so fractional values reflect <i>sub-clonal heterogeneity</i> (e.g. half the cells lost a copy and half kept both → averages to 1.5). For CRISPR knockout this means the line is a mixed substrate: some cells need 1 edit, others need 2.</div>
-        <div style="margin-bottom:6px;"><b>Tiers</b> (on the relative CN scale, independent of ploidy):
+        <div style="margin-bottom:6px;">Non-integer values reflect sub-clonal heterogeneity within the cell line. Sequencing averages across millions of cells, so a value of 1.5 typically means part of the population lost a copy and part retained both. Lines with non-integer copy number are a mixed substrate for knockout: some cells need a single cut, others need two.</div>
+        <div style="margin-bottom:6px;"><b>Tier scale</b> (relative CN, independent of ploidy):
             <span style="background:#fee2e2; color:#7f1d1d; padding:1px 5px; border-radius:8px;">deep del</span> CN &lt; 0.3 &nbsp;
             <span style="background:#fef2f2; color:#991b1b; padding:1px 5px; border-radius:8px;">het loss</span> 0.3&ndash;0.7 &nbsp;
             <span style="background:#f3f4f6; color:#6b7280; padding:1px 5px; border-radius:8px;">WT</span> 0.7&ndash;1.3 &nbsp;
@@ -1253,7 +1253,7 @@ function CN_showResults() {
             <span style="background:#bfdbfe; color:#1e3a8a; padding:1px 5px; border-radius:8px;">amp</span> 3.0&ndash;5.0 &nbsp;
             <span style="background:#93c5fd; color:#1e3a8a; padding:1px 5px; border-radius:8px;">strong amp</span> &ge; 5.0
         </div>
-        <div>For deeper exploration of human cell line information see the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">correlate.cmm.se</a>.</div>
+        <div>For deeper exploration of human cell line information see the cell line browser at <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">correlate.cmm.se</a>.</div>
     </div>`
     container.innerHTML = tableHtml
 }
