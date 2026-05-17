@@ -1151,7 +1151,7 @@ function _cnBuildTsv(rows) {
     const ploidyHeader = "# Cell-line ploidy: " + _cnState.selectedCellLines.map(c =>
         `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown"}`
     ).join("; ")
-    const sourceLine = "# Data: Gene-level copy number from DepMap. For each cell line, whole-genome sequencing data is used where available, otherwise whole-exome sequencing. Values are relative copy number where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
+    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene.csv (24Q4 release). Each cell line is tagged WGS (whole-genome sequencing, cleanest) or WES (whole-exome sequencing, slightly noisier) — WGS is used where available. Values are relative copy number where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
     const lines = [sourceLine, ploidyHeader, header]
     for (const r of rows) {
@@ -1183,12 +1183,14 @@ function CN_showResults() {
         const ploidyNote = cl.knownPloidy
             ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
             : ""
-        // Small "WES" pill for lines DepMap never WGS'd (Jurkat, K562,
-        // etc.). CN values for these came from the 24Q4 OmicsCNGene
-        // fallback — slightly noisier for focal events than WGS calls.
+        // Tag every cell-line header with the sequencing modality so the
+        // WGS / WES abbreviations are introduced visually next to the
+        // name. Green pill = WGS (whole-genome sequencing, cleanest);
+        // amber/red pill = WES (whole-exome sequencing, slightly noisier
+        // for focal events).
         const sourceTag = cl.source === "WES"
-            ? ` <span title="CN inferred from WES (24Q4 OmicsCNGene fallback). DepMap has never WGS'd this line; focal-CN calls are slightly noisier than WGS-derived data." style="font-size:0.6rem; padding:1px 4px; border-radius:6px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; font-weight:600; letter-spacing:0.04em;">WES</span>`
-            : ""
+            ? ` <span title="Whole-exome sequencing. DepMap has not whole-genome sequenced this line; focal-CN calls are slightly noisier than WGS-derived data." style="font-size:0.6rem; padding:1px 4px; border-radius:6px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; font-weight:600; letter-spacing:0.04em;">WES</span>`
+            : ` <span title="Whole-genome sequencing." style="font-size:0.6rem; padding:1px 4px; border-radius:6px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:600; letter-spacing:0.04em;">WGS</span>`
         return `<th style="min-width:170px; max-width:240px; padding:6px 10px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
             <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
             <div style="font-size:0.72rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.3; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
@@ -1231,12 +1233,13 @@ function CN_showResults() {
     const wgdNote = wgdLines.length > 0
         ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => c.name).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
         : ""
-    const wesLines = _cnState.selectedCellLines.filter(c => c.source === "WES")
-    const wesNote = wesLines.length > 0
-        ? `<div style="margin-bottom:6px;"><b>WES-derived lines in this selection:</b> ${wesLines.map(c => c.name).join(", ")}. Copy number for these lines was inferred from exome sequencing rather than whole-genome sequencing. Focal single-gene calls are slightly noisier than WGS-derived calls; chromosome-arm-level trends remain reliable.</div>`
-        : ""
+    // Per-line WGS / WES badge in the column header already conveys
+    // sequencing modality, so a separate listing of WES lines in the
+    // footer would just be redundant. The introductory "Data:" sentence
+    // explains what the badge means.
+    const wesNote = ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">DepMap</a>. For each cell line, whole-genome sequencing data is used where available, otherwise whole-exome sequencing. Values are relative copy number, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to estimate the actual copy count.</div>
+        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener"><code>OmicsCNGene.csv</code></a> (24Q4 release). Each cell line is tagged as either <b>WGS</b> (whole-genome sequencing, cleanest) or <b>WES</b> (whole-exome sequencing, slightly noisier for focal events) &mdash; WGS is used where available. Values are relative copy number, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to estimate the actual copy count.</div>
         ${wgdNote}
         ${wesNote}
         <div style="margin-bottom:6px;">Non-integer values reflect sub-clonal heterogeneity within the cell line. Sequencing averages across millions of cells, so a value of 1.5 typically means part of the population lost a copy and part retained both. Lines with non-integer copy number are a mixed substrate for knockout: some cells need a single cut, others need two.</div>
