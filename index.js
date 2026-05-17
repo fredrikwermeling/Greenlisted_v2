@@ -476,14 +476,16 @@ function _createAdapterOutput(libraryMap) {
 
 
 function _createMAGeCKOutput(libraryMap) {
-    var out = "sgRNA_ID,Sequence,Gene\n"
+    // MAGeCK count's library file format expects three lowercase columns:
+    // sgRNA, sequence, gene (see the mageck-count docs). Keeping the
+    // header in the documented canonical form means the file works
+    // unmodified in `mageck count --list-seq` pipelines.
+    var out = "sgRNA,sequence,gene\n"
     for (var symbol of Object.keys(libraryMap)) {
-
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
             out = out + `${capitalizedSymbol}_${i + 1},${_applyTrim(row[settings.RNAColumn - 1])},${capitalizedSymbol}\n`
-
         }
     }
     return out
@@ -531,8 +533,7 @@ function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
 
 function showCnAnnotationOutput() {
     if (outputTexts && outputTexts.textOutputCn) {
-        _setStatus("fileContent", outputTexts.textOutputCn.replace(/(?:\r\n|\r|\n)/g, '<br>'))
-        document.getElementById("fileContentContainer").style.display = "flex"
+        _showTableOutput(outputTexts.textOutputCn)
     }
 }
 
