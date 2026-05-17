@@ -17,6 +17,10 @@
 
             <h3>2026</h3>
             <p>
+                <strong>Copy number (human) — gene list tightened</strong> /
+                The DepMap copy-number lookup is now restricted to genes that are targetable by at least one of the built-in human CRISPR libraries (Brunello, Gattinara, GeCKO v2, Jacquere, VBC, MinLibCas9, TKOv3, Yusa v1), expanded through the human synonym table so alias hits count. Genes with no sgRNA in any library — residual pseudogenes, immunoglobulin / TCR gene segments, mitochondrial pseudogenes, and obscure long non-coding RNAs with no library coverage — are dropped, since they can't be screened anyway. Gene count went from ~32 k → ~20.8 k (close to the realistic ~20 k protein-coding count); the underlying CN matrix shrank from 92 MB to 59 MB, so the page loads faster.
+            </p>
+            <p>
                 <strong>Library overlap visualization</strong> /
                 A new "Library overlap" button shows an UpSet plot of how sgRNA sequences are shared across all built-in CRISPR libraries, for both human and mouse. This makes it easy to see which libraries have unique content and where sequences overlap.
             </p>
