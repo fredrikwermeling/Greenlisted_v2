@@ -507,19 +507,34 @@ function _createMAGeCKOutput(libraryMap) {
 // columns are (CN) and (~copies) for each selected cell line. Mirrors the
 // layout of the standalone CN-mode TSV so users with both files can join
 // them in Excel by gene symbol.
+// Three labelled comment rows that head every CN TSV — kept identical
+// between the standalone CN-mode TSV and the screening-annotation TSV
+// so users see the same self-describing block in both files. The HTML
+// renderer (_renderTsvAsTable) treats lines starting with '#' as
+// paragraphs above the table, and passes the text through innerHTML
+// so the <b>...</b> labels render bold in the Show preview while
+// still being legible plain text in a downloaded .tsv opened in Excel.
+function _cnHeaderComments(ploidySummary) {
+    return [
+        "# <b>CN values</b> — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the cell line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion.",
+        "# <b>~copies column</b> — estimated actual copy count per cell, computed as round(CN × ploidy × 2) / 2 using the per-line ploidy below. Non-integer values (e.g. 1.5) mean the line is a mixed population — about half the cells have one copy count and half have another.",
+        "# <b>Cell-line ploidy</b> — the line's average DNA content per cell, where 2.0n is diploid and ~4.0n is whole-genome doubled (WGD). This run: " + ploidySummary + "."
+    ]
+}
+
 function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
     const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
-    const ploidyHeader = "# Cell-line ploidy: " + screeningCellLines.map(c =>
-        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown (assumed 2.0)"}`
+    const ploidySummary = screeningCellLines.map(c =>
+        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + "n" + (c.wgd ? " (whole-genome doubled)" : "") : "unknown (assumed 2.0n)"}`
     ).join("; ")
-    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene dataset (24Q4 release). CN values are relative to each line's own genome-wide baseline (1.0 = typical, >=3 = amplification, <=0.5 = deletion). The '~copies' column rescales by the line's measured ploidy: round(CN * ploidy * 2) / 2."
+    const headerLines = _cnHeaderComments(ploidySummary)
     const colHeader = [
         "Gene",
         "ResolvedSymbol",
         ...screeningCellLines.map(c => `${c.name} (CN)`),
         ...screeningCellLines.map(c => `${c.name} (~copies)`)
     ].join("\t")
-    const lines = [sourceLine, ploidyHeader, colHeader]
+    const lines = [...headerLines, colHeader]
     // Use the screening output's gene order — these are the genes the
     // user actually got sgRNAs for (post-synonym resolution + library
     // intersection). Symbols come back capitalised but stored
@@ -1300,13 +1315,12 @@ async function CN_runLookup() {
 
 function _cnBuildTsv(rows) {
     if (!rows.length) return ""
-    // Prefix-row: cell-line ploidy / WGD context so TSV is self-describing.
-    const ploidyHeader = "# Cell-line ploidy: " + _cnState.selectedCellLines.map(c =>
-        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + (c.wgd ? " WGD" : "") : "unknown"}`
+    const ploidySummary = _cnState.selectedCellLines.map(c =>
+        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + "n" + (c.wgd ? " (whole-genome doubled)" : "") : "unknown (assumed 2.0n)"}`
     ).join("; ")
-    const sourceLine = "# Data: Gene-level copy number from DepMap OmicsCNGene dataset (24Q4 release). Copy number values are relative where 1.0 = each line's own genome-wide baseline. The '~copies' column rescales by the line's measured ploidy: round(CN × ploidy × 2) / 2."
+    const headerLines = _cnHeaderComments(ploidySummary)
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
-    const lines = [sourceLine, ploidyHeader, header]
+    const lines = [...headerLines, header]
     for (const r of rows) {
         const cnCells = _cnState.selectedCellLines.map(cl => {
             const v = r.perLine[cl.id]?.value
