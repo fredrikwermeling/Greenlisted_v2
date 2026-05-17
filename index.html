@@ -108,10 +108,12 @@
                     <button class="upset-close-btn" onclick="CN_closeModal()">&times;</button>
                 </div>
                 <div class="upset-modal-body">
-                    <p style="margin:0 0 8px 0; font-size:0.9rem;">
-                        Gene-level copy-number values from <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">DepMap</a>. For each cell line, whole-genome sequencing data is used where available, otherwise whole-exome sequencing. Values are relative to each line&rsquo;s own genome-wide baseline: 1.0 represents the line&rsquo;s typical copy count, &ge; 3.0 is an amplification, &le; 0.5 is a deletion. The results page rescales these to estimated actual copy counts using the line&rsquo;s measured ploidy.
-                        For deeper exploration of human cell line data see <a href="https://depmap.org" target="_blank" rel="noopener">depmap.org</a> or the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">Correlate</a>, Green Listed&rsquo;s linked sister app.
-                    </p>
+                    <ul style="margin:0 0 8px 0; padding-left:18px; font-size:0.9rem; line-height:1.45;">
+                        <li>Gene-level copy number from <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">DepMap</a> &mdash; WGS where available, otherwise WES.</li>
+                        <li>Values are relative to each line&rsquo;s own genome-wide baseline: <b>1.0</b> = typical, <b>&ge; 3.0</b> = amplification, <b>&le; 0.5</b> = deletion.</li>
+                        <li>The results page rescales to estimated actual copy counts using each line&rsquo;s measured ploidy.</li>
+                        <li>More cell-line data: <a href="https://depmap.org" target="_blank" rel="noopener">depmap.org</a> or the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">Correlate</a> (Green Listed&rsquo;s sister app).</li>
+                    </ul>
                     <div id="cnPickerStatus" style="font-size:0.85rem; color:#92400e; margin:8px 0;">Loading catalogue…</div>
                     <div id="cnDownloadProgress" style="display:none; margin:6px 0 10px 0;">
                         <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#6b7280; margin-bottom:3px;">
