@@ -1144,23 +1144,31 @@ function _renderCnPickerExamples() {
 function CN_loadExample(i) {
     const ex = _CN_EXAMPLES[i]
     if (!ex) return
-    // Find the cell line in the catalogue by either canonical name or
-    // stripped form (DepMap stores both — "A-431" / "A431").
     const list = _cnState.fullCatalogue || []
-    const cl = list.find(c => c.name === ex.line) || list.find(c => c.stripped === ex.line)
-    if (!cl) {
-        console.warn("CN example: line not found", ex.line)
-        return
+    // Load the FULL panel — every gene and every cell line mentioned
+    // across all _CN_EXAMPLES — so the user sees the headline combination
+    // (e.g. MDM2 in SJSA-1) in context with the rest of the classic
+    // amp/del cases. Makes the contrast obvious: SJSA-1 has CN ~11 for
+    // MDM2 but ~1 for MYCN, while IMR-32 is the reverse, etc.
+    const allLineNames = new Set(_CN_EXAMPLES.map(e => e.line))
+    const allGenes = [...new Set(_CN_EXAMPLES.flatMap(e => e.genes))]
+    const matched = []
+    const missed = []
+    for (const name of allLineNames) {
+        const cl = list.find(c => c.name === name) || list.find(c => c.stripped === name)
+        if (cl) matched.push(cl); else missed.push(name)
     }
-    _cnState.selectedCellLines = [cl]
-    _cnState.pendingTestGenes = ex.genes.slice()
-    // Sync the picker UI to show this line as selected.
+    if (missed.length) console.warn("CN examples: lines not found", missed)
+    if (matched.length === 0) return
+    _cnState.selectedCellLines = matched
+    _cnState.pendingTestGenes = allGenes
     const search = document.getElementById("cnPickerSearch")
     if (search) search.value = ""
     CN_filterPicker()
     _updateCnPickerSelectedCount()
-    // Auto-confirm so the user lands in CN mode with the example loaded
-    // — a single click takes them from "what is this?" to seeing data.
+    // Auto-confirm so the user lands in CN mode with the full panel
+    // pre-loaded — a single click takes them from "what is this?" to
+    // seeing the headline + supporting biology.
     CN_confirmSelection()
 }
 
