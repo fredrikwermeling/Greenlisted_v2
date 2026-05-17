@@ -1134,22 +1134,26 @@ const _CN_EXAMPLES = [
 function _renderCnPickerExamples() {
     const box = document.getElementById("cnPickerExamples")
     if (!box) return
-    const chips = _CN_EXAMPLES.map((ex, i) => {
-        const label = `${ex.genes.join(", ")} in ${ex.line}`
-        return `<a href="javascript:void(0)" onclick="CN_loadExample(${i})" title="${ex.note}" style="display:inline-block; padding:1px 8px; margin:2px 4px 2px 0; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:10px; font-size:0.75rem; text-decoration:none; cursor:pointer;">${label}</a>`
-    }).join("")
-    box.innerHTML = `<span style="font-weight:600; color:#374151;">Try a classic example:</span> ${chips}`
+    // Build an inline text list of headline combinations (e.g.
+    // "MDM2 in SJSA-1, RB1 in WERI-Rb-1, …") for context, then a
+    // single button that loads the whole panel — every example gene
+    // across every example cell line — so the user sees the full
+    // amp/del contrast in one click.
+    const items = _CN_EXAMPLES.map(ex => `<b>${ex.genes.join(", ")}</b> in ${ex.line}`).join("; ")
+    box.innerHTML = `
+        <div style="font-size:0.78rem; color:#6b7280; margin-bottom:6px; line-height:1.5;">
+            <span style="font-weight:600; color:#374151;">Classic examples to try:</span> ${items}.
+        </div>
+        <a href="javascript:void(0)" onclick="CN_loadExamples()"
+           style="display:inline-block; padding:4px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:6px; font-size:0.8rem; font-weight:600; text-decoration:none; cursor:pointer;">
+            Load examples &rarr;
+        </a>`
 }
 
-function CN_loadExample(i) {
-    const ex = _CN_EXAMPLES[i]
-    if (!ex) return
+function CN_loadExamples() {
     const list = _cnState.fullCatalogue || []
-    // Load the FULL panel — every gene and every cell line mentioned
-    // across all _CN_EXAMPLES — so the user sees the headline combination
-    // (e.g. MDM2 in SJSA-1) in context with the rest of the classic
-    // amp/del cases. Makes the contrast obvious: SJSA-1 has CN ~11 for
-    // MDM2 but ~1 for MYCN, while IMR-32 is the reverse, etc.
+    // Union of every gene and every cell line mentioned across all
+    // _CN_EXAMPLES — one click loads the full panel.
     const allLineNames = new Set(_CN_EXAMPLES.map(e => e.line))
     const allGenes = [...new Set(_CN_EXAMPLES.flatMap(e => e.genes))]
     const matched = []
@@ -1166,9 +1170,6 @@ function CN_loadExample(i) {
     if (search) search.value = ""
     CN_filterPicker()
     _updateCnPickerSelectedCount()
-    // Auto-confirm so the user lands in CN mode with the full panel
-    // pre-loaded — a single click takes them from "what is this?" to
-    // seeing the headline + supporting biology.
     CN_confirmSelection()
 }
 
