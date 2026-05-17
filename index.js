@@ -939,7 +939,7 @@ async function CN_openModal() {
             const pct = p.total ? Math.round(100 * p.received / p.total) : 0
             if (p.phase === "downloading") {
                 progBar.style.width = pct + "%"
-                progLbl.textContent = `Downloading CN matrix — ${mbR} / ${mbT} MB (${pct}%)`
+                progLbl.textContent = `Loading copy-number data — ${mbR} / ${mbT} MB (${pct}%)`
                 if (p.received > 0 && p.elapsedMs > 200 && p.total > 0) {
                     const rateBps = p.received / (p.elapsedMs / 1000)
                     const remainSec = (p.total - p.received) / rateBps
