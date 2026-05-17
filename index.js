@@ -508,26 +508,42 @@ function _createMAGeCKOutput(libraryMap) {
 // layout of the standalone CN-mode TSV so users with both files can join
 // them in Excel by gene symbol.
 // Three labelled comment rows that head every CN TSV — kept identical
-// between the standalone CN-mode TSV and the screening-annotation TSV
-// so users see the same self-describing block in both files. The HTML
-// renderer (_renderTsvAsTable) treats lines starting with '#' as
-// paragraphs above the table, and passes the text through innerHTML
-// so the <b>...</b> labels render bold in the Show preview while
-// still being legible plain text in a downloaded .tsv opened in Excel.
-function _cnHeaderComments(ploidySummary) {
-    return [
-        "# <b>CN values</b> — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the cell line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion.",
-        "# <b>~copies column</b> — estimated actual copy count per cell, computed as round(CN × ploidy × 2) / 2 using the per-line ploidy below. Non-integer values (e.g. 1.5) mean the line is a mixed population — about half the cells have one copy count and half have another.",
-        "# <b>Cell-line ploidy</b> — the line's average DNA content per cell, where 2.0n is diploid and ~4.0n is whole-genome doubled (WGD). This run: " + ploidySummary + "."
-    ]
+// between the standalone CN-mode TSV and the screening-annotation TSV.
+// The HTML renderer (_renderTsvAsTable) treats lines starting with '#'
+// as paragraphs above the table and passes the text through innerHTML,
+// so the <b>…</b> labels render bold in the Show preview while still
+// reading as plain text in a downloaded .tsv opened in Excel.
+//
+// Row order matches how a user typically reads the output:
+//   1. WHICH cell line(s) was looked up + their ploidy (the context).
+//   2. What the (CN) columns mean.
+//   3. What the (~copies) columns mean.
+// Labels match the actual column headers ("A-375 (CN)" / "A-375 (~copies)")
+// when there's a single line; generic "(CN) columns" / "(~copies) columns"
+// when there are multiple, since the explanation is identical per column.
+function _cnHeaderComments(cellLines) {
+    const ploidyParts = cellLines.map(c => {
+        const p = c.knownPloidy
+            ? `${c.ploidy.toFixed(2)}n${c.wgd ? " (whole-genome doubled)" : ""}`
+            : "unknown (assumed 2.0n)"
+        return `<b>${c.name}</b> — ploidy ${p}`
+    })
+    const ploidyExplain = "Ploidy is the line's average DNA content per cell — 2.0n is diploid, ~4.0n is whole-genome doubled."
+    const ploidyRow = `# ${ploidyParts.join("; ")}. ${ploidyExplain}`
+
+    const single = cellLines.length === 1
+    const cnLabel     = single ? `<b>${cellLines[0].name} (CN)</b>`       : `<b>(CN) columns</b>`
+    const copiesLabel = single ? `<b>${cellLines[0].name} (~copies)</b>`  : `<b>(~copies) columns</b>`
+
+    const cnRow = `# ${cnLabel} — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion.`
+    const copiesRow = `# ${copiesLabel} — estimated actual copy count per cell, computed as round(CN × ploidy × 2) / 2 using the line's measured ploidy above.`
+
+    return [ploidyRow, cnRow, copiesRow]
 }
 
 function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
     const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
-    const ploidySummary = screeningCellLines.map(c =>
-        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + "n" + (c.wgd ? " (whole-genome doubled)" : "") : "unknown (assumed 2.0n)"}`
-    ).join("; ")
-    const headerLines = _cnHeaderComments(ploidySummary)
+    const headerLines = _cnHeaderComments(screeningCellLines)
     const colHeader = [
         "Gene",
         "ResolvedSymbol",
@@ -1315,10 +1331,7 @@ async function CN_runLookup() {
 
 function _cnBuildTsv(rows) {
     if (!rows.length) return ""
-    const ploidySummary = _cnState.selectedCellLines.map(c =>
-        `${c.name} = ${c.knownPloidy ? c.ploidy.toFixed(2) + "n" + (c.wgd ? " (whole-genome doubled)" : "") : "unknown (assumed 2.0n)"}`
-    ).join("; ")
-    const headerLines = _cnHeaderComments(ploidySummary)
+    const headerLines = _cnHeaderComments(_cnState.selectedCellLines)
     const header = ["Gene", "ResolvedSymbol", "ViaSynonym", ..._cnState.selectedCellLines.map(c => c.name + " (CN)"), ..._cnState.selectedCellLines.map(c => c.name + " (~copies)")].join("\t")
     const lines = [...headerLines, header]
     for (const r of rows) {
