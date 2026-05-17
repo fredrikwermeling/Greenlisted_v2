@@ -172,6 +172,7 @@ function CN_listCellLines() {
         list.push({
             id,
             name: (m.cellLineName && m.cellLineName[id]) || id,
+            stripped: (m.strippedCellLineName && m.strippedCellLineName[id]) || "",
             sex: (m.sex && m.sex[id]) || "",
             disease: (m.primaryDisease && m.primaryDisease[id]) || "",
             subtype: (m.subtype && m.subtype[id]) || "",

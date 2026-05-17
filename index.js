@@ -55,6 +55,15 @@ async function loadTestSettings() {
         throw new Error(`Failed to get default settings:\n ${error.message}`)
     }
     insertData(data)
+    // Pre-fill the optional screening cell line with A-375 (a common
+    // melanoma reference line) so the user can see what the integrated
+    // copy-number output looks like without having to discover the
+    // typeahead first.
+    const cnInp = document.getElementById("screeningCellLineInput")
+    if (cnInp) {
+        cnInp.value = "A-375"
+        CN_handleScreeningCellLineInput()
+    }
     return false
 }
 
@@ -456,6 +465,9 @@ async function runScreening() {
     document.getElementById("outputTable").style.display = "flex"
     document.getElementById("outputTable").classList.remove("statusFadeOut")
     document.getElementById("outputTable").classList.add("statusFadeIn")
+    // Default the preview to "Output with adapters" once the run
+    // completes — saves the user a click for the most-used output.
+    if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
 }
 
 function _createAdapterOutput(libraryMap) {
@@ -634,7 +646,11 @@ function showAdapterOutput() {
 }
 
 function showMAGeCKOutput() {
-    _showTableOutput(outputTexts.textOutputMAGeCK, ",")
+    // Raw .csv view — comma-separated, monospaced, exactly as the file
+    // would look opened in a text editor. MAGeCK count consumes this
+    // format directly, so seeing the literal text is what users want
+    // (a pretty HTML table hides the actual delimiter).
+    _showTextareaOutput(outputTexts.textOutputMAGeCK)
 }
 
 function showFullOutput() {
@@ -1148,10 +1164,18 @@ async function CN_handleScreeningCellLineInput() {
         await CN_loadIfNeeded()
         const list = CN_listCellLines()
         if (dl) {
-            dl.innerHTML = list.map(c => {
+            // Emit both the DepMap canonical form ("A-375") AND the
+            // hyphen-stripped form ("A375") when they differ — typing
+            // either gets an autocomplete suggestion.
+            const opts = []
+            for (const c of list) {
                 const ann = [c.disease, c.lineage].filter(Boolean).join(" · ")
-                return `<option value="${c.name}">${ann}</option>`
-            }).join("")
+                opts.push(`<option value="${c.name}">${ann}</option>`)
+                if (c.stripped && c.stripped !== c.name) {
+                    opts.push(`<option value="${c.stripped}">${c.name} &mdash; ${ann}</option>`)
+                }
+            }
+            dl.innerHTML = opts.join("")
         }
         _screeningDatalistPopulated = true
         if (status) status.textContent = ""
@@ -1159,7 +1183,9 @@ async function CN_handleScreeningCellLineInput() {
     const val = inp.value.trim()
     const list = _cnState.fullCatalogue && _cnState.fullCatalogue.length
         ? _cnState.fullCatalogue : CN_listCellLines()
-    const match = list.find(c => c.name === val)
+    // Match the user's input against either the canonical name or the
+    // stripped form (DepMap uses "A-375" / "A375" — both are correct).
+    const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
     const row = document.getElementById("cnAnnotationOutputRow")
     if (match) {
         _cnState.screeningCellLines = [match]
