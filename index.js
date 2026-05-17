@@ -1021,9 +1021,18 @@ function _renderCnPicker(list) {
 function CN_filterPicker() {
     const q = document.getElementById("cnPickerSearch").value.trim().toLowerCase()
     if (!q) { _renderCnPicker(_cnState.fullCatalogue); return }
+    // Word-prefix match per whitespace-separated token: the query must
+    // align with the start of a word in the haystack. So "rectal" hits
+    // "Rectal Adenocarcinoma" but not "Colorectal Adenocarcinoma"; "mel"
+    // still works as a prefix for "Melanoma"; and "non small" matches
+    // both "Non-" and "Small" in any order (hyphens, slashes, and
+    // punctuation all count as word boundaries).
+    const tokens = q.split(/\s+/).filter(Boolean)
+        .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    const tokenRegexes = tokens.map(t => new RegExp("(^|[^a-z0-9])" + t, "i"))
     const filtered = _cnState.fullCatalogue.filter(c => {
-        const hay = [c.name, c.disease, c.subtype, c.lineage, c.id].join(" ").toLowerCase()
-        return hay.includes(q)
+        const hay = [c.name, c.disease, c.subtype, c.lineage, c.id].join(" ")
+        return tokenRegexes.every(re => re.test(hay))
     })
     _renderCnPicker(filtered)
 }
