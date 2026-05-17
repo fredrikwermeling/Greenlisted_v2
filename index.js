@@ -954,6 +954,10 @@ function _wgdBadge(wgd, ploidy) {
 }
 
 function _renderCnPicker(list) {
+    // WGD is intentionally NOT shown in the picker — it only matters
+    // once you're interpreting the CN values, and showing it on every
+    // row in a 500-entry list adds clutter without helping selection.
+    // The WGD pill + ploidy line stay on the result-table headers.
     const selectedIds = new Set(_cnState.selectedCellLines.map(c => c.id))
     const html = list.slice(0, 500).map(c => {
         const sel = selectedIds.has(c.id)
@@ -961,7 +965,7 @@ function _renderCnPicker(list) {
         return `<div class="cn-picker-row ${sel ? "selected" : ""}" onclick="CN_togglePickerRow('${c.id}')">
             <span>${sel ? "☑" : "☐"}</span>
             <span>
-                <span class="cn-picker-name">${c.name}</span>${_wgdBadge(c.wgd, c.ploidy)}
+                <span class="cn-picker-name">${c.name}</span>
                 <span class="cn-picker-meta">&nbsp;${_sexGlyph(c.sex)}${c.lineage ? " &middot; " + c.lineage : ""}</span>
             </span>
             <span class="cn-picker-cancer" title="${cancer.replace(/"/g, "&quot;")}">${cancer}</span>
