@@ -528,7 +528,7 @@ function _cnHeaderComments(cellLines) {
             : "unknown (assumed 2.0n)"
         return `<b>${c.name}</b> — ploidy ${p}`
     })
-    const ploidyExplain = "Ploidy is the line's average DNA content per cell — 2.0n is diploid, ~4.0n is whole-genome doubled."
+    const ploidyExplain = "Ploidy is the line's average DNA content per cell (2.0n = diploid). 'Whole-genome doubled' (WGD) means the genome went through a doubling event at some point in the line's history; subsequent chromosome loss often brings current ploidy back below 4n, so WGD lines commonly sit anywhere between ~2.5n and ~4n."
     const ploidyRow = `# ${ploidyParts.join("; ")}. ${ploidyExplain}`
 
     const single = cellLines.length === 1
