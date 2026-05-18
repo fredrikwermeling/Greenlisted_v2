@@ -1578,8 +1578,24 @@ function _cnBuildResultsSvg() {
         svg += `<rect x="${x}" y="0" width="${COL_W}" height="${HEADER_H}" fill="#f9fafb" stroke="#e5e7eb"/>`
         const sex = cl.sex && cl.sex.toLowerCase() === "male" ? "♂" : cl.sex && cl.sex.toLowerCase() === "female" ? "♀" : "?"
         const sexColor = cl.sex && cl.sex.toLowerCase() === "male" ? "#1d4ed8" : cl.sex && cl.sex.toLowerCase() === "female" ? "#db2777" : "#9ca3af"
-        const wgdSuffix = cl.wgd === true ? "  WGD" : ""
-        svg += `<text x="${x + COL_W/2}" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d"><tspan fill="${sexColor}">${sex}</tspan> ${esc(cl.name)}${wgdSuffix}</text>`
+        // Name line — sex glyph + cell-line name + optional amber WGD
+        // pill rendered to the right of the name. Width of the name
+        // text is estimated by character count so the pill can be
+        // positioned just after; estimate is generous enough to keep
+        // even the longest names (WERI-Rb-1, A-375_SCH772984_R) from
+        // overlapping the pill.
+        const nameStr = `${sex} ${cl.name}`
+        const nameW = nameStr.length * 7.4
+        const nameCenterX = x + COL_W / 2
+        const nameRightX = nameCenterX + nameW / 2
+        svg += `<text x="${nameCenterX}" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d"><tspan fill="${sexColor}">${sex}</tspan> ${esc(cl.name)}</text>`
+        if (cl.wgd === true) {
+            const pillW = 30, pillH = 13
+            const pillX = nameRightX + 4
+            const pillY = 9
+            svg += `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="3" fill="#fef3c7" stroke="#fde68a"/>`
+            svg += `<text x="${pillX + pillW/2}" y="${pillY + 9}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#92400e" letter-spacing="0.4">WGD</text>`
+        }
         // Cancer-type — wrap up to two lines if needed.
         const subtypeShown = cl.subtype && cl.subtype.toLowerCase() !== (cl.disease || "").toLowerCase() ? cl.subtype : ""
         const cancer = [cl.disease, subtypeShown].filter(Boolean).join(" · ")
@@ -1593,9 +1609,10 @@ function _cnBuildResultsSvg() {
         if (l2.length > 24) l2 = l2.slice(0, 22) + "…"
         svg += `<text x="${x + COL_W/2}" y="38" text-anchor="middle" font-size="10" fill="#6b7280">${esc(l1)}</text>`
         if (l2) svg += `<text x="${x + COL_W/2}" y="51" text-anchor="middle" font-size="10" fill="#6b7280">${esc(l2)}</text>`
+        // Ploidy line — WGD repetition removed (the pill above carries
+        // that information). Just the numeric ploidy here.
         if (cl.knownPloidy) {
-            const pl = cl.ploidy.toFixed(1) + "n" + (cl.wgd ? " · WGD" : "")
-            svg += `<text x="${x + COL_W/2}" y="68" text-anchor="middle" font-size="9" fill="#9ca3af">ploidy ${pl}</text>`
+            svg += `<text x="${x + COL_W/2}" y="68" text-anchor="middle" font-size="9" fill="#9ca3af">ploidy ${cl.ploidy.toFixed(1)}n</text>`
         }
     })
 
