@@ -1659,16 +1659,24 @@ function CN_exportResultsSvg() {
 }
 
 function CN_exportResultsPng() {
-    // Rasterise the SVG at 3x scale for a high-DPI PNG suitable for
-    // slides / LinkedIn / figure panels. Browsers handle the SVG-to-
-    // raster step natively via Image → Canvas → blob.
-    const svg = _cnBuildResultsSvg()
-    if (!svg) return
-    const m = svg.match(/width="(\d+)" height="(\d+)"/)
+    // Rasterise at 4× scale for a publication-quality PNG. Two changes
+    // vs the previous version: (1) the SVG itself is overridden to
+    // declare the scaled width/height (viewBox preserved) so the
+    // browser rasterises directly at the target resolution — no canvas
+    // upscaling of a small bitmap, which is what made earlier exports
+    // look soft. (2) Canvas image-smoothing set to "high" for the small
+    // amount of resampling that still happens at the final draw.
+    const baseSvg = _cnBuildResultsSvg()
+    if (!baseSvg) return
+    const m = baseSvg.match(/width="(\d+)" height="(\d+)"/)
     const w = m ? parseInt(m[1]) : 1200
     const h = m ? parseInt(m[2]) : 600
-    const scale = 3
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
+    const scale = 4
+    const scaledSvg = baseSvg.replace(
+        /width="\d+" height="\d+"/,
+        `width="${w * scale}" height="${h * scale}"`
+    )
+    const blob = new Blob([scaledSvg], { type: "image/svg+xml;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const img = new Image()
     img.onload = () => {
@@ -1676,6 +1684,8 @@ function CN_exportResultsPng() {
         canvas.width = w * scale
         canvas.height = h * scale
         const ctx = canvas.getContext("2d")
+        ctx.imageSmoothingEnabled = true
+        if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high"
         ctx.fillStyle = "#ffffff"
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
