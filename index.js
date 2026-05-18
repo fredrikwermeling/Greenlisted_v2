@@ -735,6 +735,11 @@ async function downloadAllDesign() {
     folder.file(name + " Output.tsv", outputTexts.textOutputFull)
     folder.file(name + " not found.tsv", outputTexts.textOutputNotFound)
     folder.file(name + " Settings.txt", SET_settingsToStr())
+    // Include the per-gene copy-number annotation if the user picked a
+    // screening cell line in section 3 and the file was generated.
+    if (outputTexts.textOutputCn) {
+        folder.file(name + " copy number.tsv", outputTexts.textOutputCn)
+    }
     const blob = await zip.generateAsync({ type: "blob" })
     _downloadBlob(blob, folderName + ".zip")
 }
