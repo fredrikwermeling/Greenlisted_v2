@@ -432,6 +432,17 @@ async function runScreening() {
         // Optional CN annotation: emit a per-gene copy-number table for
         // the cell lines picked in section 3. Loaded lazily so users who
         // don't use this feature don't pay the ~60 MB matrix download.
+        // Wait for any in-flight typeahead resolution first — if the
+        // user clicked "Load test data" and then immediately "Run", the
+        // matrix download might not have finished and the screening-line
+        // selection might not be in state yet.
+        if (_cnState && _cnState.screeningInputPromise) {
+            const inputVal = document.getElementById("screeningCellLineInput")?.value?.trim()
+            if (inputVal) {
+                _setStatus("statusSearch", "Waiting for cell-line data to finish loading…")
+                try { await _cnState.screeningInputPromise } catch (_) {}
+            }
+        }
         const screeningCl = (_cnState && _cnState.screeningCellLines) ? _cnState.screeningCellLines : []
         const cnRow = document.getElementById("cnAnnotationOutputRow")
         if (screeningCl.length > 0) {
@@ -1249,50 +1260,58 @@ function CN_confirmSelection() {
 // the catalogue and the screening-annotation slot is updated when an
 // exact match is found.
 let _screeningDatalistPopulated = false
-async function CN_handleScreeningCellLineInput() {
-    const inp = document.getElementById("screeningCellLineInput")
-    const status = document.getElementById("screeningCellLineStatus")
-    const dl = document.getElementById("screeningCellLineList")
-    if (!_screeningDatalistPopulated) {
-        if (status) status.textContent = "Loading cell-line catalogue…"
-        await CN_loadIfNeeded()
-        const list = CN_listCellLines()
-        if (dl) {
-            // Emit both the DepMap canonical form ("A-375") AND the
-            // hyphen-stripped form ("A375") when they differ — typing
-            // either gets an autocomplete suggestion.
-            const opts = []
-            for (const c of list) {
-                const ann = [c.disease, c.lineage].filter(Boolean).join(" · ")
-                opts.push(`<option value="${c.name}">${ann}</option>`)
-                if (c.stripped && c.stripped !== c.name) {
-                    opts.push(`<option value="${c.stripped}">${c.name} &mdash; ${ann}</option>`)
+function CN_handleScreeningCellLineInput() {
+    // Wrap the body in a stored Promise so callers (notably runScreening)
+    // can wait for the typeahead to finish resolving before deciding
+    // whether a screening cell line was selected. Without this, pressing
+    // "Load test data" and immediately "Run" can race past the still-
+    // in-flight CN matrix load and skip the copy-number output.
+    _cnState.screeningInputPromise = (async () => {
+        const inp = document.getElementById("screeningCellLineInput")
+        const status = document.getElementById("screeningCellLineStatus")
+        const dl = document.getElementById("screeningCellLineList")
+        if (!_screeningDatalistPopulated) {
+            if (status) status.textContent = "Loading cell-line catalogue…"
+            await CN_loadIfNeeded()
+            const list = CN_listCellLines()
+            if (dl) {
+                // Emit both the DepMap canonical form ("A-375") AND the
+                // hyphen-stripped form ("A375") when they differ — typing
+                // either gets an autocomplete suggestion.
+                const opts = []
+                for (const c of list) {
+                    const ann = [c.disease, c.lineage].filter(Boolean).join(" · ")
+                    opts.push(`<option value="${c.name}">${ann}</option>`)
+                    if (c.stripped && c.stripped !== c.name) {
+                        opts.push(`<option value="${c.stripped}">${c.name} &mdash; ${ann}</option>`)
+                    }
                 }
+                dl.innerHTML = opts.join("")
             }
-            dl.innerHTML = opts.join("")
+            _screeningDatalistPopulated = true
+            if (status) status.textContent = ""
         }
-        _screeningDatalistPopulated = true
-        if (status) status.textContent = ""
-    }
-    const val = inp.value.trim()
-    const list = _cnState.fullCatalogue && _cnState.fullCatalogue.length
-        ? _cnState.fullCatalogue : CN_listCellLines()
-    // Match the user's input against either the canonical name or the
-    // stripped form (DepMap uses "A-375" / "A375" — both are correct).
-    const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
-    const row = document.getElementById("cnAnnotationOutputRow")
-    if (match) {
-        _cnState.screeningCellLines = [match]
-        if (status) {
-            const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""
-            const cancer = [match.disease, match.lineage].filter(Boolean).join(" · ")
-            status.innerHTML = `<span style="color:#065f46;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
+        const val = inp.value.trim()
+        const list = _cnState.fullCatalogue && _cnState.fullCatalogue.length
+            ? _cnState.fullCatalogue : CN_listCellLines()
+        // Match the user's input against either the canonical name or the
+        // stripped form (DepMap uses "A-375" / "A375" — both are correct).
+        const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
+        const row = document.getElementById("cnAnnotationOutputRow")
+        if (match) {
+            _cnState.screeningCellLines = [match]
+            if (status) {
+                const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""
+                const cancer = [match.disease, match.lineage].filter(Boolean).join(" · ")
+                status.innerHTML = `<span style="color:#065f46;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
+            }
+        } else {
+            _cnState.screeningCellLines = []
+            if (row) row.style.display = "none"
+            if (status) status.textContent = val ? "No match yet. Pick a name from the suggestions." : ""
         }
-    } else {
-        _cnState.screeningCellLines = []
-        if (row) row.style.display = "none"
-        if (status) status.textContent = val ? "No match yet. Pick a name from the suggestions." : ""
-    }
+    })()
+    return _cnState.screeningInputPromise
 }
 
 function _cnEnterMode() {
