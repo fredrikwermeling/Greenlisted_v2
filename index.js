@@ -533,23 +533,25 @@ function _createMAGeCKOutput(libraryMap) {
 // when there's a single line; generic "(CN) columns" / "(~copies) columns"
 // when there are multiple, since the explanation is identical per column.
 function _cnHeaderComments(cellLines) {
-    const ploidyParts = cellLines.map(c => {
-        const p = c.knownPloidy
-            ? `${c.ploidy.toFixed(2)}n${c.wgd ? " (whole-genome doubled)" : ""}`
-            : "unknown (assumed 2.0n)"
-        return `<b>${c.name}</b> — ploidy ${p}`
-    })
-    const ploidyExplain = "Ploidy is the line's average DNA content per cell (2.0n = diploid). 'Whole-genome doubled' (WGD) means the genome went through a doubling event at some point in the line's history; subsequent chromosome loss often brings current ploidy back below 4n, so WGD lines commonly sit anywhere between ~2.5n and ~4n."
-    const ploidyRow = `# ${ploidyParts.join("; ")}. ${ploidyExplain}`
-
+    // General-concept rows (apply to every CN table)
     const single = cellLines.length === 1
     const cnLabel     = single ? `<b>${cellLines[0].name} (CN)</b>`       : `<b>(CN) columns</b>`
     const copiesLabel = single ? `<b>${cellLines[0].name} (~copies)</b>`  : `<b>(~copies) columns</b>`
-
     const cnRow = `# ${cnLabel} — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion.`
     const copiesRow = `# ${copiesLabel} — estimated actual copy count per cell, snapped to whole numbers. Computed as round(CN × 2) for non-WGD lines and round(CN × 4) for WGD lines, so a typical (CN ≈ 1) gene reads as 2 copies (or 4 if WGD), regardless of the line's measured fractional ploidy.`
 
-    return [ploidyRow, cnRow, copiesRow]
+    // Run-specific row — sits right above the table and reads as a
+    // headline rather than another concept explainer. Bigger font,
+    // accent colour, and a leading ▸ marker so the cell-line-and-
+    // ploidy info is unmissable.
+    const ploidyParts = cellLines.map(c => {
+        if (!c.knownPloidy) return `<b>${c.name}</b> — ploidy unknown (assumed 2.0n, treated as non-WGD)`
+        const wgdNote = c.wgd ? `, <b>whole-genome doubled (WGD)</b>` : `, non-WGD`
+        return `<b>${c.name}</b> — ploidy <b>${c.ploidy.toFixed(2)}n</b>${wgdNote}`
+    })
+    const ploidyRow = `# <span style="display:inline-block; font-size:0.95rem; color:var(--mainColor); font-weight:500; padding:4px 8px; margin-top:4px; border-left:3px solid var(--mainColor); background:#f0fdf4;">▸ This run: ${ploidyParts.join("; ")}</span>`
+
+    return [cnRow, copiesRow, ploidyRow]
 }
 
 function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
