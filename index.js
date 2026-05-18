@@ -536,7 +536,7 @@ function _cnHeaderComments(cellLines) {
     const copiesLabel = single ? `<b>${cellLines[0].name} (~copies)</b>`  : `<b>(~copies) columns</b>`
 
     const cnRow = `# ${cnLabel} — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion.`
-    const copiesRow = `# ${copiesLabel} — estimated actual copy count per cell, computed as round(CN × ploidy × 2) / 2 using the line's measured ploidy above.`
+    const copiesRow = `# ${copiesLabel} — estimated actual copy count per cell, snapped to whole numbers. Computed as round(CN × 2) for non-WGD lines and round(CN × 4) for WGD lines, so a typical (CN ≈ 1) gene reads as 2 copies (or 4 if WGD), regardless of the line's measured fractional ploidy.`
 
     return [ploidyRow, cnRow, copiesRow]
 }
@@ -566,7 +566,7 @@ function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
         const copyCells = screeningCellLines.map(cl => {
             if (!resolved) return ""
             const v = CN_lookup(cl.id, resolved)
-            const c = CN_approxCopies(v, cl.ploidy)
+            const c = CN_approxCopies(v, cl.ploidy, cl.wgd)
             return c == null ? "" : (Number.isInteger(c) ? c.toString() : c.toFixed(1))
         })
         lines.push([upper, resolved || "", ...cnCells, ...copyCells].join("\t"))
@@ -1366,7 +1366,7 @@ async function CN_runLookup() {
                 for (const cl of _cnState.selectedCellLines) {
                     const v = CN_lookup(cl.id, resolved)
                     if (v != null) anyHit = true
-                    perLine[cl.id] = { value: v, tier: CN_tier(v), copies: CN_approxCopies(v, cl.ploidy) }
+                    perLine[cl.id] = { value: v, tier: CN_tier(v), copies: CN_approxCopies(v, cl.ploidy, cl.wgd) }
                 }
             } else {
                 for (const cl of _cnState.selectedCellLines) {
@@ -1492,7 +1492,7 @@ function CN_showResults() {
     // explains what the badge means.
     const wesNote = ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene dataset</a> (24Q4 release). Copy number values are relative, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; roughly 2 for a diploid line and roughly 4 for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column rescales by the line&rsquo;s measured ploidy &mdash; <code>round(CN × ploidy × 2) / 2</code> &mdash; to estimate the actual copy count.</div>
+        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene dataset</a> (24Q4 release). Copy number values are relative, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; <b>2</b> for a non-WGD line and <b>4</b> for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column is rounded to a whole number: <code>round(CN × 2)</code> for non-WGD lines and <code>round(CN × 4)</code> for WGD lines.</div>
         ${wgdNote}
         ${wesNote}
         <div style="margin-bottom:6px;"><b>Why some copies aren&rsquo;t whole numbers.</b> Inside any single cell a gene has a whole-number copy count (0, 1, 2, 3, &hellip;), but a cell line growing in a flask is not a single cell &mdash; it&rsquo;s millions of cells that have drifted apart genetically over many generations. Sequencing reads the average across that population, so a reported value of, say, 1.5 copies usually means roughly half the cells have lost a copy of the gene (1 copy) while the other half still have both (2 copies). For CRISPR knockout this matters: the line is a mixed substrate, with some cells needing one cut and others needing two to lose the gene entirely.</div>
@@ -1587,7 +1587,7 @@ function _cnBuildResultsSvg() {
 
     // Footer source line.
     const footY = HEADER_H + rows.length * ROW_H + 18
-    svg += `<text x="${PAD}" y="${footY}" font-size="10" fill="#6b7280">DepMap OmicsCNGene (24Q4). 1.0 = baseline; ≥ 3.0 = amplification; ≤ 0.5 = deletion. "≈ copies" = round(CN × ploidy × 2) / 2.</text>`
+    svg += `<text x="${PAD}" y="${footY}" font-size="10" fill="#6b7280">DepMap OmicsCNGene (24Q4). CN 1.0 = line's baseline; ≥ 3.0 = amplification; ≤ 0.5 = deletion. "≈ copies" = round(CN × 2) for non-WGD lines, round(CN × 4) for WGD lines.</text>`
     svg += `</svg>`
     return svg
 }

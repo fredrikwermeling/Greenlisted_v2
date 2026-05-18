@@ -244,25 +244,27 @@ async function CN_resolveSymbolAsync(symbol, synonymMap) {
     return CN_resolveSymbol(symbol, synonymMap)
 }
 
-// Approximate actual copies (rounded to nearest 0.5) from the DepMap
-// relative-CN value and the cell line's measured ploidy.
+// Approximate actual copies — integer count rounded from a nominal
+// baseline (2 for non-WGD lines, 4 for WGD lines). DepMap's measured
+// ploidy is a population average that often comes out fractional
+// (FaDu = 2.5n, A-375 = 2.85n, etc.) because parts of the genome have
+// gained or lost chromosomes; multiplying CN by that fractional value
+// produces noisy decimals like "2.5 copies" that don't match the
+// integer-per-cell biology and obscure the point. Using a nominal
+// 2 or 4 instead snaps everything to whole numbers a screener can
+// reason about:
 //
-// DepMap's CN is normalised to the line's own modal ploidy: a "balanced"
-// region in a tetraploid (WGD) line still reads as 1.0, even though it
-// has 4 actual copies. Multiplying by the measured ploidy recovers the
-// biological copy count.
+//   non-WGD line: CN 1.0 → 2 copies, CN 0.5 → 1 copy, CN 0.0 → 0 copies,
+//                 CN 1.5 → 3 copies, CN 3.0 → 6 copies, CN 5.0 → 10.
+//   WGD line:     CN 1.0 → 4 copies, CN 0.5 → 2 copies, CN 0.25 → 1.
 //
-//   non-WGD line (ploidy ≈ 2): CN 1.0 → ≈ 2 copies, CN 0.5 → ≈ 1 copy
-//   WGD line   (ploidy ≈ 3.5): CN 1.0 → ≈ 3.5 copies (rounded to 3.5),
-//                              CN 0.5 → ≈ 1.5 (lost ~2 of 4)
-//
-// Fallback: if ploidy is unknown the calculation uses diploid baseline,
-// which under-counts copies in WGD lines but doesn't fabricate biology.
-function CN_approxCopies(v, ploidy) {
+// Fallback: if WGD status is unknown the line is treated as non-WGD —
+// the conservative choice (we don't fabricate a doubling event we have
+// no evidence for).
+function CN_approxCopies(v, ploidy, wgd) {
     if (v == null || isNaN(v)) return null
-    const p = (ploidy != null && !isNaN(ploidy)) ? ploidy : 2.0
-    const c = Math.round(v * p * 2) / 2  // 0.5 resolution
-    return c
+    const p = wgd === true ? 4 : 2
+    return Math.round(v * p)
 }
 
 // Bucket a CN value into a labeled tier matching the Correlate V2 UI:
