@@ -259,6 +259,18 @@ function _renderTsvAsTable(tsv, delimiter) {
 
     var html = infoHtml + '<table class="validationResultsTable"><thead><tr>'
     const headers = lines[dataStart].split(delimiter)
+    // Italicize cells in gene-symbol columns to follow the standard
+    // nomenclature convention (HUGO: human genes uppercase italic;
+    // MGI: mouse genes sentence-case italic). We don't force the case
+    // here — the source data is already correct (DepMap stores human
+    // as "TP53" and mouse libraries as "Trp53") — we just add italic
+    // styling to the gene column when rendered as HTML. Header match
+    // covers the common patterns across all of our outputs.
+    const _GENE_HEADER_RE = /^(gene|gene symbol|gene id|target gene symbol|annotated gene symbol|gene_id|approved_symbol|resolvedsymbol|symbol|target gene)$/i
+    const italicCols = new Set()
+    for (let j = 0; j < headers.length; j++) {
+        if (_GENE_HEADER_RE.test(headers[j].trim())) italicCols.add(j)
+    }
     for (const h of headers) {
         html += `<th>${h}</th>`
     }
@@ -266,8 +278,9 @@ function _renderTsvAsTable(tsv, delimiter) {
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
         html += '<tr>'
-        for (const c of cols) {
-            html += `<td>${c}</td>`
+        for (let j = 0; j < cols.length; j++) {
+            const cell = italicCols.has(j) ? `<i>${cols[j]}</i>` : cols[j]
+            html += `<td>${cell}</td>`
         }
         html += '</tr>'
     }
@@ -1480,7 +1493,11 @@ function CN_showResults() {
         const synNote = r.viaSynonym
             ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${r.resolved}</span>`
             : ""
-        tableHtml += `<tr><td style="font-family:ui-monospace, monospace; font-weight:600; white-space:nowrap;">${r.gene}${synNote}</td>`
+        // Human gene-symbol convention: uppercase + italic. CN data is
+        // human-only (DepMap doesn't publish mouse CN), so always use
+        // the canonical uppercase resolved symbol when we have it.
+        const displayGene = (r.resolved || r.gene || "").toUpperCase()
+        tableHtml += `<tr><td style="font-weight:600; font-style:italic; white-space:nowrap;">${displayGene}${synNote}</td>`
         for (const cl of _cnState.selectedCellLines) {
             const cell = r.perLine[cl.id]
             const v = cell?.value, t = cell?.tier, copies = cell?.copies
@@ -1586,7 +1603,8 @@ function _cnBuildResultsSvg() {
     rows.forEach((r, ri) => {
         const y = HEADER_H + ri * ROW_H
         svg += `<rect x="0" y="${y}" width="${GENE_W}" height="${ROW_H}" fill="#ffffff" stroke="#e5e7eb"/>`
-        svg += `<text x="10" y="${y + ROW_H/2 + 5}" font-size="12" font-weight="700" font-family="ui-monospace,monospace" fill="#374151">${esc(r.gene)}</text>`
+        const displayGene = (r.resolved || r.gene || "").toUpperCase()
+        svg += `<text x="10" y="${y + ROW_H/2 + 5}" font-size="12" font-weight="700" font-style="italic" fill="#374151">${esc(displayGene)}</text>`
         cellLines.forEach((cl, i) => {
             const x = GENE_W + i * COL_W
             const cell = r.perLine[cl.id]
