@@ -1473,9 +1473,10 @@ function CN_showResults() {
         // there's no finer subclassification; skip it in that case.
         const subtypeShown = cl.subtype && cl.subtype.toLowerCase() !== (cl.disease || "").toLowerCase() ? cl.subtype : ""
         const cancer = [cl.disease, subtypeShown].filter(Boolean).join(" · ")
-        const ploidyNote = cl.knownPloidy
-            ? `ploidy ${cl.ploidy.toFixed(1)}${cl.wgd ? " · WGD" : ""}`
-            : ""
+        // Ploidy line carries the numeric value only; the WGD pill drawn
+        // next to the cell-line name via _wgdBadge() already conveys the
+        // doubling status, so repeating " · WGD" here was duplication.
+        const ploidyNote = cl.knownPloidy ? `ploidy ${cl.ploidy.toFixed(1)}n` : ""
         const sourceTag = ""
         return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
             <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
