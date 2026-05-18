@@ -1547,9 +1547,8 @@ function _cnBuildResultsSvg() {
     const GENE_W = 130         // gene-label column width
     const ROW_H = 50           // data-row height
     const HEADER_H = 78        // column-header height (name + cancer + ploidy)
-    const PAD = 14
     const W = GENE_W + COL_W * cellLines.length + 2
-    const H = HEADER_H + ROW_H * rows.length + 30 + 2
+    const H = HEADER_H + ROW_H * rows.length + 2
     const esc = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`
@@ -1609,9 +1608,6 @@ function _cnBuildResultsSvg() {
         })
     })
 
-    // Footer source line.
-    const footY = HEADER_H + rows.length * ROW_H + 18
-    svg += `<text x="${PAD}" y="${footY}" font-size="10" fill="#6b7280">DepMap OmicsCNGene (24Q4). CN 1.0 = line's baseline; ≥ 3.0 = amplification; ≤ 0.5 = deletion. "≈ copies" = round(CN × 2) for non-WGD lines, round(CN × 4) for WGD lines.</text>`
     svg += `</svg>`
     return svg
 }
