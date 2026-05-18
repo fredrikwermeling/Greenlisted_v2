@@ -1158,10 +1158,7 @@ function _renderCnPickerExamples() {
         <div style="font-size:0.78rem; color:#6b7280; margin-bottom:6px; line-height:1.5;">
             <span style="font-weight:600; color:#374151;">Classic examples to try:</span> ${items}.
         </div>
-        <a href="javascript:void(0)" onclick="CN_loadExamples()"
-           style="display:inline-block; padding:4px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:6px; font-size:0.8rem; font-weight:600; text-decoration:none; cursor:pointer;">
-            Load examples &rarr;
-        </a>`
+        <button class="validate-btn" onclick="CN_loadExamples()">Load examples &rarr;</button>`
 }
 
 function CN_loadExamples() {
@@ -1303,7 +1300,7 @@ function CN_handleScreeningCellLineInput() {
             if (status) {
                 const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""
                 const cancer = [match.disease, match.lineage].filter(Boolean).join(" · ")
-                status.innerHTML = `<span style="color:#065f46;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
+                status.innerHTML = `<span style="color:var(--mainColor); font-weight:600;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
             }
         } else {
             _cnState.screeningCellLines = []
@@ -1447,8 +1444,8 @@ function CN_showResults() {
     // Header row with download buttons for figure export.
     const exportButtons = `
         <div style="display:flex; gap:8px; margin-bottom:10px;">
-            <button onclick="CN_exportResultsSvg()" style="padding:5px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:4px; font-size:0.8rem; cursor:pointer;">Download SVG</button>
-            <button onclick="CN_exportResultsPng()" style="padding:5px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:4px; font-size:0.8rem; cursor:pointer;">Download PNG (high-res)</button>
+            <button class="validate-btn" onclick="CN_exportResultsSvg()">Download SVG</button>
+            <button class="validate-btn" onclick="CN_exportResultsPng()">Download PNG (high-res)</button>
         </div>`
 
     // Header note + table layout. Per-cell-line columns are fixed-width

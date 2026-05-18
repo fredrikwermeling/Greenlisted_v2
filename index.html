@@ -128,7 +128,7 @@
                         <span style="font-weight:600; color:#374151;">Try a classic example:</span>
                     </div>
                     <input type="text" id="cnPickerSearch" placeholder="Search cell line by name, cancer type, or lineage…"
-                           style="width:100%; padding:6px 10px; font-size:0.85rem; border:1px solid #d1d5db; border-radius:4px; margin-bottom:8px;"
+                           style="width:100%; padding:6px 10px; font-size:0.85rem; border:1px solid var(--outlineColor); border-radius:var(--inputRadius); margin-bottom:8px;"
                            oninput="CN_filterPicker()">
                     <div id="cnPickerList" style="max-height:280px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;"></div>
                     <div style="margin-top:10px; font-size:0.85rem;">
@@ -299,9 +299,9 @@
                         <input type="text" id="screeningCellLineInput" list="screeningCellLineList"
                                placeholder="Type to search&hellip;" autocomplete="off"
                                oninput="CN_handleScreeningCellLineInput()"
-                               style="width:100%; padding:5px 8px; font-size:0.85rem; border:1px solid #d1d5db; border-radius:4px;">
+                               style="width:100%; padding:5px 8px; font-size:0.85rem; border:1px solid var(--outlineColor); border-radius:var(--inputRadius);">
                         <datalist id="screeningCellLineList"></datalist>
-                        <div id="screeningCellLineStatus" style="font-size:0.78rem; color:#065f46; margin-top:3px; min-height:1em;"></div>
+                        <div id="screeningCellLineStatus" style="font-size:0.78rem; color:var(--mainColor); margin-top:3px; min-height:1em;"></div>
                     </div>
                 </div>
 
