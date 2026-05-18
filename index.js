@@ -1420,6 +1420,13 @@ function CN_showResults() {
     const container = document.getElementById("fileContentContainer")
     container.style.display = "block"
 
+    // Header row with download buttons for figure export.
+    const exportButtons = `
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <button onclick="CN_exportResultsSvg()" style="padding:5px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:4px; font-size:0.8rem; cursor:pointer;">Download SVG</button>
+            <button onclick="CN_exportResultsPng()" style="padding:5px 12px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:4px; font-size:0.8rem; cursor:pointer;">Download PNG (high-res)</button>
+        </div>`
+
     // Header note + table layout. Per-cell-line columns are fixed-width
     // (90px) and headers are centred over the data cells, so 2 cell lines
     // doesn't blow the table out to full page width. Each result cell
@@ -1500,5 +1507,137 @@ function CN_showResults() {
         </div>
         <div>For deeper exploration of human cell line data see <a href="https://depmap.org" target="_blank" rel="noopener">depmap.org</a> or the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">Correlate</a>, Green Listed&rsquo;s linked sister app.</div>
     </div>`
-    container.innerHTML = tableHtml
+    container.innerHTML = exportButtons + tableHtml
+}
+
+// SVG export of the CN results table — independent of the HTML layout so
+// it renders cleanly into Illustrator / Inkscape / Keynote without any
+// browser-specific styling artefacts. Layout is computed pixel-precise:
+// gene column on the left, one cell-line column per selected line, each
+// cell shows tier-coloured background + "≈ N copies" + tier · CN x.x.
+function _cnBuildResultsSvg() {
+    if (!_cnState.results) return ""
+    const cellLines = _cnState.selectedCellLines
+    const rows = _cnState.results.rows
+    const COL_W = 150          // per-cell-line column width
+    const GENE_W = 130         // gene-label column width
+    const ROW_H = 50           // data-row height
+    const HEADER_H = 78        // column-header height (name + cancer + ploidy)
+    const PAD = 14
+    const W = GENE_W + COL_W * cellLines.length + 2
+    const H = HEADER_H + ROW_H * rows.length + 30 + 2
+    const esc = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`
+    svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`
+
+    // Header row — corner cell + per-line headers.
+    svg += `<rect x="0" y="0" width="${GENE_W}" height="${HEADER_H}" fill="#f9fafb" stroke="#e5e7eb"/>`
+    svg += `<text x="10" y="${HEADER_H/2+5}" font-size="12" font-weight="700" fill="#15803d">Gene</text>`
+    cellLines.forEach((cl, i) => {
+        const x = GENE_W + i * COL_W
+        svg += `<rect x="${x}" y="0" width="${COL_W}" height="${HEADER_H}" fill="#f9fafb" stroke="#e5e7eb"/>`
+        const sex = cl.sex && cl.sex.toLowerCase() === "male" ? "♂" : cl.sex && cl.sex.toLowerCase() === "female" ? "♀" : "?"
+        const sexColor = cl.sex && cl.sex.toLowerCase() === "male" ? "#1d4ed8" : cl.sex && cl.sex.toLowerCase() === "female" ? "#db2777" : "#9ca3af"
+        const wgdSuffix = cl.wgd === true ? "  WGD" : ""
+        svg += `<text x="${x + COL_W/2}" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d"><tspan fill="${sexColor}">${sex}</tspan> ${esc(cl.name)}${wgdSuffix}</text>`
+        // Cancer-type — wrap up to two lines if needed.
+        const subtypeShown = cl.subtype && cl.subtype.toLowerCase() !== (cl.disease || "").toLowerCase() ? cl.subtype : ""
+        const cancer = [cl.disease, subtypeShown].filter(Boolean).join(" · ")
+        const words = cancer.split(/\s+/)
+        let l1 = "", l2 = ""
+        for (const w of words) {
+            const candidate = (l1 ? l1 + " " : "") + w
+            if (candidate.length <= 22) l1 = candidate
+            else l2 = (l2 ? l2 + " " : "") + w
+        }
+        if (l2.length > 24) l2 = l2.slice(0, 22) + "…"
+        svg += `<text x="${x + COL_W/2}" y="38" text-anchor="middle" font-size="10" fill="#6b7280">${esc(l1)}</text>`
+        if (l2) svg += `<text x="${x + COL_W/2}" y="51" text-anchor="middle" font-size="10" fill="#6b7280">${esc(l2)}</text>`
+        if (cl.knownPloidy) {
+            const pl = cl.ploidy.toFixed(1) + "n" + (cl.wgd ? " · WGD" : "")
+            svg += `<text x="${x + COL_W/2}" y="68" text-anchor="middle" font-size="9" fill="#9ca3af">ploidy ${pl}</text>`
+        }
+    })
+
+    // Data rows.
+    rows.forEach((r, ri) => {
+        const y = HEADER_H + ri * ROW_H
+        svg += `<rect x="0" y="${y}" width="${GENE_W}" height="${ROW_H}" fill="#ffffff" stroke="#e5e7eb"/>`
+        svg += `<text x="10" y="${y + ROW_H/2 + 5}" font-size="12" font-weight="700" font-family="ui-monospace,monospace" fill="#374151">${esc(r.gene)}</text>`
+        cellLines.forEach((cl, i) => {
+            const x = GENE_W + i * COL_W
+            const cell = r.perLine[cl.id]
+            const v = cell?.value, t = cell?.tier, copies = cell?.copies
+            if (v == null) {
+                svg += `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#ffffff" stroke="#e5e7eb"/>`
+                svg += `<text x="${x + COL_W/2}" y="${y + ROW_H/2 + 5}" text-anchor="middle" font-size="13" fill="#9ca3af">—</text>`
+            } else {
+                svg += `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${t.bg}" stroke="#e5e7eb"/>`
+                const copyStr = copies != null
+                    ? (copies === Math.floor(copies)
+                        ? `≈ ${copies} cop${copies === 1 ? 'y' : 'ies'}`
+                        : `≈ ${copies} copies`)
+                    : ""
+                svg += `<text x="${x + COL_W/2}" y="${y + 21}" text-anchor="middle" font-size="13" font-weight="700" fill="${t.fg}">${esc(copyStr)}</text>`
+                svg += `<text x="${x + COL_W/2}" y="${y + 38}" text-anchor="middle" font-size="11" fill="${t.fg}" fill-opacity="0.8">${esc(t.label)} · CN ${v.toFixed(1)}</text>`
+            }
+        })
+    })
+
+    // Footer source line.
+    const footY = HEADER_H + rows.length * ROW_H + 18
+    svg += `<text x="${PAD}" y="${footY}" font-size="10" fill="#6b7280">DepMap OmicsCNGene (24Q4). 1.0 = baseline; ≥ 3.0 = amplification; ≤ 0.5 = deletion. "≈ copies" = round(CN × ploidy × 2) / 2.</text>`
+    svg += `</svg>`
+    return svg
+}
+
+function CN_exportResultsSvg() {
+    const svg = _cnBuildResultsSvg()
+    if (!svg) return
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "copy_number_table.svg"
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function CN_exportResultsPng() {
+    // Rasterise the SVG at 3x scale for a high-DPI PNG suitable for
+    // slides / LinkedIn / figure panels. Browsers handle the SVG-to-
+    // raster step natively via Image → Canvas → blob.
+    const svg = _cnBuildResultsSvg()
+    if (!svg) return
+    const m = svg.match(/width="(\d+)" height="(\d+)"/)
+    const w = m ? parseInt(m[1]) : 1200
+    const h = m ? parseInt(m[2]) : 600
+    const scale = 3
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+        const canvas = document.createElement("canvas")
+        canvas.width = w * scale
+        canvas.height = h * scale
+        const ctx = canvas.getContext("2d")
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(pngBlob => {
+            const pngUrl = URL.createObjectURL(pngBlob)
+            const a = document.createElement("a")
+            a.href = pngUrl
+            a.download = "copy_number_table.png"
+            document.body.appendChild(a); a.click(); a.remove()
+            setTimeout(() => URL.revokeObjectURL(pngUrl), 1000)
+        }, "image/png")
+        URL.revokeObjectURL(url)
+    }
+    img.onerror = err => {
+        console.error("PNG export failed:", err)
+        URL.revokeObjectURL(url)
+    }
+    img.src = url
 }
