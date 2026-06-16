@@ -1,4 +1,1 @@
-In the analysis (for bilding network), when i use the oncoprint to exclude cells with specific mutations, it doesnt work protperly.
-- would it be possible if i use the app from a cellphone to be able to send a mail with the wiki as a pdf. something like copy .pdf into email
-- the wiki for a375 in genome signatures, says whole-genome doubling (wgd) Yes. and in the next row, ploidy >3 typically indicates WGD.  the text is a bitt coplex.    also, in th pathway scan, for a375 it says pik3ca knockout is neutroal, andpi3k not the limited node here. mixed signal between mutation and dependency.  its not clear what is ment. Alos, "gene fuisions (also called translocations" sounds strange, why not gene fusions (translocations)? 
-- cell line browser on cell phone, the tissue, and hotspot mutations can be selected and appears above the table indicated as a filter. the CN and perhaps fusion (?) dont appear like this. 
+could the copy number feture allow for exporting a list for one or several cell lines with copy# for all genes for the selected cell lines (genes on rows and cell lines on columns? 
