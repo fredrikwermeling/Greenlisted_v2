@@ -1516,11 +1516,11 @@ function _cnBuildMatrixTsv() {
         `# Green Listed — copy-number matrix. Source: DepMap OmicsCNGene dataset, 24Q4 release (human cell lines).`,
         `# Values are raw relative copy number (CN): 1.0 = the line's own genome-wide baseline (typical copy level), >= 3.0 = amplification, <= 0.5 = deletion. A blank cell means DepMap has no CN value for that gene in that line.`,
         haveLoc
-            ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband / Start / End from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
+            ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
             : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`,
         `# This run: ${lineNote}`
     ]
-    const baseCols = haveLoc ? ["Gene", "Chromosome", "Cytoband", "Start", "End"] : ["Gene"]
+    const baseCols = haveLoc ? ["Gene", "Chromosome", "Cytoband"] : ["Gene"]
     const header = [...baseCols, ...cellLines.map(c => c.name)].join("\t")
     const lines = [...headerLines, header]
     for (const { g, gi, loc } of rows) {
@@ -1528,8 +1528,6 @@ function _cnBuildMatrixTsv() {
         if (haveLoc) {
             line += "\t" + ((loc && loc.chr) || "")
                   + "\t" + ((loc && loc.band) || "")
-                  + "\t" + ((loc && loc.start != null) ? loc.start : "")
-                  + "\t" + ((loc && loc.end != null) ? loc.end : "")
         }
         for (const col of cols) {
             const v = col[gi]
