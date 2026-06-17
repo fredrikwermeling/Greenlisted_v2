@@ -1476,11 +1476,22 @@ function _cnBuildMatrixTsv() {
     if (!cellLines.length || typeof CN_matrixColumns !== "function") return ""
     const { genes, values } = CN_matrixColumns(cellLines.map(c => c.id))
     if (!genes.length) return ""
-    const headerLines = _cnHeaderComments(cellLines)
-    const note = `# <b>This file</b> — raw relative copy number (CN) for every gene in the DepMap matrix (${genes.length} genes), one column per selected cell line. A blank cell means DepMap has no CN value for that gene in that line. For the &ldquo;&approx; N copies&rdquo; conversion, tier labels and colours, use the on-screen table or the per-gene lookup TSV.`
+    // Plain-text preamble — this file is downloaded and opened in
+    // Excel/R/pandas, so (unlike the in-app _cnHeaderComments which render
+    // as HTML) the comment lines must be clean text with no tags/entities.
+    const lineNote = cellLines.map(c => {
+        if (!c.knownPloidy) return `${c.name} (ploidy unknown, assumed 2.0n / non-WGD)`
+        return `${c.name} (ploidy ${c.ploidy.toFixed(2)}n, ${c.wgd ? "WGD" : "non-WGD"})`
+    }).join("; ")
+    const headerLines = [
+        `# Green Listed — copy-number matrix. Source: DepMap OmicsCNGene dataset, 24Q4 release (human cell lines).`,
+        `# Values are raw relative copy number (CN): 1.0 = the line's own genome-wide baseline (typical copy level), >= 3.0 = amplification, <= 0.5 = deletion. A blank cell means DepMap has no CN value for that gene in that line.`,
+        `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`,
+        `# This run: ${lineNote}`
+    ]
     const header = ["Gene", ...cellLines.map(c => c.name)].join("\t")
     const cols = cellLines.map(c => values.get(c.id))
-    const lines = [...headerLines, note, header]
+    const lines = [...headerLines, header]
     for (let gi = 0; gi < genes.length; gi++) {
         let line = genes[gi]
         for (const col of cols) {
