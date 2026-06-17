@@ -201,6 +201,33 @@ function CN_lookup(cellLineId, geneSymbol) {
     return isNaN(v) ? null : v
 }
 
+// Extract full gene columns for a set of cell lines — the backbone of the
+// "download full matrix" export. Pulls straight from the in-memory matrix
+// (gene-major, stride = nCellLines) rather than calling CN_lookup once per
+// gene, so a 19k-gene × N-line export is a couple of tight loops. Returns
+// { genes: string[] (matrix order), values: Map<cellLineId, Float32Array> }
+// where each Float32Array is parallel to genes and holds raw relative CN
+// (NaN where DepMap has no value, or the whole column NaN for an unknown id).
+function CN_matrixColumns(cellLineIds) {
+    if (!_CN_STATE.loaded) return { genes: [], values: new Map() }
+    const genes = _CN_STATE.metadata.genes
+    const nG = genes.length
+    const nCL = _CN_STATE.metadata.nCellLines
+    const data = _CN_STATE.data
+    const values = new Map()
+    for (const id of cellLineIds) {
+        const ci = _CN_STATE.cellLineIndex.get(id)
+        const col = new Float32Array(nG)
+        if (ci === undefined) {
+            col.fill(NaN)
+        } else {
+            for (let gi = 0; gi < nG; gi++) col[gi] = data[gi * nCL + ci]
+        }
+        values.set(id, col)
+    }
+    return { genes, values }
+}
+
 // Resolve the user-input symbol against the CN gene list, falling back to
 // (a) the library-level synonym map when present, then (b) the CN-internal
 // synonym index loaded directly from libraries/human+mouse synonym.txt.

@@ -1258,6 +1258,8 @@ function _updateCnPickerSelectedCount() {
     const n = _cnState.selectedCellLines.length
     document.getElementById("cnPickerSelectedCount").textContent = String(n)
     document.getElementById("cnPickerConfirmBtn").disabled = (n === 0)
+    const matrixBtn = document.getElementById("cnPickerMatrixBtn")
+    if (matrixBtn) matrixBtn.disabled = (n === 0)
 }
 
 function CN_confirmSelection() {
@@ -1449,6 +1451,52 @@ function _cnBuildTsv(rows) {
         lines.push([r.gene, r.resolved || "", r.viaSynonym || "", ...cnCells, ...copyCells].join("\t"))
     }
     return lines.join("\n")
+}
+
+// Full-matrix TSV: every gene in the DepMap matrix on rows, one column per
+// selected cell line, raw relative CN in the cells (blank = no DepMap value).
+// Unlike _cnBuildTsv (which is limited to the genes the user typed and pairs
+// each line with a ~copies column), this is the analysis-friendly flat matrix
+// for loading into R / pandas / Excel. Built straight off CN_matrixColumns so
+// the ~19k rows are produced without a per-gene lookup.
+function _cnBuildMatrixTsv() {
+    const cellLines = _cnState.selectedCellLines
+    if (!cellLines.length || typeof CN_matrixColumns !== "function") return ""
+    const { genes, values } = CN_matrixColumns(cellLines.map(c => c.id))
+    if (!genes.length) return ""
+    const headerLines = _cnHeaderComments(cellLines)
+    const note = `# <b>This file</b> — raw relative copy number (CN) for every gene in the DepMap matrix (${genes.length} genes), one column per selected cell line. A blank cell means DepMap has no CN value for that gene in that line. For the &ldquo;&approx; N copies&rdquo; conversion, tier labels and colours, use the on-screen table or the per-gene lookup TSV.`
+    const header = ["Gene", ...cellLines.map(c => c.name)].join("\t")
+    const cols = cellLines.map(c => values.get(c.id))
+    const lines = [...headerLines, note, header]
+    for (let gi = 0; gi < genes.length; gi++) {
+        let line = genes[gi]
+        for (const col of cols) {
+            const v = col[gi]
+            line += "\t" + ((v == null || isNaN(v)) ? "" : v.toFixed(3))
+        }
+        lines.push(line)
+    }
+    return lines.join("\n")
+}
+
+// Download the full gene × cell-line CN matrix. Direct Blob (not
+// _createDownloadLink, whose space→tab replace would corrupt the body) and a
+// filename that names the lines when there are only a few of them.
+function CN_exportMatrixTsv() {
+    const tsv = _cnBuildMatrixTsv()
+    if (!tsv) return
+    const lines = _cnState.selectedCellLines
+    const slug = lines.length <= 3
+        ? lines.map(c => c.name.replace(/[^A-Za-z0-9._-]+/g, "_")).join("_")
+        : `${lines.length}_lines`
+    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `copy_number_matrix_${slug}.tsv`
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function CN_showResults() {
