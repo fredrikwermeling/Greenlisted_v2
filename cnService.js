@@ -29,6 +29,8 @@ const _CN_STATE = {
     globalSignatures: null,    // per-line WGD / Ploidy / Aneuploidy / CIN
     synIndex: null,            // Map<lower-symbol, Set<lower-synonym>>  (CN-internal fallback)
     synIndexLoading: null,
+    geneLoc: null,             // {symbol: {chr, band, start, end}} for the matrix export
+    geneLocLoading: null,
     progress: { phase: "idle", received: 0, total: 0, elapsedMs: 0 }
 }
 
@@ -226,6 +228,35 @@ function CN_matrixColumns(cellLineIds) {
         values.set(id, col)
     }
     return { genes, values }
+}
+
+// Gene genomic locations (chromosome / cytoband / start / end), used only
+// by the full-matrix export to annotate and order rows by position. Lazily
+// loaded so it stays off the hot CN load path. Source: Ensembl BioMart
+// (GRCh38) with NCBI gene_info map_location as cytoband-only fallback.
+async function CN_loadLocationsIfNeeded() {
+    if (_CN_STATE.geneLoc) return _CN_STATE.geneLoc
+    if (_CN_STATE.geneLocLoading) return _CN_STATE.geneLocLoading
+    _CN_STATE.geneLocLoading = (async () => {
+        try {
+            const res = await fetch("gene_locations.json")
+            if (!res.ok) throw new Error("HTTP " + res.status)
+            const j = await res.json()
+            _CN_STATE.geneLoc = j.genes || {}
+            console.log(`CN gene locations: ${Object.keys(_CN_STATE.geneLoc).length} genes`)
+        } catch (e) {
+            console.warn("gene_locations.json unavailable:", e)
+            _CN_STATE.geneLoc = {}   // empty — export just omits the location columns
+        }
+        return _CN_STATE.geneLoc
+    })()
+    return _CN_STATE.geneLocLoading
+}
+
+// Location for a single gene symbol, or null if not loaded / not mapped.
+function CN_geneLocation(symbol) {
+    if (!_CN_STATE.geneLoc) return null
+    return _CN_STATE.geneLoc[symbol] || _CN_STATE.geneLoc[String(symbol).toUpperCase()] || null
 }
 
 // Resolve the user-input symbol against the CN gene list, falling back to

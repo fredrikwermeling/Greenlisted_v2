@@ -1470,12 +1470,41 @@ function _cnBuildTsv(rows) {
 // Unlike _cnBuildTsv (which is limited to the genes the user typed and pairs
 // each line with a ~copies column), this is the analysis-friendly flat matrix
 // for loading into R / pandas / Excel. Built straight off CN_matrixColumns so
-// the ~19k rows are produced without a per-gene lookup.
+// the ~20k rows are produced without a per-gene lookup. Rows carry the gene's
+// chromosome / cytoband / coordinates and are ordered by genomic position, so
+// runs of co-amplified neighbours (e.g. a 1p34 block) land on adjacent rows.
 function _cnBuildMatrixTsv() {
     const cellLines = _cnState.selectedCellLines
     if (!cellLines.length || typeof CN_matrixColumns !== "function") return ""
     const { genes, values } = CN_matrixColumns(cellLines.map(c => c.id))
     if (!genes.length) return ""
+    const cols = cellLines.map(c => values.get(c.id))
+    const getLoc = (typeof CN_geneLocation === "function") ? CN_geneLocation : (() => null)
+    const haveLoc = !!getLoc(genes[0]) || genes.some(g => getLoc(g))
+
+    // Order rows by genomic position — chr 1..22, X, Y, MT, then start
+    // coordinate — so physically adjacent genes are adjacent rows and
+    // co-amplification blocks are obvious. Unmapped genes sort last.
+    const chrRank = ch => {
+        if (!ch) return 999
+        if (ch === "X") return 23
+        if (ch === "Y") return 24
+        if (ch === "MT") return 25
+        const n = parseInt(ch, 10)
+        return isNaN(n) ? 998 : n
+    }
+    const rows = genes.map((g, gi) => ({ g, gi, loc: getLoc(g) }))
+    if (haveLoc) {
+        rows.sort((a, b) => {
+            const ra = chrRank(a.loc && a.loc.chr), rb = chrRank(b.loc && b.loc.chr)
+            if (ra !== rb) return ra - rb
+            const sa = (a.loc && a.loc.start != null) ? a.loc.start : Infinity
+            const sb = (b.loc && b.loc.start != null) ? b.loc.start : Infinity
+            if (sa !== sb) return sa - sb
+            return a.g < b.g ? -1 : a.g > b.g ? 1 : 0
+        })
+    }
+
     // Plain-text preamble — this file is downloaded and opened in
     // Excel/R/pandas, so (unlike the in-app _cnHeaderComments which render
     // as HTML) the comment lines must be clean text with no tags/entities.
@@ -1486,14 +1515,22 @@ function _cnBuildMatrixTsv() {
     const headerLines = [
         `# Green Listed — copy-number matrix. Source: DepMap OmicsCNGene dataset, 24Q4 release (human cell lines).`,
         `# Values are raw relative copy number (CN): 1.0 = the line's own genome-wide baseline (typical copy level), >= 3.0 = amplification, <= 0.5 = deletion. A blank cell means DepMap has no CN value for that gene in that line.`,
-        `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`,
+        haveLoc
+            ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband / Start / End from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
+            : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`,
         `# This run: ${lineNote}`
     ]
-    const header = ["Gene", ...cellLines.map(c => c.name)].join("\t")
-    const cols = cellLines.map(c => values.get(c.id))
+    const baseCols = haveLoc ? ["Gene", "Chromosome", "Cytoband", "Start", "End"] : ["Gene"]
+    const header = [...baseCols, ...cellLines.map(c => c.name)].join("\t")
     const lines = [...headerLines, header]
-    for (let gi = 0; gi < genes.length; gi++) {
-        let line = genes[gi]
+    for (const { g, gi, loc } of rows) {
+        let line = g
+        if (haveLoc) {
+            line += "\t" + ((loc && loc.chr) || "")
+                  + "\t" + ((loc && loc.band) || "")
+                  + "\t" + ((loc && loc.start != null) ? loc.start : "")
+                  + "\t" + ((loc && loc.end != null) ? loc.end : "")
+        }
         for (const col of cols) {
             const v = col[gi]
             line += "\t" + ((v == null || isNaN(v)) ? "" : v.toFixed(3))
@@ -1503,10 +1540,18 @@ function _cnBuildMatrixTsv() {
     return lines.join("\n")
 }
 
-// Download the full gene × cell-line CN matrix. Direct Blob (not
+// Download the full gene × cell-line CN matrix. Loads gene locations first
+// (lazy — only this export needs them), then writes via a direct Blob (not
 // _createDownloadLink, whose space→tab replace would corrupt the body) and a
 // filename that names the lines when there are only a few of them.
-function CN_exportMatrixTsv() {
+async function CN_exportMatrixTsv() {
+    const btn = document.getElementById("cnPickerMatrixBtn")
+    const restore = btn ? btn.textContent : null
+    if (btn) { btn.disabled = true; btn.textContent = "Preparing matrix…" }
+    try {
+        if (typeof CN_loadLocationsIfNeeded === "function") await CN_loadLocationsIfNeeded()
+    } catch (_) { /* export proceeds without location columns */ }
+    if (btn) { btn.textContent = restore; btn.disabled = (_cnState.selectedCellLines.length === 0) }
     const tsv = _cnBuildMatrixTsv()
     if (!tsv) return
     const lines = _cnState.selectedCellLines
