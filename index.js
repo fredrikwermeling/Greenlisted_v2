@@ -1235,9 +1235,21 @@ function CN_filterPicker() {
     const tokens = q.split(/\s+/).filter(Boolean)
         .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     const tokenRegexes = tokens.map(t => new RegExp("(^|[^a-z0-9])" + t, "i"))
+    // Punctuation-insensitive fallback for the cell-line name/id: collapse
+    // both the query and the name to bare alphanumerics so a user who omits
+    // the hyphens/spaces still finds the line — "shsy5y" → "SH-SY5Y",
+    // "u87mg" → "U-87 MG", "skbr3" → "SK-BR-3". Only kicks in for queries
+    // of 2+ alphanumerics so a stray "-" doesn't match everything.
+    const squash = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    const sq = squash(q)
     const filtered = _cnState.fullCatalogue.filter(c => {
         const hay = [c.name, c.disease, c.subtype, c.lineage, c.id].join(" ")
-        return tokenRegexes.every(re => re.test(hay))
+        if (tokenRegexes.every(re => re.test(hay))) return true
+        if (sq.length >= 2) {
+            const names = [c.name, c.stripped, c.id].map(squash).join(" ")
+            if (names.includes(sq)) return true
+        }
+        return false
     })
     _renderCnPicker(filtered)
 }
