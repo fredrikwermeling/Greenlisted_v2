@@ -975,21 +975,23 @@ function _controlCountEdited(input) {
     changeSettings()
 }
 
-// Rough count of the sgRNAs the current symbol list will produce. Used
-// only to preview what the automatic control number would come to —
-// direct symbol matches only, since synonym and partial-match expansion
-// happen at run time. The run status reports the number actually added.
-function _estimateTargetingGuides() {
+// How many genes the current symbol list will actually produce, which is
+// what drives the suggested control count. Direct symbol matches only,
+// since synonym and partial-match expansion happen at run time, so this is
+// an estimate — the run itself recomputes from the real result.
+function _estimateTargetingGenes() {
     if (typeof _library === "undefined" || !_library || !_library.libraryMap) return 0
     const symbols = (settings && settings.searchSymbols) ? settings.searchSymbols : []
-    const top = parseInt(settings.rankingTop, 10)
-    var n = 0
-    for (const s of symbols) {
-        const rows = _library.libraryMap[s]
-        if (!rows) continue
-        n += (!isNaN(top) && top > 0) ? Math.min(rows.length, top) : rows.length
+    const found = new Set()
+    for (const s of symbols) if (_library.libraryMap[s]) found.add(s)
+    // The essential-gene panel adds genes to the design too.
+    const essCb = document.getElementById("includeEssential")
+    if (essCb && essCb.checked && typeof LIB_essentialPanel === "function") {
+        const raw = parseInt(document.getElementById("essentialCount").value, 10)
+        const n = (isNaN(raw) || raw <= 0) ? _ESSENTIAL_DEFAULT : raw
+        for (const g of LIB_essentialPanel(n)) if (_library.libraryMap[g]) found.add(g)
     }
-    return n
+    return found.size
 }
 
 // The two spike-in control rows in the UI. The long explanation of what
@@ -1007,7 +1009,7 @@ function _updateControlsStatus() {
     const box = document.getElementById("controlsStatus")
     if (!box || typeof LIB_controlInfo !== "function") return
     const info = LIB_controlInfo()
-    const est = _estimateTargetingGuides()
+    const est = _estimateTargetingGenes()
 
     const lines = []
     for (const ui of _CONTROL_UI) {
@@ -1028,20 +1030,26 @@ function _updateControlsStatus() {
             lines.push(`${ui.label}: ${avail.count} available`)
             continue
         }
-        // Pre-fill the box with the suggestion so the user can see and adjust
-        // the number, rather than having to trust an invisible "auto".
+        // Put the suggested number in the box so the user sees a concrete
+        // value they can edit, rather than an opaque "auto". The placeholder
+        // carries the same number, so clearing the box still shows what the
+        // run will fall back to.
         const suggested = SCR_suggestedControlCount(est, avail.count)
+        countInput.placeholder = String(suggested)
         if (countInput.dataset.auto !== "0") {
             countInput.value = String(suggested)
             countInput.dataset.auto = "1"
         }
         const raw = parseInt(countInput.value, 10)
-        const usingSuggestion = isNaN(raw) || raw <= 0
-        if (!usingSuggestion && raw > avail.count) {
+        const boxEmpty = isNaN(raw) || raw <= 0
+        // The number is still ours — and so labelled — whether it is sitting
+        // in the box or the box was cleared and the run will fall back to it.
+        const isSuggested = boxEmpty || countInput.dataset.auto !== "0"
+        if (!boxEmpty && raw > avail.count) {
             lines.push(`${ui.label}: only ${avail.count} exist &mdash; adding all <b>${avail.count}</b>`)
         } else {
-            const effective = usingSuggestion ? suggested : raw
-            lines.push(`${ui.label}: adding <b>${effective}</b> of ${avail.count}${usingSuggestion ? " (suggested)" : ""}`)
+            const effective = boxEmpty ? suggested : raw
+            lines.push(`${ui.label}: adding <b>${effective}</b> of ${avail.count}${isSuggested ? " (suggested)" : ""}`)
         }
     }
 
@@ -1071,7 +1079,7 @@ function _updateControlsStatus() {
         essentialCount: essCount ? essCount.value : ""
     })
 
-    lines.push(`<span class="ctrlHint" title="Blank count = 20% of the targeting guides in your output, clamped between 50 and 200 and capped at what the library holds. A targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so its controls must define the null themselves. Two things degrade when that set is small: the null SD is estimated from n controls, so the test follows a t distribution with n-1 df, and the control median is the normalisation anchor with SE 1.25*sd/sqrt(n). Combining both, for 3 guides/gene over 500 genes, a hit is about 30% harder to call at n=25, 14% at n=50, 7% at n=100 and 3% at n=200 — past which there is nothing left to buy. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Auto = 20% of guides, 50&ndash;200 &middot; hover for details</span>`)
+    lines.push(`<span class="ctrlHint" title="The suggested count is set from the number of genes in your design, clamped to 50-100 and capped at what the library holds. A targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so its controls must define the null themselves. Two things degrade as that set shrinks: the null SD is estimated from n controls, so the test follows a t distribution with n-1 df, and the control median is the normalisation anchor with SE 1.25*sd/sqrt(n). Combining both gives how much harder a hit is to call than with unlimited controls — at n=25 that is 1.24x on a 50-gene screen and 1.30x on a 500-gene one, at n=50 it is 1.11x and 1.14x, at n=100 about 1.05x. Screen size barely matters, because the normalisation term does not depend on it at all. Keeping the penalty under 10% needs 45 controls at 5 genes, 57 at 50 and 68 at 500 — near-linear in log10(genes), which is the curve used here. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Suggested from gene count, 50&ndash;100 &middot; hover for details</span>`)
     box.innerHTML = lines.join("<br>")
 }
 

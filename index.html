@@ -280,7 +280,7 @@
                             <td><label for="includeSafeTargeting" class="ctrlHint"
                                        title="Safe-targeting controls (CutCtrl): one cut site in a gene desert. They control for the DNA-damage response that any double-strand break provokes, so they set a more honest baseline than non-targeting guides in a Cas9 screen — a non-targeting guide never cuts, so it makes the baseline look better than it is. Preferred as the statistical null.">Safe-targeting</label></td>
                             <td><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
-                            <td><input type="number" id="safeTargetingCount" min="1" placeholder="auto"
+                            <td><input type="number" id="safeTargetingCount" min="1"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
@@ -288,7 +288,7 @@
                             <td><label for="includeNonTargeting" class="ctrlHint"
                                        title="Non-targeting controls (NegCtrl): sequences with no match anywhere in the genome. They control for the vector and the selection, but not for cutting, so they under-report the fitness cost of a double-strand break. Useful as a secondary sanity check alongside safe-targeting controls.">Non-targeting</label></td>
                             <td><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
-                            <td><input type="number" id="nonTargetingCount" min="1" placeholder="auto"
+                            <td><input type="number" id="nonTargetingCount" min="1"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
