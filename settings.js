@@ -21,6 +21,11 @@ settings = {
 
     "searchSymbols": null,
 
+    "includeNonTargeting": null,
+    "nonTargetingCount": null,
+    "includeSafeTargeting": null,
+    "safeTargetingCount": null,
+
     "synonyms": null
 }
 
@@ -45,6 +50,16 @@ function SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAf
     settings["rankingTop"] = rankingTop
     settings["rankingOrder"] = rankingOrder
     settings["outputName"] = outputName
+}
+
+// Control spike-in, per kind. The count fields are left as raw field
+// values: blank means "use the suggested 10% share / minimum 10", a number
+// means that many exactly (capped at what the library actually has).
+function SET_settingsSetControls(includeNonTargeting, nonTargetingCount, includeSafeTargeting, safeTargetingCount) {
+    settings["includeNonTargeting"] = includeNonTargeting
+    settings["nonTargetingCount"] = nonTargetingCount
+    settings["includeSafeTargeting"] = includeSafeTargeting
+    settings["safeTargetingCount"] = safeTargetingCount
 }
 
 function SET_settingsSetIndexes(RNAColumn, symbolColumn, rankingColumn) {

@@ -27,6 +27,18 @@
             <h3>2026</h3>
 
             <div class="updateEntry">
+                <div class="updateTitle">Spike control sgRNAs into your library</div>
+                <p>A new <em>Controls</em> box in section 3 adds the built-in control sgRNAs to your designed library, so you no longer have to search for <code>NegCtrl</code> / <code>CutCtrl</code> by hand and merge the files yourself. Tick either kind, or both, and set how many of each:</p>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">Non-targeting controls.</span> Sequences with no match anywhere in the genome. They control for the vector and the selection, but not for cutting. Available in every built-in library except VBC &mdash; 1000 in Brunello, Brie and both GeCKO v2 sets, 500 in Gattinara and Gouda, 100 in Jacquere and Julianna.</p>
+                </div>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">Safe-targeting controls.</span> A single cut site in a gene desert, so they control for the DNA-damage response that any double-strand break provokes &mdash; something non-targeting guides cannot do. Available in Jacquere and Julianna (900) and in Gattinara and Gouda (500).</p>
+                </div>
+                <p>Leave a count blank for the automatic suggestion: 10% of the targeting guides in your output, spread across the control kinds you selected, with a floor of 10 each so small pilot designs still get a usable null distribution. Controls are added after ranking, so &ldquo;limit to top&rdquo; thins each gene&rsquo;s guides without thinning the control set, and they appear in the Full, Adapters and MAGeCK outputs like any other entry.</p>
+            </div>
+
+            <div class="updateEntry">
                 <div class="updateTitle">Copy number for human cell lines</div>
                 <p>A new <em>Copy number (human)</em> feature uses DepMap&rsquo;s gene-level copy-number data to inform CRISPR screen design. Dataset: DepMap&rsquo;s <em>OmicsCNGene</em> (24Q4 release); the gene list is restricted to genes targetable by at least one of the built-in CRISPR libraries, since those are the genes you can actually screen. The feature has two complementary ways to use it:</p>
                 <div class="updateSubFeature">

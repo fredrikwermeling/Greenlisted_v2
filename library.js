@@ -37,6 +37,74 @@ var _library = {
 }
 
 
+// The two kinds of control sgRNA the libraries ship, and the symbols they
+// are filed under. Compared lower-case, since libraryMap is keyed that way.
+//
+//   Non-targeting (NegCtrl) — sequences with no match anywhere in the
+//     genome (NO_SITE_n / NEG_CONTROL_n / NonTargetingControlGuideForHuman_n).
+//     They control for the vector and the selection, but not for cutting.
+//   Safe-targeting (CutCtrl) — a single cut site in a gene desert. They
+//     control for the DNA-damage response that any double-strand break
+//     provokes, which non-targeting guides cannot.
+//
+// Availability in the built-in libraries:
+//   NegCtrl  1000  Brunello, Brie, GeCKO v2 human, GeCKO v2 mouse
+//            500   Gattinara, Gouda
+//            100   Jacquere, Julianna
+//   CutCtrl  900   Jacquere, Julianna
+//            500   Gattinara, Gouda
+//   VBC human and VBC mouse ship neither.
+//
+// "CTRL" / "Ctrl" is deliberately NOT in these lists: that is the
+// chymotrypsin-like protease gene, which appears in every library with a
+// handful of ordinary targeting guides. Treating it as a control block
+// would silently swap a real gene's guides for controls.
+const _CONTROL_KINDS = [
+    {
+        id: "nonTargeting",
+        label: "Non-targeting",
+        symbols: ["negctrl", "negcontrol", "neg_control", "negative_control",
+                  "nontargeting", "non-targeting", "non_targeting"]
+    },
+    {
+        id: "safeTargeting",
+        label: "Safe-targeting",
+        symbols: ["cutctrl", "safectrl", "safe_ctrl", "safetargeting",
+                  "safe-targeting", "safe_targeting"]
+    }
+]
+
+// The key under which a library map holds controls of the given kind, or
+// null if it has none of that kind.
+function LIB_findControlKey(libraryMap, kindId) {
+    const kind = _CONTROL_KINDS.find(k => k.id === kindId)
+    if (!kind) return null
+    for (const key of kind.symbols) {
+        const rows = libraryMap[key]
+        if (rows && rows.length) return key
+    }
+    return null
+}
+
+// Is this symbol a control block rather than a real gene? Lets the outputs
+// that only make sense per-gene (the copy-number annotation) skip it.
+function LIB_isControlSymbol(symbol) {
+    const s = String(symbol || "").toLowerCase()
+    return _CONTROL_KINDS.some(k => k.symbols.includes(s))
+}
+
+// What the currently selected library offers, per kind:
+//   { nonTargeting: {key, count} | null, safeTargeting: {key, count} | null }
+// Used by the UI to enable each option and report how many are available.
+function LIB_controlInfo() {
+    const info = {}
+    for (const kind of _CONTROL_KINDS) {
+        const key = LIB_findControlKey(_library.libraryMap, kind.id)
+        info[kind.id] = key ? { key: key, count: _library.libraryMap[key].length } : null
+    }
+    return info
+}
+
 function LIB_startScreening(settings) {
     if (Object.keys(_library.libraryMap).length == 0) {
         _library.statusSearch = "Error no library selected"
@@ -58,7 +126,22 @@ function LIB_startScreening(settings) {
     }
 
     console.log(Math.round((performance.now() - st) / 100 * 100) / 1000)
-    _library.statusSearch = `Done. Time to complete: ${Math.round((performance.now() - st) / 1000 * 10) / 10}s<br> Symbols found: ${Object.keys(searchOutput.filteredLibraryMap).length}`
+    // Each control block is one more key in filteredLibraryMap but isn't a
+    // searched-for gene, so they're excluded from the symbol count and
+    // reported on their own line instead.
+    const added = searchOutput.controlsAdded || {}
+    const addedNotes = []
+    if (added.nonTargeting > 0) addedNotes.push(`${added.nonTargeting} non-targeting`)
+    if (added.safeTargeting > 0) addedNotes.push(`${added.safeTargeting} safe-targeting`)
+    const blocksAdded = (added.nonTargeting > 0 ? 1 : 0) + (added.safeTargeting > 0 ? 1 : 0)
+    const symbolCount = Object.keys(searchOutput.filteredLibraryMap).length - blocksAdded
+    var controlNote = ""
+    if (addedNotes.length) {
+        controlNote = `<br> Controls added: ${addedNotes.join(" + ")}`
+    } else if (settings.includeNonTargeting || settings.includeSafeTargeting) {
+        controlNote = `<br> This library ships none of the selected control types &mdash; none added`
+    }
+    _library.statusSearch = `Done. Time to complete: ${Math.round((performance.now() - st) / 1000 * 10) / 10}s<br> Symbols found: ${symbolCount}${controlNote}`
 
     return searchOutput
 }

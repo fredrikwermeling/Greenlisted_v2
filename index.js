@@ -92,6 +92,13 @@ async function insertData(data) {
     document.getElementById("partialMatches").checked = data.partialMatches
     document.getElementById("enableSynonyms").checked = data.enableSynonyms
 
+    document.getElementById("includeNonTargeting").checked = !!data.includeNonTargeting
+    document.getElementById("nonTargetingCount").value = (data.nonTargetingCount == null) ? "" : data.nonTargetingCount
+    document.getElementById("includeSafeTargeting").checked = !!data.includeSafeTargeting
+    document.getElementById("safeTargetingCount").value = (data.safeTargetingCount == null) ? "" : data.safeTargetingCount
+    SET_settingsSetControls(!!data.includeNonTargeting, document.getElementById("nonTargetingCount").value,
+                            !!data.includeSafeTargeting, document.getElementById("safeTargetingCount").value)
+
     const libraryNames = await SER_getLibraryNames()
     const librarydropdown = document.getElementById("libraries")
     const existingValues = Array.from(librarydropdown.options).map(option => option.value)
@@ -575,6 +582,9 @@ function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
     // intersection). Symbols come back capitalised but stored
     // lower-case in libraryMap; uppercase for the CN lookup either way.
     for (const sym of Object.keys(libraryMap)) {
+        // Non-targeting controls have no genomic locus, so a copy-number
+        // row for them would be a line of blanks. Skip the control block.
+        if (typeof LIB_isControlSymbol === "function" && LIB_isControlSymbol(sym)) continue
         const upper = sym.toUpperCase()
         const { resolved } = CN_resolveSymbol(upper, synonymMap)
         const cnCells = screeningCellLines.map(cl => {
@@ -856,6 +866,7 @@ function changeSymbols() {
     const searchSymbols = [...new Set(document.getElementById("searchSymbols").value.split("\n").filter(item => { return item.trim() }).map(symbol => symbol.trim().toLowerCase()))]
 
     SET_settingsSetLibrary(searchSymbols, partialMatches, enableSynonyms)
+    _updateControlsStatus()   // the suggested control count tracks the symbol list
     _statusUpdateSymbols()
 }
 
@@ -885,8 +896,96 @@ function changeSettings() {
 
     const downloadName = document.getElementById("outputFileName").value
 
+    const includeNonTargeting = document.getElementById("includeNonTargeting").checked
+    const nonTargetingCount = document.getElementById("nonTargetingCount").value
+    const includeSafeTargeting = document.getElementById("includeSafeTargeting").checked
+    const safeTargetingCount = document.getElementById("safeTargetingCount").value
+
     SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName, downloadName)
+    SET_settingsSetControls(includeNonTargeting, nonTargetingCount, includeSafeTargeting, safeTargetingCount)
+    _updateControlsStatus()
     _statusUpdateSettings()
+}
+
+// Rough count of the sgRNAs the current symbol list will produce. Used
+// only to preview what the automatic control number would come to —
+// direct symbol matches only, since synonym and partial-match expansion
+// happen at run time. The run status reports the number actually added.
+function _estimateTargetingGuides() {
+    if (typeof _library === "undefined" || !_library || !_library.libraryMap) return 0
+    const symbols = (settings && settings.searchSymbols) ? settings.searchSymbols : []
+    const top = parseInt(settings.rankingTop, 10)
+    var n = 0
+    for (const s of symbols) {
+        const rows = _library.libraryMap[s]
+        if (!rows) continue
+        n += (!isNaN(top) && top > 0) ? Math.min(rows.length, top) : rows.length
+    }
+    return n
+}
+
+// The two control rows in the UI, paired with what each kind means.
+const _CONTROL_UI = [
+    { id: "nonTargeting", checkbox: "includeNonTargeting", count: "nonTargetingCount",
+      label: "Non-targeting",
+      blurb: "no match anywhere in the genome &mdash; controls for the vector and the selection, but not for cutting" },
+    { id: "safeTargeting", checkbox: "includeSafeTargeting", count: "safeTargetingCount",
+      label: "Safe-targeting",
+      blurb: "one cut site in a gene desert &mdash; controls for the DNA-damage response that any double-strand break provokes" }
+]
+
+// Refreshes the "Controls" panel: what each kind offers in the selected
+// library, and what the automatic number would come to for the current
+// symbol list. Called whenever the library, the symbol list or any of the
+// control fields changes.
+function _updateControlsStatus() {
+    const box = document.getElementById("controlsStatus")
+    if (!box || typeof LIB_controlInfo !== "function") return
+    const info = LIB_controlInfo()
+
+    // How many kinds are both available and ticked — the auto share is
+    // split across them, so this has to be counted before building the text.
+    var nSelected = 0
+    for (const ui of _CONTROL_UI) {
+        const cb = document.getElementById(ui.checkbox)
+        if (cb && cb.checked && info[ui.id]) nSelected++
+    }
+    const est = _estimateTargetingGuides()
+
+    const lines = []
+    for (const ui of _CONTROL_UI) {
+        const cb = document.getElementById(ui.checkbox)
+        const countInput = document.getElementById(ui.count)
+        if (!cb || !countInput) continue
+        const avail = info[ui.id]
+        if (!avail) {
+            cb.checked = false
+            cb.disabled = true
+            countInput.disabled = true
+            lines.push(`<b>${ui.label}:</b> none in this library.`)
+            continue
+        }
+        cb.disabled = false
+        countInput.disabled = !cb.checked
+        var note = `${avail.count} available (${ui.blurb}).`
+        if (cb.checked) {
+            const requested = parseInt(countInput.value, 10)
+            if (!isNaN(requested) && requested > 0) {
+                note += requested > avail.count
+                    ? ` You asked for ${requested}, but only ${avail.count} exist &mdash; all ${avail.count} will be added.`
+                    : ` <b>${requested}</b> will be added.`
+            } else {
+                const suggested = SCR_suggestedControlCount(est, avail.count, nSelected)
+                note += est > 0
+                    ? ` Blank = auto, about <b>${suggested}</b> for your current ~${est} guides.`
+                    : ` Blank = auto.`
+            }
+        }
+        lines.push(`<b>${ui.label}:</b> ${note}`)
+    }
+    lines.push("Auto spreads 10% of your targeting guides across the kinds you tick, with a floor of 10 each. " +
+        "Controls are added after ranking, so &ldquo;limit to top&rdquo; does not thin them.")
+    box.innerHTML = lines.join("<br>")
 }
 
 function updateCustomlibrary() {
