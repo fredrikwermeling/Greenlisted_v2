@@ -60,20 +60,24 @@ function SCR_startScreening(library, settings, usedSynonyms) {
     var nGuides = 0
     for (const symbol in filteredLibraryMap) nGuides += filteredLibraryMap[symbol].length
     const guidesPerGene = nGenes > 0 ? nGuides / nGenes : 3
+    // Only kinds that are both requested and actually stocked by this library
+    // share the control budget — otherwise ticking a kind the library lacks
+    // would silently halve the controls the other kind contributes.
     const wanted = [
         { id: "safeTargeting", on: settings.includeSafeTargeting, count: settings.safeTargetingCount },
         { id: "nonTargeting",  on: settings.includeNonTargeting,  count: settings.nonTargetingCount }
     ].filter(k => k.on)
+     .map(k => ({ id: k.id, count: k.count, key: LIB_findControlKey(library.libraryMap, k.id) }))
+     .filter(k => k.key)
     var controlsAdded = { nonTargeting: 0, safeTargeting: 0 }
-    for (const kind of wanted) {
-        const key = LIB_findControlKey(library.libraryMap, kind.id)
-        if (!key) continue
-        const available = library.libraryMap[key].length
+    for (var ki = 0; ki < wanted.length; ki++) {
+        const kind = wanted[ki]
+        const available = library.libraryMap[kind.key].length
         const requested = parseInt(kind.count, 10)
         const n = (isNaN(requested) || requested <= 0)
-            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available)
+            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available, wanted.length, ki)
             : Math.min(requested, available)
-        filteredLibraryMap[key] = _randomSample(library.libraryMap[key], n)
+        filteredLibraryMap[kind.key] = _randomSample(library.libraryMap[kind.key], n)
         controlsAdded[kind.id] = n
     }
 
@@ -147,11 +151,26 @@ function _randomSample(rows, n) {
 // to 6. Clamped to [50, 120]: below 50 the curve enters its steep section
 // (25 controls costs ~24% even on a 50-gene screen), and above 120 there is
 // almost nothing left to buy.
-function SCR_suggestedControlCount(nGenes, guidesPerGene, nAvailable) {
+// This is a TOTAL control budget, not a per-kind figure. What the maths
+// above cares about is how many guides define the baseline, regardless of
+// which flavour they are, so ticking both kinds splits this number rather
+// than doubling it.
+function SCR_suggestedControlTotal(nGenes, guidesPerGene) {
     const genes = Math.max(1, nGenes)
     const G = (guidesPerGene > 0) ? guidesPerGene : 3
     const curve = Math.round(13.6 + 11.9 * Math.log10(genes) + 7.5 * G)
-    return Math.min(Math.min(Math.max(50, curve), 120), nAvailable)
+    return Math.min(Math.max(50, curve), 120)
+}
+
+// One kind's share of that budget, when nKinds are being added. The split is
+// even, with any remainder going to the earlier kind — safe-targeting is
+// listed first, so it wins the odd guide, which suits it being the better
+// null. Capped at what the library actually stocks.
+function SCR_suggestedControlCount(nGenes, guidesPerGene, nAvailable, nKinds, kindIndex) {
+    const total = SCR_suggestedControlTotal(nGenes, guidesPerGene)
+    const k = Math.max(1, nKinds || 1)
+    const share = Math.floor(total / k) + ((kindIndex || 0) < (total % k) ? 1 : 0)
+    return Math.min(share, nAvailable)
 }
 
 function _sortOnScore(libraryMap, rankingOrder, rankingColumn) {

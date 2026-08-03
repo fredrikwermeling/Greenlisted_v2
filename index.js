@@ -1025,6 +1025,14 @@ function _updateControlsStatus() {
     // control inventory is already in the citation panel on the left, and the
     // number being added is in the box itself. So this is limited to the
     // essential-gene names and any warning that a request exceeds stock.
+    // The suggested number is a total budget shared by whichever kinds are
+    // both ticked and stocked, so that has to be counted before any box can
+    // be filled in.
+    const sharing = _CONTROL_UI.filter(ui => {
+        const cb = document.getElementById(ui.checkbox)
+        return cb && cb.checked && info[ui.id]
+    }).map(ui => ui.id)
+
     const lines = []
     for (const ui of _CONTROL_UI) {
         const cb = document.getElementById(ui.checkbox)
@@ -1045,11 +1053,21 @@ function _updateControlsStatus() {
         }
         cb.disabled = false
         countInput.disabled = !cb.checked
-        if (!cb.checked) continue
+        if (!cb.checked) {
+            // Blank a suggested number while the kind is off, so a disabled
+            // box never shows a figure that isn't being used. A number the
+            // user typed themselves is kept, ready for when they tick again.
+            if (countInput.dataset.auto !== "0") {
+                countInput.value = ""
+                countInput.placeholder = ""
+            }
+            continue
+        }
         // Put the suggested number in the box so the user sees a concrete
         // value they can edit. The placeholder carries the same number, so
         // clearing the box still shows what the run will fall back to.
-        const suggested = SCR_suggestedControlCount(design.genes, design.guidesPerGene, avail.count)
+        const suggested = SCR_suggestedControlCount(design.genes, design.guidesPerGene,
+                                                    avail.count, sharing.length, sharing.indexOf(ui.id))
         countInput.placeholder = String(suggested)
         if (countInput.dataset.auto !== "0") {
             countInput.value = String(suggested)
