@@ -669,3 +669,24 @@ body.validate-mode #upsetButton {
     border-bottom: 1px dotted #9ca3af;
     cursor: help;
 }
+
+/* Small circled "i" beside a section title: hover reveals the rules behind
+   whatever the section suggests, keeping the panel itself free of prose. */
+.infoDot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    vertical-align: middle;
+    opacity: 0.65;
+    cursor: help;
+}
+.infoDot:hover { opacity: 1; }

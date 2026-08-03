@@ -53,10 +53,13 @@ function SCR_startScreening(library, settings, usedSynonyms) {
     // on-target score to rank by, and "limit to top N" is meant to thin each
     // gene's guides — applying it to a control block would silently cut a
     // 900-guide control set down to N.
-    // Gene count, not guide count — the suggestion curve is driven by how
-    // many hypotheses are being tested. At this point filteredLibraryMap
+    // The suggestion curve is driven by how many hypotheses are being tested
+    // and how many guides back each one. At this point filteredLibraryMap
     // holds only genes; the control blocks are added below.
     const nGenes = Object.keys(filteredLibraryMap).length
+    var nGuides = 0
+    for (const symbol in filteredLibraryMap) nGuides += filteredLibraryMap[symbol].length
+    const guidesPerGene = nGenes > 0 ? nGuides / nGenes : 3
     const wanted = [
         { id: "safeTargeting", on: settings.includeSafeTargeting, count: settings.safeTargetingCount },
         { id: "nonTargeting",  on: settings.includeNonTargeting,  count: settings.nonTargetingCount }
@@ -68,7 +71,7 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         const available = library.libraryMap[key].length
         const requested = parseInt(kind.count, 10)
         const n = (isNaN(requested) || requested <= 0)
-            ? SCR_suggestedControlCount(nGenes, available)
+            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available)
             : Math.min(requested, available)
         filteredLibraryMap[key] = _randomSample(library.libraryMap[key], n)
         controlsAdded[kind.id] = n
@@ -122,20 +125,33 @@ function _randomSample(rows, n) {
 //     n=50     1.10    1.11    1.12    1.14
 //     n=100    1.05    1.05    1.06    1.07
 //
-// Note how little the screen size matters: the normalisation term does not
-// depend on k at all, and the t-vs-z term grows only slowly. Solving for
-// the smallest n that keeps the penalty under 10% gives 45 controls at 5
-// genes, 57 at 50, 68 at 500 and 88 at 20 000 — near-perfectly linear in
-// log10(genes), which is the curve below (fitted to within 1 control across
-// that whole range).
+// Screen size matters surprisingly little: the normalisation term does not
+// depend on k at all, and the t-vs-z term grows only slowly.
 //
-// Clamped to [50, 100]: below 50 the curve is entering the steep part (25
-// controls costs ~24% even on a 50-gene screen), and above 100 there is
+// Guides per gene matters MORE, and in the direction people find backwards.
+// The control-noise term is sqrt(1 + 1.571*G/n) — it rises with G, because
+// more guides sharpen the gene's own estimate and that makes the baseline's
+// noise relatively more important. A sharper measurement needs a sharper
+// thing to compare against. The built-in libraries span G=2 (Gattinara,
+// Gouda) through 3 (Jacquere, Julianna) and 4 (Brunello, Brie) to 6 (VBC,
+// GeCKO v2), so this is not a detail.
+//
+// Controls needed to hold the penalty under 10%:
+//
+//     genes    G=2   G=3   G=4   G=6
+//        50     49    57    64    79
+//       500     61    68    76    91
+//
+// That surface is near-perfectly linear in log10(genes) and in G, which is
+// the fit below — accurate to 0.6 controls from 5 to 20 000 genes and G=2
+// to 6. Clamped to [50, 120]: below 50 the curve enters its steep section
+// (25 controls costs ~24% even on a 50-gene screen), and above 120 there is
 // almost nothing left to buy.
-function SCR_suggestedControlCount(nGenes, nAvailable) {
+function SCR_suggestedControlCount(nGenes, guidesPerGene, nAvailable) {
     const genes = Math.max(1, nGenes)
-    const curve = Math.round(36.5 + 11.9 * Math.log10(genes))
-    return Math.min(Math.min(Math.max(50, curve), 100), nAvailable)
+    const G = (guidesPerGene > 0) ? guidesPerGene : 3
+    const curve = Math.round(13.6 + 11.9 * Math.log10(genes) + 7.5 * G)
+    return Math.min(Math.min(Math.max(50, curve), 120), nAvailable)
 }
 
 function _sortOnScore(libraryMap, rankingOrder, rankingColumn) {

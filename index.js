@@ -975,12 +975,14 @@ function _controlCountEdited(input) {
     changeSettings()
 }
 
-// How many genes the current symbol list will actually produce, which is
-// what drives the suggested control count. Direct symbol matches only,
-// since synonym and partial-match expansion happen at run time, so this is
-// an estimate — the run itself recomputes from the real result.
-function _estimateTargetingGenes() {
-    if (typeof _library === "undefined" || !_library || !_library.libraryMap) return 0
+// Size of the design the user is currently describing: how many genes, and
+// how many guides back each one. Both feed the suggested control count.
+// Direct symbol matches only, since synonym and partial-match expansion
+// happen at run time, so this is an estimate — the run itself recomputes
+// from the real result.
+function _estimateDesign() {
+    const empty = { genes: 0, guidesPerGene: 3 }
+    if (typeof _library === "undefined" || !_library || !_library.libraryMap) return empty
     const symbols = (settings && settings.searchSymbols) ? settings.searchSymbols : []
     const found = new Set()
     for (const s of symbols) if (_library.libraryMap[s]) found.add(s)
@@ -991,7 +993,15 @@ function _estimateTargetingGenes() {
         const n = (isNaN(raw) || raw <= 0) ? _ESSENTIAL_DEFAULT : raw
         for (const g of LIB_essentialPanel(n)) if (_library.libraryMap[g]) found.add(g)
     }
-    return found.size
+    if (found.size === 0) return empty
+    // "Limit to top" caps how many guides each gene actually contributes.
+    const top = parseInt(settings.rankingTop, 10)
+    var guides = 0
+    for (const g of found) {
+        const rows = _library.libraryMap[g].length
+        guides += (!isNaN(top) && top > 0) ? Math.min(rows, top) : rows
+    }
+    return { genes: found.size, guidesPerGene: guides / found.size }
 }
 
 // The two spike-in control rows in the UI. The long explanation of what
@@ -1009,8 +1019,12 @@ function _updateControlsStatus() {
     const box = document.getElementById("controlsStatus")
     if (!box || typeof LIB_controlInfo !== "function") return
     const info = LIB_controlInfo()
-    const est = _estimateTargetingGenes()
+    const design = _estimateDesign()
 
+    // The status box carries only what isn't visible elsewhere: the library's
+    // control inventory is already in the citation panel on the left, and the
+    // number being added is in the box itself. So this is limited to the
+    // essential-gene names and any warning that a request exceeds stock.
     const lines = []
     for (const ui of _CONTROL_UI) {
         const cb = document.getElementById(ui.checkbox)
@@ -1018,38 +1032,32 @@ function _updateControlsStatus() {
         if (!cb || !countInput) continue
         const avail = info[ui.id]
         if (!avail) {
+            // Clear the box as well as disabling it — switching from a library
+            // that has this control type to one that doesn't would otherwise
+            // leave a stale number sitting in a greyed-out field.
             cb.checked = false
             cb.disabled = true
             countInput.disabled = true
-            lines.push(`${ui.label}: none in this library`)
+            countInput.value = ""
+            countInput.placeholder = ""
+            delete countInput.dataset.auto
             continue
         }
         cb.disabled = false
         countInput.disabled = !cb.checked
-        if (!cb.checked) {
-            lines.push(`${ui.label}: ${avail.count} available`)
-            continue
-        }
+        if (!cb.checked) continue
         // Put the suggested number in the box so the user sees a concrete
-        // value they can edit, rather than an opaque "auto". The placeholder
-        // carries the same number, so clearing the box still shows what the
-        // run will fall back to.
-        const suggested = SCR_suggestedControlCount(est, avail.count)
+        // value they can edit. The placeholder carries the same number, so
+        // clearing the box still shows what the run will fall back to.
+        const suggested = SCR_suggestedControlCount(design.genes, design.guidesPerGene, avail.count)
         countInput.placeholder = String(suggested)
         if (countInput.dataset.auto !== "0") {
             countInput.value = String(suggested)
             countInput.dataset.auto = "1"
         }
         const raw = parseInt(countInput.value, 10)
-        const boxEmpty = isNaN(raw) || raw <= 0
-        // The number is still ours — and so labelled — whether it is sitting
-        // in the box or the box was cleared and the run will fall back to it.
-        const isSuggested = boxEmpty || countInput.dataset.auto !== "0"
-        if (!boxEmpty && raw > avail.count) {
-            lines.push(`${ui.label}: only ${avail.count} exist &mdash; adding all <b>${avail.count}</b>`)
-        } else {
-            const effective = boxEmpty ? suggested : raw
-            lines.push(`${ui.label}: adding <b>${effective}</b> of ${avail.count}${isSuggested ? " (suggested)" : ""}`)
+        if (!isNaN(raw) && raw > avail.count) {
+            lines.push(`${ui.label}: only ${avail.count} in this library &mdash; adding all ${avail.count}`)
         }
     }
 
@@ -1064,7 +1072,7 @@ function _updateControlsStatus() {
             }
             const n = parseInt(essCount.value, 10)
             const panel = LIB_essentialPanel(isNaN(n) || n <= 0 ? _ESSENTIAL_DEFAULT : n)
-            lines.push(`Essential: ${panel.map(g => g.toUpperCase()).join(", ")}`)
+            lines.push(`Positive controls: ${panel.map(g => g.toUpperCase()).join(", ")}`)
         }
     }
 
@@ -1079,7 +1087,6 @@ function _updateControlsStatus() {
         essentialCount: essCount ? essCount.value : ""
     })
 
-    lines.push(`<span class="ctrlHint" title="The suggested count is set from the number of genes in your design, clamped to 50-100 and capped at what the library holds. A targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so its controls must define the null themselves. Two things degrade as that set shrinks: the null SD is estimated from n controls, so the test follows a t distribution with n-1 df, and the control median is the normalisation anchor with SE 1.25*sd/sqrt(n). Combining both gives how much harder a hit is to call than with unlimited controls — at n=25 that is 1.24x on a 50-gene screen and 1.30x on a 500-gene one, at n=50 it is 1.11x and 1.14x, at n=100 about 1.05x. Screen size barely matters, because the normalisation term does not depend on it at all. Keeping the penalty under 10% needs 45 controls at 5 genes, 57 at 50 and 68 at 500 — near-linear in log10(genes), which is the curve used here. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Suggested from gene count, 50&ndash;100 &middot; hover for details</span>`)
     box.innerHTML = lines.join("<br>")
 }
 
