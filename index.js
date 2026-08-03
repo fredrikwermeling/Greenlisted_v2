@@ -349,36 +349,38 @@ function _renderValidationTsvAsTable(tsv) {
     return html
 }
 
-function _showTableOutput(text, delimiter) {
+// The output panel hosts three mutually exclusive panes: the raw-text
+// textarea (#fileContent, declared in index.html), the rendered TSV table
+// (#validationTableDiv) and the copy-number results (#cnResultsDiv). The
+// two div panes are created on demand; showing one hides the others.
+// Everything writes into its own pane rather than the container's
+// innerHTML — overwriting the container would delete the textarea, which
+// index.html declares as its only child and nothing ever recreates.
+function _showOutputPane(paneId) {
     const container = document.getElementById("fileContentContainer")
     container.style.display = "flex"
-    document.getElementById("fileContent").style.display = "none"
-    var tableDiv = document.getElementById("validationTableDiv")
-    if (!tableDiv) {
-        tableDiv = document.createElement("div")
-        tableDiv.id = "validationTableDiv"
-        tableDiv.style.overflowX = "auto"
-        tableDiv.style.width = "100%"
-        container.appendChild(tableDiv)
+    for (const id of ["validationTableDiv", "cnResultsDiv"]) {
+        var pane = document.getElementById(id)
+        if (!pane && id === paneId) {
+            pane = document.createElement("div")
+            pane.id = id
+            pane.style.overflowX = "auto"
+            pane.style.width = "100%"
+            container.appendChild(pane)
+        }
+        if (pane) pane.style.display = (id === paneId) ? "block" : "none"
     }
-    tableDiv.style.display = "block"
-    tableDiv.innerHTML = _renderTsvAsTable(text, delimiter)
+    const textarea = document.getElementById("fileContent")
+    if (textarea) textarea.style.display = (paneId === "fileContent") ? "" : "none"
+    return document.getElementById(paneId)
+}
+
+function _showTableOutput(text, delimiter) {
+    _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(text, delimiter)
 }
 
 function showValidationOutput() {
-    const container = document.getElementById("fileContentContainer")
-    container.style.display = "flex"
-    document.getElementById("fileContent").style.display = "none"
-    var tableDiv = document.getElementById("validationTableDiv")
-    if (!tableDiv) {
-        tableDiv = document.createElement("div")
-        tableDiv.id = "validationTableDiv"
-        tableDiv.style.overflowX = "auto"
-        tableDiv.style.width = "100%"
-        container.appendChild(tableDiv)
-    }
-    tableDiv.style.display = "block"
-    tableDiv.innerHTML = _renderValidationTsvAsTable(_validateState.resultsOutput)
+    _showOutputPane("validationTableDiv").innerHTML = _renderValidationTsvAsTable(_validateState.resultsOutput)
 }
 
 function copyValidationOutput() {
@@ -394,19 +396,7 @@ function copyValidationNotFoundOutput() {
 }
 
 function showValidationNotFoundOutput() {
-    const container = document.getElementById("fileContentContainer")
-    container.style.display = "flex"
-    document.getElementById("fileContent").style.display = "none"
-    var tableDiv = document.getElementById("validationTableDiv")
-    if (!tableDiv) {
-        tableDiv = document.createElement("div")
-        tableDiv.id = "validationTableDiv"
-        tableDiv.style.overflowX = "auto"
-        tableDiv.style.width = "100%"
-        container.appendChild(tableDiv)
-    }
-    tableDiv.style.display = "block"
-    tableDiv.innerHTML = _renderTsvAsTable(_validateState.notFoundOutput)
+    _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(_validateState.notFoundOutput)
 }
 
 async function runScreening() {
@@ -464,9 +454,14 @@ async function runScreening() {
                     _setStatus("statusSearch", `Loading copy-number data for ${screeningCl.length} cell line(s)…`)
                     await CN_loadIfNeeded()
                 }
+                // CN_loadIfNeeded kicks off the synonym index without
+                // awaiting it, so resolve it explicitly here — otherwise
+                // whether an alias resolves depends on download timing and
+                // the same run can produce different output twice in a row.
+                await CN_loadSynonymsIfNeeded()
                 const cnOutput = _createCnAnnotationOutput(searchOutput.filteredLibraryMap, screeningCl)
                 outputTexts["textOutputCn"] = cnOutput
-                _createDownloadLink(cnOutput, settings["outputName"] + " copy number", document.getElementById("cnAnnotationDownload"), "text/tab-separated-values", ".tsv")
+                _createDownloadLinkRaw(cnOutput, settings["outputName"] + " copy number", document.getElementById("cnAnnotationDownload"), "text/tab-separated-values;charset=utf-8", ".tsv")
                 if (cnRow) cnRow.style.display = ""
             } catch (e) {
                 console.error("CN annotation failed:", e)
@@ -531,38 +526,36 @@ function _createMAGeCKOutput(libraryMap) {
 // columns are (CN) and (~copies) for each selected cell line. Mirrors the
 // layout of the standalone CN-mode TSV so users with both files can join
 // them in Excel by gene symbol.
-// Three labelled comment rows that head every CN TSV — kept identical
-// between the standalone CN-mode TSV and the screening-annotation TSV.
-// The HTML renderer (_renderTsvAsTable) treats lines starting with '#'
-// as paragraphs above the table and passes the text through innerHTML,
-// so the <b>…</b> labels render bold in the Show preview while still
-// reading as plain text in a downloaded .tsv opened in Excel.
+// Four labelled comment rows that head every CN TSV — kept identical
+// between the standalone CN-mode TSV and the screening-annotation TSV,
+// and in the same plain-text style as the full-matrix export. No HTML:
+// these files get downloaded and opened in Excel / R / pandas, where
+// tags and entities would sit in the data as literal characters.
+// _renderTsvAsTable already styles lines starting with '#' as small grey
+// paragraphs above the table, so the in-app preview stays readable
+// without any markup of its own.
 //
 // Row order matches how a user typically reads the output:
-//   1. WHICH cell line(s) was looked up + their ploidy (the context).
+//   1. Ploidy / WGD — the context everything else is relative to.
 //   2. What the (CN) columns mean.
 //   3. What the (~copies) columns mean.
-// Labels match the actual column headers ("A-375 (CN)" / "A-375 (~copies)")
-// when there's a single line; generic "(CN) columns" / "(~copies) columns"
-// when there are multiple, since the explanation is identical per column.
+//   4. Which cell line(s) this particular run used.
 function _cnHeaderComments(cellLines) {
     // Three general-concept rows (titles are generic — not cell-line
     // specific — so they explain what the columns mean in any run),
     // then a run-specific banner with the actual cell-line ploidy.
-    const ploidyConceptRow = `# <b>Ploidy / WGD</b> — ploidy is the line's average DNA content per cell, where 2.0n is diploid and ~4n is fully tetraploid. The <b>WGD</b> flag marks lines whose genome went through a whole-genome doubling event at some point in their history; subsequent chromosome loss often brings the current ploidy back below 4n, so WGD lines commonly sit anywhere from ~2.5n to ~4n.`
-    const cnRow = `# <b>Copy number / CN</b> — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the line's own genome-wide baseline: 1.0 = typical, ≥ 3.0 = amplification, ≤ 0.5 = deletion. Variability — values like 0.7 or 1.3 instead of clean integers — usually reflects either sequencing noise or sub-clonal genotype heterogeneity within the cell-line population.`
-    const copiesRow = `# <b>Copies</b> — estimated actual copy count per cell, snapped to whole numbers. Computed as round(CN × 2) for non-WGD lines and round(CN × 4) for WGD lines, so a typical (CN ≈ 1) gene reads as 2 copies (or 4 if WGD), regardless of the line's measured fractional ploidy.`
+    const ploidyConceptRow = `# Ploidy / WGD — ploidy is the line's average DNA content per cell, where 2.0n is diploid and ~4n is fully tetraploid. The WGD flag marks lines whose genome went through a whole-genome doubling event at some point in their history; subsequent chromosome loss often brings the current ploidy back below 4n, so WGD lines commonly sit anywhere from ~2.5n to ~4n.`
+    const cnRow = `# Copy number / CN — relative copy number from DepMap's OmicsCNGene dataset (24Q4 release). Each value is relative to the line's own genome-wide baseline: 1.0 = typical, >= 3.0 = amplification, <= 0.5 = deletion. Variability — values like 0.7 or 1.3 instead of clean integers — usually reflects either sequencing noise or sub-clonal genotype heterogeneity within the cell-line population.`
+    const copiesRow = `# Copies — estimated actual copy count per cell, snapped to whole numbers. Computed as round(CN x 2) for non-WGD lines and round(CN x 4) for WGD lines, so a typical (CN ~ 1) gene reads as 2 copies (or 4 if WGD), regardless of the line's measured fractional ploidy.`
 
-    // Run-specific row — sits right above the table and reads as a
-    // headline rather than another concept explainer. Accent colour,
-    // bigger font, and a leading ▸ marker so the cell-line-and-
-    // ploidy info is unmissable.
+    // Run-specific row — sits right above the table so the cell-line and
+    // ploidy context for this particular file is unmissable.
     const ploidyParts = cellLines.map(c => {
-        if (!c.knownPloidy) return `<b>${c.name}</b> — ploidy unknown (assumed 2.0n, treated as non-WGD)`
-        const wgdNote = c.wgd ? `, <b>whole-genome doubled (WGD)</b>` : `, non-WGD`
-        return `<b>${c.name}</b> — ploidy <b>${c.ploidy.toFixed(2)}n</b>${wgdNote}`
+        if (!c.knownPloidy) return `${c.name} — ploidy unknown (assumed 2.0n, treated as non-WGD)`
+        const wgdNote = c.wgd ? `, whole-genome doubled (WGD)` : `, non-WGD`
+        return `${c.name} — ploidy ${c.ploidy.toFixed(2)}n${wgdNote}`
     })
-    const ploidyRow = `# <span style="display:inline-block; font-size:0.95rem; color:var(--mainColor); font-weight:500; padding:4px 8px; margin-top:4px; border-left:3px solid var(--mainColor); background:#f0fdf4;">▸ This run: ${ploidyParts.join("; ")}</span>`
+    const ploidyRow = `# This run: ${ploidyParts.join("; ")}`
 
     return [ploidyConceptRow, cnRow, copiesRow, ploidyRow]
 }
@@ -690,11 +683,19 @@ function _createDownloadLink(text, name, element, filetype, fileEnding) {
     element.download = name + fileEnding
 }
 
+// Same as _createDownloadLink but writes the text verbatim. The base
+// version rewrites the first run of four spaces as a tab, which would
+// shift a column in any TSV whose prose header happens to contain one.
+// The CN outputs carry multi-sentence header comments, so they use this
+// variant — as the full-matrix export already does with its own Blob.
+function _createDownloadLinkRaw(text, name, element, filetype, fileEnding) {
+    var blob = new Blob([text], { type: filetype })
+    element.href = URL.createObjectURL(blob)
+    element.download = name + fileEnding
+}
+
 function _showTextareaOutput(text) {
-    document.getElementById("fileContentContainer").style.display = "flex"
-    document.getElementById("fileContent").style.display = ""
-    var tableDiv = document.getElementById("validationTableDiv")
-    if (tableDiv) tableDiv.style.display = "none"
+    _showOutputPane("fileContent")
     _setStatus("fileContent", text, false)
 }
 
@@ -1125,6 +1126,19 @@ function CN_closeModal() {
     document.getElementById("cnModal").className = "fazeOut upset-modal-overlay"
 }
 
+// Escape text that gets interpolated into the CN result markup. Gene
+// symbols come straight from the user's textarea and cell-line names and
+// disease strings come from DepMap, so neither is guaranteed free of
+// &, <, > or quotes. Safe for both HTML and SVG text nodes, and for
+// double-quoted attribute values.
+function _cnEsc(s) {
+    return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+}
+
 function _sexGlyph(sex) {
     // ♀ / ♂ / ? glyph for the cell-line picker rows and result-table
     // headers, matching the visual language used elsewhere in the lab's
@@ -1140,9 +1154,12 @@ function _wgdBadge(wgd, ploidy) {
     // (the genome was duplicated at some point in the line's history, so
     // the baseline is ~tetraploid). Shown next to the cell-line name
     // everywhere the line appears so the user knows the "≈ N copies"
-    // estimates have been scaled to the line's actual ploidy.
+    // estimates were scaled against a tetraploid rather than diploid
+    // baseline. The tooltip states the nominal ×4 rule that
+    // CN_approxCopies actually applies — the measured ploidy shown next
+    // to the pill is context, not the multiplier.
     if (wgd !== true) return ""
-    return ` <span title="Whole-genome-doubled: this line's genome was duplicated at some point, so its baseline is roughly tetraploid (≈ 4 copies of each gene, not 2). DepMap reports CN relative to that line-specific baseline, and the &lsquo;≈ N copies&rsquo; column already multiplies by the measured ploidy to give a true copy count." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD</span>`
+    return ` <span title="Whole-genome-doubled: this line's genome was duplicated at some point, so its baseline is roughly tetraploid (≈ 4 copies of each gene, not 2). DepMap reports CN relative to that line-specific baseline, and the &lsquo;≈ N copies&rsquo; column multiplies by a nominal 4 for WGD lines (round(CN × 4)) rather than by the line's measured fractional ploidy, so the estimate stays a whole number." style="font-size:0.65rem; padding:1px 4px; border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:600; letter-spacing:0.03em;">WGD</span>`
 }
 
 // Canonical gene/line combinations the user can click to pre-fill the
@@ -1428,7 +1445,7 @@ async function CN_runLookup() {
         }
         _cnState.results = { rows, notFound }
         _cnState.tsvOutput = _cnBuildTsv(rows)
-        _createDownloadLink(_cnState.tsvOutput, "CN lookup", document.getElementById("cnDownload"), "text/tab-separated-values", ".tsv")
+        _createDownloadLinkRaw(_cnState.tsvOutput, "CN lookup", document.getElementById("cnDownload"), "text/tab-separated-values;charset=utf-8", ".tsv")
         const hitGenes = rows.length - notFound.length
         const synN = rows.filter(r => r.viaSynonym).length
         const synNote = synN > 0 ? `, ${synN} via synonym` : ""
@@ -1567,8 +1584,6 @@ async function CN_exportMatrixTsv() {
 
 function CN_showResults() {
     if (!_cnState.results) return
-    const container = document.getElementById("fileContentContainer")
-    container.style.display = "block"
 
     // Header row with download buttons for figure export.
     const exportButtons = `
@@ -1592,9 +1607,9 @@ function CN_showResults() {
         // doubling status, so repeating " · WGD" here was duplication.
         const ploidyNote = cl.knownPloidy ? `ploidy ${cl.ploidy.toFixed(1)}n` : ""
         const sourceTag = ""
-        return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${cancer.replace(/"/g, "&quot;")}">
-            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${cl.name}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
-            <div style="font-size:0.7rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.25; margin-top:2px; word-break:break-word; white-space:normal;">${cancer || "&mdash;"}</div>
+        return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${_cnEsc(cancer)}">
+            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${_cnEsc(cl.name)}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
+            <div style="font-size:0.7rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.25; margin-top:2px; word-break:break-word; white-space:normal;">${_cnEsc(cancer) || "&mdash;"}</div>
             ${ploidyNote ? `<div style="font-size:0.65rem; color:#9ca3af; text-align:center; margin-top:2px;">${ploidyNote}</div>` : ""}
         </th>`
     }).join("")
@@ -1606,13 +1621,13 @@ function CN_showResults() {
     tableHtml += `<thead><tr><th style="text-align:left;">Gene</th>${headerCells}</tr></thead><tbody>`
     for (const r of _cnState.results.rows) {
         const synNote = r.viaSynonym
-            ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${r.resolved}</span>`
+            ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${_cnEsc(r.resolved)}</span>`
             : ""
         // Human gene-symbol convention: uppercase + italic. CN data is
         // human-only (DepMap doesn't publish mouse CN), so always use
         // the canonical uppercase resolved symbol when we have it.
         const displayGene = (r.resolved || r.gene || "").toUpperCase()
-        tableHtml += `<tr><td style="font-weight:600; font-style:italic; white-space:nowrap;">${displayGene}${synNote}</td>`
+        tableHtml += `<tr><td style="font-weight:600; font-style:italic; white-space:nowrap;">${_cnEsc(displayGene)}${synNote}</td>`
         for (const cl of _cnState.selectedCellLines) {
             const cell = r.perLine[cl.id]
             const v = cell?.value, t = cell?.tier, copies = cell?.copies
@@ -1634,12 +1649,12 @@ function CN_showResults() {
     }
     tableHtml += "</tbody></table></div>"
     if (_cnState.results.notFound.length) {
-        tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.join(", ")}</code></div>`
+        tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.map(_cnEsc).join(", ")}</code></div>`
     }
     // Footer: data source + ploidy / WGD explanation + tier legend + link.
     const wgdLines = _cnState.selectedCellLines.filter(c => c.wgd === true)
     const wgdNote = wgdLines.length > 0
-        ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => c.name).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
+        ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => _cnEsc(c.name)).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
         : ""
     // Per-line WGS / WES badge in the column header already conveys
     // sequencing modality, so a separate listing of WES lines in the
@@ -1662,7 +1677,7 @@ function CN_showResults() {
         </div>
         <div>For deeper exploration of human cell line data see <a href="https://depmap.org" target="_blank" rel="noopener">depmap.org</a> or the cell line browser in <a href="https://correlate.cmm.se/#cell" target="_blank" rel="noopener">Correlate</a>, Green Listed&rsquo;s linked sister app.</div>
     </div>`
-    container.innerHTML = exportButtons + tableHtml
+    _showOutputPane("cnResultsDiv").innerHTML = exportButtons + tableHtml
 }
 
 // SVG export of the CN results table — independent of the HTML layout so
@@ -1680,7 +1695,7 @@ function _cnBuildResultsSvg() {
     const HEADER_H = 78        // column-header height (name + cancer + ploidy)
     const W = GENE_W + COL_W * cellLines.length + 2
     const H = HEADER_H + ROW_H * rows.length + 2
-    const esc = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const esc = _cnEsc
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`
     svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`
@@ -1696,9 +1711,12 @@ function _cnBuildResultsSvg() {
         // Name line — sex glyph + cell-line name + optional amber WGD
         // pill rendered to the right of the name. Width of the name
         // text is estimated by character count so the pill can be
-        // positioned just after; estimate is generous enough to keep
-        // even the longest names (WERI-Rb-1, A-375_SCH772984_R) from
-        // overlapping the pill.
+        // positioned just after. Long names (PE/CA-PJ34 (clone C12),
+        // Ishikawa (Heraklio) 02 ER-) push that estimate past the column
+        // edge, so the pill is clamped to stay inside its own column —
+        // otherwise it lands on the neighbouring header, or off-canvas
+        // entirely when a single line is selected, silently dropping the
+        // WGD marker from the exported figure.
         const nameStr = `${sex} ${cl.name}`
         const nameW = nameStr.length * 7.4
         const nameCenterX = x + COL_W / 2
@@ -1706,7 +1724,7 @@ function _cnBuildResultsSvg() {
         svg += `<text x="${nameCenterX}" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d"><tspan fill="${sexColor}">${sex}</tspan> ${esc(cl.name)}</text>`
         if (cl.wgd === true) {
             const pillW = 30, pillH = 13
-            const pillX = nameRightX + 4
+            const pillX = Math.max(x + 2, Math.min(nameRightX + 4, x + COL_W - pillW - 2))
             const pillY = 9
             svg += `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="3" fill="#fef3c7" stroke="#fde68a"/>`
             svg += `<text x="${pillX + pillW/2}" y="${pillY + 9}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#92400e" letter-spacing="0.4">WGD</text>`
@@ -1714,11 +1732,16 @@ function _cnBuildResultsSvg() {
         // Cancer-type — wrap up to two lines if needed.
         const subtypeShown = cl.subtype && cl.subtype.toLowerCase() !== (cl.disease || "").toLowerCase() ? cl.subtype : ""
         const cancer = [cl.disease, subtypeShown].filter(Boolean).join(" · ")
+        // Greedy fill of line 1, then everything after the first overflow
+        // goes to line 2. Once a word has spilled, later words must follow
+        // it — without that check a short trailing word would jump back up
+        // to line 1 and the disease name would read out of order
+        // ("B-Cell Acute Leukemia" / "Lymphoblastic").
         const words = cancer.split(/\s+/)
         let l1 = "", l2 = ""
         for (const w of words) {
             const candidate = (l1 ? l1 + " " : "") + w
-            if (candidate.length <= 22) l1 = candidate
+            if (!l2 && candidate.length <= 22) l1 = candidate
             else l2 = (l2 ? l2 + " " : "") + w
         }
         if (l2.length > 24) l2 = l2.slice(0, 22) + "…"

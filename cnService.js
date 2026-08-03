@@ -2,10 +2,12 @@
 // Green Listed 2.0 — Copy-number lookup service
 // MIT Open source
 // -
-// Loads the DepMap OmicsCNGeneWGS matrix (gene-major int16 binary,
-// 19366 genes × 1095 cell lines, ~34 MB gzipped) and the slim cell-
+// Loads the DepMap OmicsCNGene matrix (gene-major int16 binary,
+// 20794 genes × 1929 cell lines, ~62 MB gzipped) and the slim cell-
 // line metadata (display name, sex, primary disease, subtype). Both
-// fetched lazily on first CN-mode activation.
+// fetched lazily on first CN-mode activation. Gene and cell-line counts
+// are read from cn_metadata.json at runtime — the numbers above are
+// just orientation for a reader.
 //
 // Public surface:
 //   CN_loadIfNeeded()                       → Promise<void>
