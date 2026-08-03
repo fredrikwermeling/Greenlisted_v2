@@ -74,6 +74,30 @@ const _CONTROL_KINDS = [
     }
 ]
 
+// Positive-control panel: core-essential genes that drop out in virtually
+// every proliferating line, so a screen that works shows them depleted.
+// Ordered deliberately — the first few already span nuclear transport, the
+// ribosome, RNA Pol II, the proteasome and mitosis, so even a 3-gene pick
+// covers distinct processes and a partial failure tells you which one did
+// not respond. All ten are present in every built-in human library and are
+// deleted in at most 2.3% of the 1929 DepMap lines (RAN and SF3B1: 0.1%).
+//
+// Unlike the NegCtrl / CutCtrl blocks these are ordinary genes, so they are
+// added to the search list and picked up by the normal library lookup —
+// they get ranked and top-N sliced exactly like a gene the user typed.
+const _ESSENTIAL_PANEL = [
+    "ran", "rps8", "polr2a", "psma1", "plk1",
+    "sf3b1", "eif3b", "kif11", "cdk1", "rpl9"
+]
+
+// The first n genes of the essential panel. Deliberately NOT randomised:
+// a positive-control panel is only useful if you know what to expect from
+// it, and a set that changes composition between runs cannot be compared
+// across experiments.
+function LIB_essentialPanel(n) {
+    return _ESSENTIAL_PANEL.slice(0, Math.max(1, Math.min(n, _ESSENTIAL_PANEL.length)))
+}
+
 // The key under which a library map holds controls of the given kind, or
 // null if it has none of that kind.
 function LIB_findControlKey(libraryMap, kindId) {
@@ -130,16 +154,22 @@ function LIB_startScreening(settings) {
     // searched-for gene, so they're excluded from the symbol count and
     // reported on their own line instead.
     const added = searchOutput.controlsAdded || {}
+    const essential = searchOutput.essentialAdded || []
     const addedNotes = []
-    if (added.nonTargeting > 0) addedNotes.push(`${added.nonTargeting} non-targeting`)
     if (added.safeTargeting > 0) addedNotes.push(`${added.safeTargeting} safe-targeting`)
+    if (added.nonTargeting > 0) addedNotes.push(`${added.nonTargeting} non-targeting`)
     const blocksAdded = (added.nonTargeting > 0 ? 1 : 0) + (added.safeTargeting > 0 ? 1 : 0)
+    // Essential-gene controls are ordinary genes and already counted among
+    // the symbols found; the control blocks are not.
     const symbolCount = Object.keys(searchOutput.filteredLibraryMap).length - blocksAdded
     var controlNote = ""
     if (addedNotes.length) {
         controlNote = `<br> Controls added: ${addedNotes.join(" + ")}`
     } else if (settings.includeNonTargeting || settings.includeSafeTargeting) {
         controlNote = `<br> This library ships none of the selected control types &mdash; none added`
+    }
+    if (essential.length) {
+        controlNote += `<br> Essential-gene controls: ${essential.map(g => g.toUpperCase()).join(", ")}`
     }
     _library.statusSearch = `Done. Time to complete: ${Math.round((performance.now() - st) / 1000 * 10) / 10}s<br> Symbols found: ${symbolCount}${controlNote}`
 

@@ -662,3 +662,10 @@ body.validate-mode #upsetButton {
     opacity: 1;
     pointer-events: auto;
 }
+/* Control-panel labels carry their explanation in a title tooltip, so the
+   panel itself stays compact. The dotted underline is the affordance that
+   tells the user there is something to hover. */
+.ctrlHint {
+    border-bottom: 1px dotted #9ca3af;
+    cursor: help;
+}

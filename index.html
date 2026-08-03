@@ -277,20 +277,32 @@
                     <h3 class="smallTitle">Controls (optional)</h3>
                     <table class="plateContent">
                         <tr>
-                            <td><label for="includeNonTargeting">Non-targeting</label></td>
-                            <td><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
-                            <td><input type="number" id="nonTargetingCount" min="1" placeholder="auto"
-                                       onchange="changeSettings()" style="width:5em;"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="includeSafeTargeting">Safe-targeting</label></td>
+                            <td><label for="includeSafeTargeting" class="ctrlHint"
+                                       title="Safe-targeting controls (CutCtrl): one cut site in a gene desert. They control for the DNA-damage response that any double-strand break provokes, so they set a more honest baseline than non-targeting guides in a Cas9 screen — a non-targeting guide never cuts, so it makes the baseline look better than it is. Preferred as the statistical null.">Safe-targeting</label></td>
                             <td><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
                             <td><input type="number" id="safeTargetingCount" min="1" placeholder="auto"
-                                       onchange="changeSettings()" style="width:5em;"></td>
+                                       onchange="changeSettings()" style="width:4.5em;"
+                                       title="How many to add. Leave blank for the automatic number."></td>
+                        </tr>
+                        <tr>
+                            <td><label for="includeNonTargeting" class="ctrlHint"
+                                       title="Non-targeting controls (NegCtrl): sequences with no match anywhere in the genome. They control for the vector and the selection, but not for cutting, so they under-report the fitness cost of a double-strand break. Useful as a secondary sanity check alongside safe-targeting controls.">Non-targeting</label></td>
+                            <td><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
+                            <td><input type="number" id="nonTargetingCount" min="1" placeholder="auto"
+                                       onchange="changeSettings()" style="width:4.5em;"
+                                       title="How many to add. Leave blank for the automatic number."></td>
+                        </tr>
+                        <tr>
+                            <td><label for="includeEssential" class="ctrlHint"
+                                       title="Positive controls: core-essential genes that drop out in virtually every proliferating cell line, so a screen that worked shows them strongly depleted. Picked in a fixed order spanning distinct processes — RAN (nuclear transport), RPS8 (ribosome), POLR2A (RNA Pol II), PSMA1 (proteasome), PLK1 (mitosis) — so a partial failure tells you which process did not respond. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.">Essential genes</label></td>
+                            <td><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
+                            <td><input type="number" id="essentialCount" min="1" max="10" placeholder="5"
+                                       onchange="changeSettings()" style="width:4.5em;"
+                                       title="How many essential genes to add (1-10). Default 5."></td>
                         </tr>
                     </table>
                     <div id="controlsStatus"
-                         style="font-size:0.78rem; color:#6b7280; margin-top:4px; line-height:1.4;"></div>
+                         style="font-size:0.75rem; color:#6b7280; margin-top:4px; line-height:1.35;"></div>
                 </div>
 
                 <div class="smallPlate design-only">

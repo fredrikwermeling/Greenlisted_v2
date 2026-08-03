@@ -35,7 +35,23 @@
                 <div class="updateSubFeature">
                     <p><span class="subTitle">Safe-targeting controls.</span> A single cut site in a gene desert, so they control for the DNA-damage response that any double-strand break provokes &mdash; something non-targeting guides cannot do. Available in Jacquere and Julianna (900) and in Gattinara and Gouda (500).</p>
                 </div>
-                <p>Leave a count blank for the automatic suggestion: 10% of the targeting guides in your output, spread across the control kinds you selected, with a floor of 10 each so small pilot designs still get a usable null distribution. Controls are added after ranking, so &ldquo;limit to top&rdquo; thins each gene&rsquo;s guides without thinning the control set, and they appear in the Full, Adapters and MAGeCK outputs like any other entry.</p>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">Essential-gene positive controls.</span> Optionally add 1&ndash;10 core-essential genes &mdash; RAN, RPS8, POLR2A, PSMA1, PLK1 and so on &mdash; which drop out in virtually every proliferating line, so a screen that worked shows them strongly depleted. They are picked in a fixed order spanning nuclear transport, the ribosome, RNA Pol II, the proteasome and mitosis, so even a three-gene panel covers distinct processes and a partial failure tells you which one did not respond. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.</p>
+                </div>
+                <p>Leave a count blank for the automatic suggestion: 20% of the targeting guides in your output, with a floor of 50 and capped at what the library holds. The floor matters more than the percentage. In a genome-wide screen the null distribution comes from the 85&ndash;90% of genes with no phenotype, which is why the built-in libraries all ship about 1000 controls regardless of size (0.8&ndash;2.4% of their guides). A targeted library has no neutral majority to borrow from, since its genes were chosen precisely for their expected effect, so the controls must define the null on their own &mdash; and the error on an estimated null SD is roughly 24% at n=10 but 10% at n=50.</p>
+                <p>Spike-in controls are added after ranking, so &ldquo;limit to top&rdquo; thins each gene&rsquo;s guides without thinning the control set, and the guides are drawn at random on each run rather than always taking the same ones. All controls appear in the Full, Adapters and MAGeCK outputs like any other entry.</p>
+            </div>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Copy-number warnings in the sgRNA output</div>
+                <p>When you pick a human cell line in section 3, the <em>Output with adapters</em> file gains a <em>Copy-number warning</em> column flagging genes whose copy number makes them awkward to screen in that line. Only the extremes are flagged, so the column contains nothing but things worth acting on:</p>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">Deep deletion (CN &lt; 0.3).</span> The gene is effectively absent, so its guides cannot report a knockout phenotype and any signal from them is noise.</p>
+                </div>
+                <div class="updateSubFeature">
+                    <p><span class="subTitle">Amplification (CN &ge; 3.0).</span> The copy-number effect. Cas9 cuts once per copy, so in an amplified region the cell takes many simultaneous double-strand breaks and can die from the damage regardless of what the gene does. That reads as dropout and is a classic false positive &mdash; e.g. MYCN in IMR-32 at ~22 copies, or EGFR in A-431 at ~18.</p>
+                </div>
+                <p>Genes with ordinary copy number get a blank cell, and the column only appears when a cell line is selected, so the file keeps its familiar three-column shape otherwise.</p>
             </div>
 
             <div class="updateEntry">

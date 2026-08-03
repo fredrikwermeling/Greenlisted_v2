@@ -92,12 +92,20 @@ async function insertData(data) {
     document.getElementById("partialMatches").checked = data.partialMatches
     document.getElementById("enableSynonyms").checked = data.enableSynonyms
 
-    document.getElementById("includeNonTargeting").checked = !!data.includeNonTargeting
-    document.getElementById("nonTargetingCount").value = (data.nonTargetingCount == null) ? "" : data.nonTargetingCount
     document.getElementById("includeSafeTargeting").checked = !!data.includeSafeTargeting
     document.getElementById("safeTargetingCount").value = (data.safeTargetingCount == null) ? "" : data.safeTargetingCount
-    SET_settingsSetControls(!!data.includeNonTargeting, document.getElementById("nonTargetingCount").value,
-                            !!data.includeSafeTargeting, document.getElementById("safeTargetingCount").value)
+    document.getElementById("includeNonTargeting").checked = !!data.includeNonTargeting
+    document.getElementById("nonTargetingCount").value = (data.nonTargetingCount == null) ? "" : data.nonTargetingCount
+    document.getElementById("includeEssential").checked = !!data.includeEssential
+    document.getElementById("essentialCount").value = (data.essentialCount == null) ? "" : data.essentialCount
+    SET_settingsSetControls({
+        includeSafeTargeting: !!data.includeSafeTargeting,
+        safeTargetingCount: document.getElementById("safeTargetingCount").value,
+        includeNonTargeting: !!data.includeNonTargeting,
+        nonTargetingCount: document.getElementById("nonTargetingCount").value,
+        includeEssential: !!data.includeEssential,
+        essentialCount: document.getElementById("essentialCount").value
+    })
 
     const libraryNames = await SER_getLibraryNames()
     const librarydropdown = document.getElementById("libraries")
@@ -423,9 +431,43 @@ async function runScreening() {
 
     try {
         searchOutput = await SER_runScreening(settings)
+
+        // Resolve the optional screening cell line and load the copy-number
+        // data BEFORE building any output, so the adapter output can carry
+        // its per-gene CN warning column. Loaded lazily — a user who picks no
+        // cell line never pays the ~60 MB download.
+        // Wait for any in-flight typeahead resolution first: if the user
+        // clicked "Load test data" and then immediately "Run", the selection
+        // might not be in state yet.
+        if (_cnState && _cnState.screeningInputPromise) {
+            const inputVal = document.getElementById("screeningCellLineInput")?.value?.trim()
+            if (inputVal) {
+                _setStatus("statusSearch", "Waiting for cell-line data to finish loading…")
+                try { await _cnState.screeningInputPromise } catch (_) {}
+            }
+        }
+        const screeningCl = (_cnState && _cnState.screeningCellLines) ? _cnState.screeningCellLines : []
+        var cnReady = false
+        if (screeningCl.length > 0) {
+            try {
+                if (!CN_isLoaded()) {
+                    _setStatus("statusSearch", `Loading copy-number data for ${screeningCl.length} cell line(s)…`)
+                    await CN_loadIfNeeded()
+                }
+                // CN_loadIfNeeded kicks off the synonym index without
+                // awaiting it, so resolve it explicitly here — otherwise
+                // whether an alias resolves depends on download timing and
+                // the same run can produce different output twice in a row.
+                await CN_loadSynonymsIfNeeded()
+                cnReady = true
+            } catch (e) {
+                console.error("CN load failed, outputs will omit copy number:", e)
+            }
+        }
+
         const fullOutput = _createFullTxtOutput(searchOutput.filteredLibraryMap, searchOutput.headers)
         const notFoundOutput = _createSymbolNotFound(searchOutput.usedSynonyms)
-        const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap)
+        const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null)
         const MAGeCKOutput = _createMAGeCKOutput(searchOutput.filteredLibraryMap)
 
         outputTexts = {
@@ -439,33 +481,9 @@ async function runScreening() {
         _createDownloadLink(notFoundOutput, settings["outputName"] + " not found", document.getElementById("notFoundDownload"), "text/tab-separated-values", ".tsv")
         _createDownloadLink(MAGeCKOutput, settings["outputName"] + " MAGeCK", document.getElementById("MAGeCKDownload"), "text/csv", ".csv")
 
-        // Optional CN annotation: emit a per-gene copy-number table for
-        // the cell lines picked in section 3. Loaded lazily so users who
-        // don't use this feature don't pay the ~60 MB matrix download.
-        // Wait for any in-flight typeahead resolution first — if the
-        // user clicked "Load test data" and then immediately "Run", the
-        // matrix download might not have finished and the screening-line
-        // selection might not be in state yet.
-        if (_cnState && _cnState.screeningInputPromise) {
-            const inputVal = document.getElementById("screeningCellLineInput")?.value?.trim()
-            if (inputVal) {
-                _setStatus("statusSearch", "Waiting for cell-line data to finish loading…")
-                try { await _cnState.screeningInputPromise } catch (_) {}
-            }
-        }
-        const screeningCl = (_cnState && _cnState.screeningCellLines) ? _cnState.screeningCellLines : []
         const cnRow = document.getElementById("cnAnnotationOutputRow")
-        if (screeningCl.length > 0) {
+        if (cnReady) {
             try {
-                if (!CN_isLoaded()) {
-                    _setStatus("statusSearch", `Loading copy-number data for ${screeningCl.length} cell line(s)…`)
-                    await CN_loadIfNeeded()
-                }
-                // CN_loadIfNeeded kicks off the synonym index without
-                // awaiting it, so resolve it explicitly here — otherwise
-                // whether an alias resolves depends on download timing and
-                // the same run can produce different output twice in a row.
-                await CN_loadSynonymsIfNeeded()
                 const cnOutput = _createCnAnnotationOutput(searchOutput.filteredLibraryMap, screeningCl)
                 outputTexts["textOutputCn"] = cnOutput
                 _createDownloadLinkRaw(cnOutput, settings["outputName"] + " copy number", document.getElementById("cnAnnotationDownload"), "text/tab-separated-values;charset=utf-8", ".tsv")
@@ -496,16 +514,50 @@ async function runScreening() {
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
 }
 
-function _createAdapterOutput(libraryMap) {
+// Copy-number warning for one gene in the screening cell line. Only the
+// extremes are flagged, so the column holds nothing but things worth acting
+// on:
+//   Deep deletion — the gene is effectively absent, so its guides cannot
+//     report a knockout phenotype and any signal from them is noise.
+//   Amplification — the copy-number effect. Cas9 cuts once per copy, so in
+//     an amplified region the cell takes many simultaneous double-strand
+//     breaks and can die from the damage regardless of what the gene does.
+//     That reads as dropout and is a classic false positive.
+// Anything in between gets a blank cell. Control blocks are skipped, since a
+// non-targeting guide has no locus to report.
+function _cnAdapterFlag(symbol, cellLine, synonymMap) {
+    if (typeof LIB_isControlSymbol === "function" && LIB_isControlSymbol(symbol)) return ""
+    const { resolved } = CN_resolveSymbol(String(symbol).toUpperCase(), synonymMap)
+    if (!resolved) return "no CN data"
+    const v = CN_lookup(cellLine.id, resolved)
+    if (v == null) return "no CN data"
+    // Two decimals, not one: the deletion threshold is 0.3, and a CN of 0.26
+    // rendered as "CN 0.3" reads as if it shouldn't have been flagged.
+    const copies = CN_approxCopies(v, cellLine.ploidy, cellLine.wgd)
+    const detail = `CN ${v.toFixed(2)}, ~${copies} cop${copies === 1 ? "y" : "ies"}`
+    if (v < 0.3)  return `DEEP DELETION (${detail}) - gene likely absent, guides uninformative`
+    if (v >= 5.0) return `STRONG AMPLIFICATION (${detail}) - copy-number effect likely, dropout may be a false positive`
+    if (v >= 3.0) return `AMPLIFIED (${detail}) - copy-number effect possible, interpret dropout with care`
+    return ""
+}
+
+function _createAdapterOutput(libraryMap, screeningCellLine) {
     const date = new Date()
+    // The warning column only appears when a screening cell line was picked,
+    // so the file keeps its familiar three-column shape otherwise.
+    const cl = screeningCellLine || null
+    const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
-    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)\n"
+    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" + (cl ? `\tCopy-number warning (${cl.name})\n` : "\n")
 
     for (var symbol of Object.keys(libraryMap)) {
+        // One lookup per symbol rather than per guide — otherwise a large
+        // design redoes the same resolve-and-lookup three or four times a row.
+        const flag = cl ? _cnAdapterFlag(symbol, cl, synonymMap) : ""
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
-            out = out + `${capitalizedSymbol}\t${capitalizedSymbol}_${i + 1}\t${_applyPostProcessing(row[settings.RNAColumn - 1])}\n`
+            out = out + `${capitalizedSymbol}\t${capitalizedSymbol}_${i + 1}\t${_applyPostProcessing(row[settings.RNAColumn - 1])}` + (cl ? `\t${flag}\n` : "\n")
 
         }
     }
@@ -896,13 +948,15 @@ function changeSettings() {
 
     const downloadName = document.getElementById("outputFileName").value
 
-    const includeNonTargeting = document.getElementById("includeNonTargeting").checked
-    const nonTargetingCount = document.getElementById("nonTargetingCount").value
-    const includeSafeTargeting = document.getElementById("includeSafeTargeting").checked
-    const safeTargetingCount = document.getElementById("safeTargetingCount").value
-
     SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName, downloadName)
-    SET_settingsSetControls(includeNonTargeting, nonTargetingCount, includeSafeTargeting, safeTargetingCount)
+    SET_settingsSetControls({
+        includeSafeTargeting: document.getElementById("includeSafeTargeting").checked,
+        safeTargetingCount: document.getElementById("safeTargetingCount").value,
+        includeNonTargeting: document.getElementById("includeNonTargeting").checked,
+        nonTargetingCount: document.getElementById("nonTargetingCount").value,
+        includeEssential: document.getElementById("includeEssential").checked,
+        essentialCount: document.getElementById("essentialCount").value
+    })
     _updateControlsStatus()
     _statusUpdateSettings()
 }
@@ -924,32 +978,21 @@ function _estimateTargetingGuides() {
     return n
 }
 
-// The two control rows in the UI, paired with what each kind means.
+// The two spike-in control rows in the UI. The long explanation of what
+// each kind is lives in the label's title tooltip in index.html — this
+// panel stays to one short line per row.
 const _CONTROL_UI = [
-    { id: "nonTargeting", checkbox: "includeNonTargeting", count: "nonTargetingCount",
-      label: "Non-targeting",
-      blurb: "no match anywhere in the genome &mdash; controls for the vector and the selection, but not for cutting" },
-    { id: "safeTargeting", checkbox: "includeSafeTargeting", count: "safeTargetingCount",
-      label: "Safe-targeting",
-      blurb: "one cut site in a gene desert &mdash; controls for the DNA-damage response that any double-strand break provokes" }
+    { id: "safeTargeting", checkbox: "includeSafeTargeting", count: "safeTargetingCount", label: "Safe" },
+    { id: "nonTargeting",  checkbox: "includeNonTargeting",  count: "nonTargetingCount",  label: "Non-targeting" }
 ]
 
 // Refreshes the "Controls" panel: what each kind offers in the selected
-// library, and what the automatic number would come to for the current
-// symbol list. Called whenever the library, the symbol list or any of the
-// control fields changes.
+// library and how many will be added. Called whenever the library, the
+// symbol list or any of the control fields changes.
 function _updateControlsStatus() {
     const box = document.getElementById("controlsStatus")
     if (!box || typeof LIB_controlInfo !== "function") return
     const info = LIB_controlInfo()
-
-    // How many kinds are both available and ticked — the auto share is
-    // split across them, so this has to be counted before building the text.
-    var nSelected = 0
-    for (const ui of _CONTROL_UI) {
-        const cb = document.getElementById(ui.checkbox)
-        if (cb && cb.checked && info[ui.id]) nSelected++
-    }
     const est = _estimateTargetingGuides()
 
     const lines = []
@@ -962,29 +1005,38 @@ function _updateControlsStatus() {
             cb.checked = false
             cb.disabled = true
             countInput.disabled = true
-            lines.push(`<b>${ui.label}:</b> none in this library.`)
+            lines.push(`${ui.label}: none in this library`)
             continue
         }
         cb.disabled = false
         countInput.disabled = !cb.checked
-        var note = `${avail.count} available (${ui.blurb}).`
-        if (cb.checked) {
-            const requested = parseInt(countInput.value, 10)
-            if (!isNaN(requested) && requested > 0) {
-                note += requested > avail.count
-                    ? ` You asked for ${requested}, but only ${avail.count} exist &mdash; all ${avail.count} will be added.`
-                    : ` <b>${requested}</b> will be added.`
-            } else {
-                const suggested = SCR_suggestedControlCount(est, avail.count, nSelected)
-                note += est > 0
-                    ? ` Blank = auto, about <b>${suggested}</b> for your current ~${est} guides.`
-                    : ` Blank = auto.`
-            }
+        if (!cb.checked) {
+            lines.push(`${ui.label}: ${avail.count} available`)
+            continue
         }
-        lines.push(`<b>${ui.label}:</b> ${note}`)
+        const requested = parseInt(countInput.value, 10)
+        if (!isNaN(requested) && requested > 0) {
+            lines.push(requested > avail.count
+                ? `${ui.label}: only ${avail.count} exist &mdash; adding all <b>${avail.count}</b>`
+                : `${ui.label}: adding <b>${requested}</b> of ${avail.count}`)
+        } else {
+            const n = SCR_suggestedControlCount(est, avail.count)
+            lines.push(`${ui.label}: adding <b>${n}</b> of ${avail.count} (auto)`)
+        }
     }
-    lines.push("Auto spreads 10% of your targeting guides across the kinds you tick, with a floor of 10 each. " +
-        "Controls are added after ranking, so &ldquo;limit to top&rdquo; does not thin them.")
+
+    const essCb = document.getElementById("includeEssential")
+    const essCount = document.getElementById("essentialCount")
+    if (essCb && essCount) {
+        essCount.disabled = !essCb.checked
+        if (essCb.checked && typeof LIB_essentialPanel === "function") {
+            const n = parseInt(essCount.value, 10)
+            const panel = LIB_essentialPanel(isNaN(n) || n <= 0 ? 5 : n)
+            lines.push(`Essential: ${panel.map(g => g.toUpperCase()).join(", ")}`)
+        }
+    }
+
+    lines.push(`<span class="ctrlHint" title="Blank count = 20% of the targeting guides in your output, with a floor of 50 and capped at what the library holds. The floor matters more than the percentage: a targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so the controls have to define the null on their own. The error on an estimated null SD is roughly 1/sqrt(2(n-1)) — about 24% at n=10 but 10% at n=50. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Auto = 20% of guides, min 50 &middot; hover for details</span>`)
     box.innerHTML = lines.join("<br>")
 }
 
