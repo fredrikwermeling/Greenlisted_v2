@@ -93,11 +93,17 @@ async function insertData(data) {
     document.getElementById("enableSynonyms").checked = data.enableSynonyms
 
     document.getElementById("includeSafeTargeting").checked = !!data.includeSafeTargeting
-    document.getElementById("safeTargetingCount").value = (data.safeTargetingCount == null) ? "" : data.safeTargetingCount
     document.getElementById("includeNonTargeting").checked = !!data.includeNonTargeting
-    document.getElementById("nonTargetingCount").value = (data.nonTargetingCount == null) ? "" : data.nonTargetingCount
     document.getElementById("includeEssential").checked = !!data.includeEssential
-    document.getElementById("essentialCount").value = (data.essentialCount == null) ? "" : data.essentialCount
+    // A settings load hands the count boxes back to the suggestion unless the
+    // settings file names an explicit number.
+    for (const [id, val] of [["safeTargetingCount", data.safeTargetingCount],
+                             ["nonTargetingCount", data.nonTargetingCount],
+                             ["essentialCount", data.essentialCount]]) {
+        const el = document.getElementById(id)
+        el.value = (val == null) ? "" : val
+        el.dataset.auto = (el.value.trim() === "") ? "1" : "0"
+    }
     SET_settingsSetControls({
         includeSafeTargeting: !!data.includeSafeTargeting,
         safeTargetingCount: document.getElementById("safeTargetingCount").value,
@@ -949,16 +955,24 @@ function changeSettings() {
     const downloadName = document.getElementById("outputFileName").value
 
     SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName, downloadName)
-    SET_settingsSetControls({
-        includeSafeTargeting: document.getElementById("includeSafeTargeting").checked,
-        safeTargetingCount: document.getElementById("safeTargetingCount").value,
-        includeNonTargeting: document.getElementById("includeNonTargeting").checked,
-        nonTargetingCount: document.getElementById("nonTargetingCount").value,
-        includeEssential: document.getElementById("includeEssential").checked,
-        essentialCount: document.getElementById("essentialCount").value
-    })
+    // Must run after SET_settingsSetSettings — it sizes the suggested control
+    // counts from rankingTop, pre-fills the count boxes, and then syncs the
+    // control settings from whatever the boxes ended up holding.
     _updateControlsStatus()
     _statusUpdateSettings()
+}
+
+// A count box is pre-filled with the suggested number and keeps tracking the
+// suggestion as the gene list changes — until the user types in it, after
+// which the box is theirs and nothing overwrites it. Emptying it counts as
+// touching it, so the field stays empty while they retype rather than
+// refilling under the cursor; an empty box still falls back to the
+// suggestion at run time.
+//   dataset.auto: unset = never touched, "1" = tracking the suggestion,
+//                 "0" = user owns it.
+function _controlCountEdited(input) {
+    input.dataset.auto = "0"
+    changeSettings()
 }
 
 // Rough count of the sgRNAs the current symbol list will produce. Used
@@ -1014,14 +1028,20 @@ function _updateControlsStatus() {
             lines.push(`${ui.label}: ${avail.count} available`)
             continue
         }
-        const requested = parseInt(countInput.value, 10)
-        if (!isNaN(requested) && requested > 0) {
-            lines.push(requested > avail.count
-                ? `${ui.label}: only ${avail.count} exist &mdash; adding all <b>${avail.count}</b>`
-                : `${ui.label}: adding <b>${requested}</b> of ${avail.count}`)
+        // Pre-fill the box with the suggestion so the user can see and adjust
+        // the number, rather than having to trust an invisible "auto".
+        const suggested = SCR_suggestedControlCount(est, avail.count)
+        if (countInput.dataset.auto !== "0") {
+            countInput.value = String(suggested)
+            countInput.dataset.auto = "1"
+        }
+        const raw = parseInt(countInput.value, 10)
+        const usingSuggestion = isNaN(raw) || raw <= 0
+        if (!usingSuggestion && raw > avail.count) {
+            lines.push(`${ui.label}: only ${avail.count} exist &mdash; adding all <b>${avail.count}</b>`)
         } else {
-            const n = SCR_suggestedControlCount(est, avail.count)
-            lines.push(`${ui.label}: adding <b>${n}</b> of ${avail.count} (auto)`)
+            const effective = usingSuggestion ? suggested : raw
+            lines.push(`${ui.label}: adding <b>${effective}</b> of ${avail.count}${usingSuggestion ? " (suggested)" : ""}`)
         }
     }
 
@@ -1030,11 +1050,26 @@ function _updateControlsStatus() {
     if (essCb && essCount) {
         essCount.disabled = !essCb.checked
         if (essCb.checked && typeof LIB_essentialPanel === "function") {
+            if (essCount.dataset.auto !== "0") {
+                essCount.value = String(_ESSENTIAL_DEFAULT)
+                essCount.dataset.auto = "1"
+            }
             const n = parseInt(essCount.value, 10)
             const panel = LIB_essentialPanel(isNaN(n) || n <= 0 ? _ESSENTIAL_DEFAULT : n)
             lines.push(`Essential: ${panel.map(g => g.toUpperCase()).join(", ")}`)
         }
     }
+
+    // Sync the control settings from whatever the boxes now hold — this runs
+    // after the pre-fill above, so settings never lag a keystroke behind.
+    SET_settingsSetControls({
+        includeSafeTargeting: document.getElementById("includeSafeTargeting").checked,
+        safeTargetingCount: document.getElementById("safeTargetingCount").value,
+        includeNonTargeting: document.getElementById("includeNonTargeting").checked,
+        nonTargetingCount: document.getElementById("nonTargetingCount").value,
+        includeEssential: essCb ? essCb.checked : false,
+        essentialCount: essCount ? essCount.value : ""
+    })
 
     lines.push(`<span class="ctrlHint" title="Blank count = 20% of the targeting guides in your output, clamped between 50 and 200 and capped at what the library holds. A targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so its controls must define the null themselves. Two things degrade when that set is small: the null SD is estimated from n controls, so the test follows a t distribution with n-1 df, and the control median is the normalisation anchor with SE 1.25*sd/sqrt(n). Combining both, for 3 guides/gene over 500 genes, a hit is about 30% harder to call at n=25, 14% at n=50, 7% at n=100 and 3% at n=200 — past which there is nothing left to buy. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Auto = 20% of guides, 50&ndash;200 &middot; hover for details</span>`)
     box.innerHTML = lines.join("<br>")
