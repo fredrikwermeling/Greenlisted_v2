@@ -27,7 +27,7 @@ function SCR_startScreening(library, settings, usedSynonyms) {
     var essentialAdded = []
     if (settings.includeEssential) {
         const requested = parseInt(settings.essentialCount, 10)
-        const panel = LIB_essentialPanel(isNaN(requested) || requested <= 0 ? 5 : requested)
+        const panel = LIB_essentialPanel(isNaN(requested) || requested <= 0 ? _ESSENTIAL_DEFAULT : requested)
         for (const gene of panel) {
             if (!library.librarySymbolSet.has(gene)) continue
             if (machingSymbols.indexOf(gene) === -1) machingSymbols.push(gene)
@@ -103,21 +103,35 @@ function _countGuides(libraryMap) {
 }
 
 // How many controls of one kind to spike in when the user hasn't named a
-// number: 20% of the targeting guides, floored at 50, capped at what the
-// library ships.
+// number: 20% of the targeting guides, floored at 50 and capped at 200,
+// then capped again at what the library ships.
 //
-// The floor matters more than the percentage. In a genome-wide screen the
-// null distribution comes from the ~85-90% of genes with no phenotype, and
-// the control block is a normalisation anchor — which is why the built-in
-// libraries all ship about 1000 controls regardless of size (0.8-2.4%). A
-// targeted library has no neutral majority to borrow from, because its
-// genes were picked precisely for their expected effect, so the controls
-// have to define the null on their own. The error on an estimated null SD
-// is roughly 1/sqrt(2(n-1)): ~24% at n=10, ~10% at n=50, ~7% at n=100. The
-// floor keeps a small focused screen out of the range where the threshold
-// itself is guesswork.
+// Why a targeted library needs its own controls at all: in a genome-wide
+// screen the null comes from the 85-90% of genes with no phenotype, which
+// is why the built-in libraries all ship about 1000 controls regardless of
+// size (0.8-2.4% of their guides) — those are a normalisation anchor, not
+// the null. A focused library has no neutral majority to borrow from, since
+// its genes were chosen precisely for their expected effect, so the
+// controls have to define the null themselves.
+//
+// Where 50 and 200 come from. Two things degrade when the control set is
+// small. The null SD is estimated from n controls, so the test follows a t
+// distribution with n-1 df and its critical value sits above the ideal z.
+// And the control median is the normalisation anchor, with SE 1.2533*sd/√n,
+// which adds noise to every gene-vs-control comparison. Combining both, for
+// 3 guides/gene and Bonferroni over 500 genes, the effective detection
+// threshold relative to an unlimited control set is:
+//
+//     n=25  1.30x     n=50  1.14x     n=100  1.07x
+//     n=200 1.03x     n=500 1.01x
+//
+// So 25 controls makes a hit ~30% harder to call, 50 costs ~14%, and past
+// 200 there is essentially nothing left to buy. The floor keeps a compact
+// screen out of the steep part of that curve; the cap stops a large design
+// from spending reads on guides that no longer add power.
 function SCR_suggestedControlCount(nTargetingGuides, nAvailable) {
-    return Math.min(Math.max(50, Math.round(nTargetingGuides * 0.2)), nAvailable)
+    const scaled = Math.min(Math.max(50, Math.round(nTargetingGuides * 0.2)), 200)
+    return Math.min(scaled, nAvailable)
 }
 
 function _sortOnScore(libraryMap, rankingOrder, rankingColumn) {

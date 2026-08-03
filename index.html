@@ -294,11 +294,11 @@
                         </tr>
                         <tr>
                             <td><label for="includeEssential" class="ctrlHint"
-                                       title="Positive controls: core-essential genes that drop out in virtually every proliferating cell line, so a screen that worked shows them strongly depleted. Picked in a fixed order spanning distinct processes — RAN (nuclear transport), RPS8 (ribosome), POLR2A (RNA Pol II), PSMA1 (proteasome), PLK1 (mitosis) — so a partial failure tells you which process did not respond. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.">Essential genes</label></td>
+                                       title="Positive controls: core-essential genes that drop out in virtually every proliferating cell line, so a screen that worked shows them strongly depleted. Picked in a fixed order, with the default three spanning distinct processes — RAN (nuclear transport), RPS8 (ribosome), PLK1 (mitosis) — so a partial failure tells you which process did not respond. Later entries are ordered by how rarely the gene is lost across DepMap lines. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.">Essential genes</label></td>
                             <td><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
-                            <td><input type="number" id="essentialCount" min="1" max="10" placeholder="5"
+                            <td><input type="number" id="essentialCount" min="1" max="9" placeholder="3"
                                        onchange="changeSettings()" style="width:4.5em;"
-                                       title="How many essential genes to add (1-10). Default 5."></td>
+                                       title="How many essential genes to add (1-9). Default 3."></td>
                         </tr>
                     </table>
                     <div id="controlsStatus"

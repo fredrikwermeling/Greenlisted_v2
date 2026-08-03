@@ -11,7 +11,7 @@
     "includeNonTargeting": true,
     "nonTargetingCount": "",
     "includeEssential": true,
-    "essentialCount": "5",
+    "essentialCount": "3",
     "outputName": "Test data",
     "defaultLibrary": "Jacquere (human)",
     "defaultSynonyms": "Human+Mouse",

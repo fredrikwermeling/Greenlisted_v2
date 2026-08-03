@@ -1031,12 +1031,12 @@ function _updateControlsStatus() {
         essCount.disabled = !essCb.checked
         if (essCb.checked && typeof LIB_essentialPanel === "function") {
             const n = parseInt(essCount.value, 10)
-            const panel = LIB_essentialPanel(isNaN(n) || n <= 0 ? 5 : n)
+            const panel = LIB_essentialPanel(isNaN(n) || n <= 0 ? _ESSENTIAL_DEFAULT : n)
             lines.push(`Essential: ${panel.map(g => g.toUpperCase()).join(", ")}`)
         }
     }
 
-    lines.push(`<span class="ctrlHint" title="Blank count = 20% of the targeting guides in your output, with a floor of 50 and capped at what the library holds. The floor matters more than the percentage: a targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so the controls have to define the null on their own. The error on an estimated null SD is roughly 1/sqrt(2(n-1)) — about 24% at n=10 but 10% at n=50. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Auto = 20% of guides, min 50 &middot; hover for details</span>`)
+    lines.push(`<span class="ctrlHint" title="Blank count = 20% of the targeting guides in your output, clamped between 50 and 200 and capped at what the library holds. A targeted library has no neutral majority of no-phenotype genes to borrow a baseline from, so its controls must define the null themselves. Two things degrade when that set is small: the null SD is estimated from n controls, so the test follows a t distribution with n-1 df, and the control median is the normalisation anchor with SE 1.25*sd/sqrt(n). Combining both, for 3 guides/gene over 500 genes, a hit is about 30% harder to call at n=25, 14% at n=50, 7% at n=100 and 3% at n=200 — past which there is nothing left to buy. Spike-in controls are added after ranking, so &quot;limit to top&quot; does not thin them, and the guides are drawn at random on every run.">Auto = 20% of guides, 50&ndash;200 &middot; hover for details</span>`)
     box.innerHTML = lines.join("<br>")
 }
 

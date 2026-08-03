@@ -75,20 +75,33 @@ const _CONTROL_KINDS = [
 ]
 
 // Positive-control panel: core-essential genes that drop out in virtually
-// every proliferating line, so a screen that works shows them depleted.
-// Ordered deliberately — the first few already span nuclear transport, the
-// ribosome, RNA Pol II, the proteasome and mitosis, so even a 3-gene pick
-// covers distinct processes and a partial failure tells you which one did
-// not respond. All ten are present in every built-in human library and are
-// deleted in at most 2.3% of the 1929 DepMap lines (RAN and SF3B1: 0.1%).
+// every proliferating line, so a screen that worked shows them depleted.
+//
+// Ordered so the default first three span distinct processes — RAN (nuclear
+// transport), RPS8 (ribosome), PLK1 (mitosis) — and a partial failure tells
+// you which process did not respond. After that the order follows how rarely
+// the gene is lost across the 1929 DepMap lines (fraction with CN < 0.5):
+//   RAN 0.10%  RPS8 0.16%  PLK1 0.16%  SF3B1 0.05%  EIF3B 0.36%
+//   KIF11 0.52%  CDK1 0.52%  RPL9 0.57%  POLR2A 2.28%
+//
+// POLR2A is deliberately last. It sits on 17p13 next to TP53 and its copy
+// number tracks TP53's at r = 0.92, so across the 414 lines that have lost
+// the TP53 region its mean CN is 0.62 against 0.92 overall — a positive
+// control that is itself hemizygous in a fifth of cell lines.
+//
+// PSMA1 was dropped: Jacquere carries only one guide for it, against three
+// for every other gene here.
 //
 // Unlike the NegCtrl / CutCtrl blocks these are ordinary genes, so they are
 // added to the search list and picked up by the normal library lookup —
 // they get ranked and top-N sliced exactly like a gene the user typed.
 const _ESSENTIAL_PANEL = [
-    "ran", "rps8", "polr2a", "psma1", "plk1",
-    "sf3b1", "eif3b", "kif11", "cdk1", "rpl9"
+    "ran", "rps8", "plk1", "sf3b1", "eif3b",
+    "kif11", "cdk1", "rpl9", "polr2a"
 ]
+
+// Default size of the positive-control panel.
+const _ESSENTIAL_DEFAULT = 3
 
 // The first n genes of the essential panel. Deliberately NOT randomised:
 // a positive-control panel is only useful if you know what to expect from
