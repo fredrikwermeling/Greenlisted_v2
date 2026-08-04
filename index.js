@@ -1219,7 +1219,16 @@ function _statusUpdateSymbols() {
     const statusSymbols = SER_statusLibrarySymbols()
     _setStatus("symbolsFound", statusSymbols)
 
-    _setStatus("searchSymbols", Array.from(settings.searchSymbols).join("\n"), false)
+    // Tidy the box — trim blanks and drop repeats — but keep the user's own
+    // spelling. settings.searchSymbols is lower-cased for matching, and writing
+    // that back turned every symbol into "tp53" or "trp53", against both HUGO
+    // and MGI convention. Matching is case-insensitive, so the case here is
+    // presentation only.
+    const seen = new Set()
+    const tidied = document.getElementById("searchSymbols").value.split("\n")
+        .map(s => s.trim())
+        .filter(s => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()))
+    _setStatus("searchSymbols", tidied.join("\n"), false)
 
     document.getElementById("fileContentContainer").style.display = "none"
 
@@ -1338,13 +1347,21 @@ function SETS_closeModal() {
 //
 // Only a list the user has not edited is swapped; an edited one is theirs, so
 // the mismatch is reported instead.
+// Case- and whitespace-insensitive fingerprint of the symbol box, used to tell
+// an untouched curated list from an edited one. The box gets tidied and may be
+// re-cased after loading, so comparing the raw text would read every list as
+// edited and the species swap would never fire.
+function _setsSignature(text) {
+    return text.split(/\r?\n/).map(s => s.trim().toLowerCase()).filter(Boolean).join("\n")
+}
+
 async function SETS_syncToLibrary() {
     const loaded = _setsState.loaded
     const box = document.getElementById("searchSymbols")
     if (!loaded || !box) return
     const species = _setsSpecies()
     if (species === loaded.species) return
-    if (box.value.trim() !== loaded.text.trim()) {
+    if (_setsSignature(box.value) !== loaded.text) {
         _setStatus("statusSearchSymbolsRows",
             `Note: these symbols were loaded as a ${loaded.species.toLowerCase()} list, but the library is ${species.toLowerCase()}.`)
         return
@@ -1361,7 +1378,7 @@ async function SETS_syncToLibrary() {
     const set = (_setsState.bySpecies[species] || []).find(s => s.key === loaded.key)
     if (!set) return
     box.value = set.genes.join("\n")
-    _setsState.loaded = { key: set.key, species: species, text: box.value }
+    _setsState.loaded = { key: set.key, species: species, text: _setsSignature(box.value) }
     changeSymbols()
     _setStatus("statusSearchSymbolsRows",
         `${set.label}: switched to the ${species.toLowerCase()} list, ${set.genes.length} genes`)
@@ -1405,7 +1422,7 @@ function SETS_load(index, append) {
     // Remember a whole list so it can follow a library species change. An
     // appended list leaves a mixture that is nobody's set, so forget it.
     _setsState.loaded = append ? null
-        : { key: set.key, species: _setsSpecies(), text: box.value }
+        : { key: set.key, species: _setsSpecies(), text: _setsSignature(box.value) }
     changeSymbols()
     SETS_closeModal()
     _setStatus("statusSearchSymbolsRows",
