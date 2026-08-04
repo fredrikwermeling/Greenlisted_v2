@@ -884,6 +884,7 @@ async function changeLibrary() {
     document.body.classList.toggle("custom-library", libraryName == "custom")
 
     if (libraryName == "custom") { //shows new input fields for custom library
+        settings.librarySpecies = ""   // unknown; the picker falls back to the synonym list
         customLibrarie.classList.remove("inactive")
         changeLibraryColumn()
     }
@@ -893,6 +894,9 @@ async function changeLibrary() {
         await new Promise(r => setTimeout(r, 10)) //wait for status animation to end
         try {
             const librarySettings = await SER_selectLibrary(libraryName) //uppdates library
+            // Species of the selected library, used to pick which curated gene
+            // lists to offer. Built-in libraries declare it via their synonym list.
+            settings.librarySpecies = librarySettings.synonymName || ""
             await _displayLibraryCitation(SER_getLibraryCitation())
             SET_settingsSetIndexes(librarySettings.RNAColumn, librarySettings.symbolColumn, librarySettings.RankColumn)
 
@@ -1279,23 +1283,41 @@ function _setStatus(elemId, text, isNotInnerHtml) {
 // geneSets.json the first time the picker is opened. Each set was resolved
 // against the built-in human libraries when the file was built, so every
 // symbol in it is one some library can actually target.
-var _setsState = { sets: null, loading: null }
+var _setsState = { bySpecies: null, loading: null, sets: null }
+
+// Which species' lists to show. Every built-in library declares its species
+// through the synonym list it uses; an uploaded library has none, so it falls
+// back to whichever synonym list the user picked, and to human when that is
+// the combined list or unset. A mouse library must never be offered human
+// symbols — almost none of them would match.
+function _setsSpecies() {
+    var name = (settings && settings.librarySpecies) || ""
+    if (!name) {
+        const sel = document.getElementById("synonymSelect")
+        name = sel ? sel.value : ""
+    }
+    return /mouse/i.test(name) && !/human/i.test(name) ? "Mouse" : "Human"
+}
 
 async function SETS_openModal() {
     document.getElementById("setsModal").className = "fazeIn upset-modal-overlay"
     const list = document.getElementById("setsList")
-    if (!_setsState.sets) {
+    if (!_setsState.bySpecies) {
         list.innerHTML = `<p style="font-size:0.85rem; color:#6b7280;">Loading&hellip;</p>`
         try {
             if (!_setsState.loading) _setsState.loading = FH_fetchJsonFile("geneSets.json")
             const data = await _setsState.loading
-            _setsState.sets = data.sets || []
+            _setsState.bySpecies = data.species || {}
         } catch (e) {
             console.error("Could not load geneSets.json:", e)
             list.innerHTML = `<p style="font-size:0.85rem; color:#b91c1c;">Could not load the curated lists.</p>`
             return
         }
     }
+    const species = _setsSpecies()
+    _setsState.sets = _setsState.bySpecies[species] || []
+    const label = document.getElementById("setsSpecies")
+    if (label) label.textContent = species.toLowerCase()
     _renderSetsList()
 }
 
