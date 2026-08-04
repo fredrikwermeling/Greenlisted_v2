@@ -27,10 +27,16 @@ before it ships. Choices settled that way:
   * Cell surface means surface-EXPOSED, not merely plasma-membrane located.
     UniProt's Cell membrane keyword alone admits KRAS, HRAS, SRC, RHOA and
     GNAS — lipid-anchored proteins facing the cytoplasm that no antibody or
-    CAR can reach. Requiring a transmembrane segment or GPI anchor as well
-    drops all of those and yields 2827 human genes, close to the 2886 of the
-    published in silico surfaceome (Bausch-Fluck 2018), whose own table is
-    not machine-downloadable.
+    CAR can reach. The list is the union of two definitions that disagree at
+    the margins and neither of which is complete on its own:
+      - the in silico human surfaceome (Bausch-Fluck 2018, vendored in
+        tools/data/), which is a machine-learning prediction and so has false
+        negatives — TFRC, CD3E and SLC7A11 are all absent from it;
+      - UniProt cell membrane AND (transmembrane OR GPI anchor), which catches
+        those but misses ~570 that SURFY includes.
+    Union is the right bias for a list meant to be edited down: a missing
+    surface target costs more than one the user deletes. It contains none of
+    the inner-leaflet proteins above.
   * HPA's membrane class intersected with its antibody-based plasma-membrane
     localisation was tried first and dropped CD19, PDCD1 and TFRC — the
     localisation data is too sparse to gate on.
@@ -194,6 +200,19 @@ def main():
     KINASE_Q = "(keyword:KW-0723 OR keyword:KW-0829)"
     SURFACE_Q = "keyword:KW-1003 AND (keyword:KW-0812 OR keyword:KW-0336)"
 
+    # SURFY entry names -> gene symbols, through UniProt's own id/gene table.
+    entry_to_gene = {}
+    for line in text("https://rest.uniprot.org/uniprotkb/stream?query=reviewed:true+AND+"
+                     "organism_id:9606&format=tsv&fields=id,gene_primary",
+                     "UniProt entry-name map").splitlines()[1:]:
+        cols = line.rstrip("\n").split("\t")
+        if len(cols) >= 2 and cols[0].strip() and cols[1].strip():
+            entry_to_gene[cols[0].strip().upper()] = cols[1].strip().upper()
+    with open(os.path.join(ROOT, "tools", "data", "surfaceome_ids.txt")) as fh:
+        surfy = {entry_to_gene[e] for e in (l.strip().upper() for l in fh)
+                 if e and e in entry_to_gene}
+    sys.stderr.write(f"  SURFY: {len(surfy)} of 2886 entry names mapped to symbols\n")
+
     hpa_zip = fetch("https://www.proteinatlas.org/download/proteinatlas.tsv.zip",
                     "Human Protein Atlas")
     with zipfile.ZipFile(io.BytesIO(hpa_zip)) as z:
@@ -246,10 +265,10 @@ def main():
          uniprot("go:0006974", 9606, "UniProt DDR, human"),
          uniprot("go:0006974", 10090, "UniProt DDR, mouse"), False),
         ("surface", "Cell surface",
-         "Surface-exposed proteins — plasma membrane with a transmembrane segment or GPI anchor, "
-         "so the fraction an antibody or CAR can actually reach.",
-         f"{UP} (cell membrane + transmembrane/GPI)",
-         uniprot(SURFACE_Q, 9606, "UniProt surfaceome, human"),
+         "Surface-exposed proteins — the fraction an antibody or CAR can actually reach, "
+         "excluding lipid-anchored proteins that face the cytoplasm.",
+         "SURFY surfaceome (Bausch-Fluck 2018) + UniProt topology",
+         surfy | uniprot(SURFACE_Q, 9606, "UniProt surfaceome, human"),
          uniprot(SURFACE_Q, 10090, "UniProt surfaceome, mouse"), False),
         ("cd", "CD markers", "Cluster-of-differentiation surface markers used to type and sort cells.",
          HPA_SRC, hpa("CD markers"), to_mouse(hpa("CD markers")), True),
