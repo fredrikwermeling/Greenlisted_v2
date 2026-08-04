@@ -757,3 +757,13 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 #controlsStatus {
     min-height: 1.15rem;
 }
+
+/* The two ways of filling the symbol box, set apart from each other and
+   centred under it — .justifyCenter has no justify-content, so they would
+   otherwise sit hard against the left edge. */
+.symbolLinks {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2.5rem;
+}
