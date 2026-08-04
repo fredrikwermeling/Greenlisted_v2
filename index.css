@@ -720,3 +720,17 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     background-color: var(--mainColor);
     color: white;
 }
+
+/* Curated gene-list picker rows */
+.gene-set-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 4px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.gene-set-row:last-child { border-bottom: none; }
+.gene-set-count { font-size: 0.78rem; color: var(--mainColor); font-weight: 600; }
+.gene-set-desc { font-size: 0.8rem; color: #4b5563; margin-top: 2px; }
+.gene-set-src { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; }

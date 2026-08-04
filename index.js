@@ -81,8 +81,11 @@ async function insertData(data) {
     document.getElementById("trimAfter").min = 0
     document.getElementById("trimAfter").value = data.trimAfter
 
-    document.getElementById("adapterBefore").defaultValue = data.adaptorBefore;
-    document.getElementById("adapterAfter").defaultValue = data.adaptorAfter;
+    // .value, not .defaultValue: defaultValue only reaches the field while its
+    // dirty flag is clear, so once the user has typed an adapter, loading test
+    // data would silently leave their old sequence in place.
+    document.getElementById("adapterBefore").value = data.adaptorBefore;
+    document.getElementById("adapterAfter").value = data.adaptorAfter;
 
     document.getElementById("numberToRank").value = data.rankingTop
     document.getElementById("numberToRank").defaultValue = ""
@@ -1271,6 +1274,75 @@ function _setStatus(elemId, text, isNotInnerHtml) {
 // Validate sgRNA — species picker modal (consolidates the old Mouse / Human
 // buttons into one button that asks which genome to validate against)
 // =============================================================================
+
+// Curated gene lists — starting sets for the symbol box, loaded lazily from
+// geneSets.json the first time the picker is opened. Each set was resolved
+// against the built-in human libraries when the file was built, so every
+// symbol in it is one some library can actually target.
+var _setsState = { sets: null, loading: null }
+
+async function SETS_openModal() {
+    document.getElementById("setsModal").className = "fazeIn upset-modal-overlay"
+    const list = document.getElementById("setsList")
+    if (!_setsState.sets) {
+        list.innerHTML = `<p style="font-size:0.85rem; color:#6b7280;">Loading&hellip;</p>`
+        try {
+            if (!_setsState.loading) _setsState.loading = FH_fetchJsonFile("geneSets.json")
+            const data = await _setsState.loading
+            _setsState.sets = data.sets || []
+        } catch (e) {
+            console.error("Could not load geneSets.json:", e)
+            list.innerHTML = `<p style="font-size:0.85rem; color:#b91c1c;">Could not load the curated lists.</p>`
+            return
+        }
+    }
+    _renderSetsList()
+}
+
+function SETS_closeModal() {
+    document.getElementById("setsModal").className = "fazeOut upset-modal-overlay"
+}
+
+function _renderSetsList() {
+    const list = document.getElementById("setsList")
+    list.innerHTML = _setsState.sets.map((s, i) => `
+        <div class="gene-set-row">
+            <div>
+                <div><b>${_cnEsc(s.label)}</b> <span class="gene-set-count">${s.genes.length} genes</span></div>
+                <div class="gene-set-desc">${_cnEsc(s.description)}</div>
+                <div class="gene-set-src">Source: ${_cnEsc(s.source)}</div>
+            </div>
+            <span style="display:flex; gap:6px; align-items:center; white-space:nowrap;">
+                <button class="validate-btn" onclick="SETS_load(${i}, false)">Replace</button>
+                <button class="validate-btn" onclick="SETS_load(${i}, true)">Add</button>
+            </span>
+        </div>`).join("")
+}
+
+// Put a set into the symbol box. "Add" merges with what's already there —
+// building a screen from two or three classes is the common case, and
+// retyping the first list to add a second would be tedious. Duplicates are
+// dropped, so adding an overlapping set is safe.
+function SETS_load(index, append) {
+    const set = _setsState.sets[index]
+    if (!set) return
+    const box = document.getElementById("searchSymbols")
+    const existing = append
+        ? box.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+        : []
+    const seen = new Set(existing.map(s => s.toUpperCase()))
+    const merged = existing.slice()
+    for (const g of set.genes) {
+        if (seen.has(g.toUpperCase())) continue
+        seen.add(g.toUpperCase())
+        merged.push(g)
+    }
+    box.value = merged.join("\n")
+    changeSymbols()
+    SETS_closeModal()
+    _setStatus("statusSearchSymbolsRows",
+        `${set.label}: ${set.genes.length} genes ${append ? "added" : "loaded"} (${merged.length} in the box)`)
+}
 
 // "sgRNA design" in the tool strip — returns to the main flow from whichever
 // takeover mode is running. Already being in design mode is a no-op, so the

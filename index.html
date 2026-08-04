@@ -117,6 +117,25 @@
             </div>
         </div>
 
+        <!-- Curated gene lists. Opens from "Curated lists…" under the symbol
+             box; fills the box with a starting gene set the user can edit. -->
+        <div id="setsModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box" style="max-width:640px;">
+                <div class="upset-modal-header">
+                    <h3>Curated gene lists</h3>
+                    <button class="upset-close-btn" onclick="SETS_closeModal()">&times;</button>
+                </div>
+                <div class="upset-modal-body">
+                    <p style="margin:0 0 10px 0; font-size:0.85rem; color:#4b5563;">
+                        Starting points for a focused screen, not definitive gene families &mdash; load one and
+                        edit it down. Every symbol has been checked against the built-in human libraries, so
+                        each list contains only genes at least one library can target.
+                    </p>
+                    <div id="setsList"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Copy number: cell-line picker. Opens when the user clicks
              "Copy number (human)". -->
         <div id="cnModal" class="fazeOut upset-modal-overlay">
@@ -253,7 +272,10 @@ Use synonyms: resolves older or alternative names to the one the library uses, s
                         </form>
                         <textarea id="searchSymbols" onchange="changeSymbols()">
                     </textarea>
-                        <a href="javascript:void(0)" onclick="loadTestSettings()" style="align-self: center;">Load test data</a>
+                        <span class="justifyCenter design-only" style="gap:12px;">
+                            <a href="javascript:void(0)" onclick="loadTestSettings()">Load test data</a>
+                            <a href="javascript:void(0)" onclick="SETS_openModal()">Curated lists&hellip;</a>
+                        </span>
                         <span class="justifyCenter">
                             <button>Update</button>
                             <!--pointless button just for user to have something to click on-->
