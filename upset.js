@@ -263,24 +263,24 @@ function INFO_closeModal() {
     document.getElementById("infoModal").className = "fazeOut upset-modal-overlay";
 }
 
-// Close modals on click outside
-document.addEventListener("click", function (e) {
-    ["upsetModal", "infoModal"].forEach(id => {
-        const modal = document.getElementById(id);
-        if (modal && modal.classList.contains("fazeIn") && e.target === modal) {
-            modal.className = "fazeOut upset-modal-overlay";
-        }
+// Close whichever modals are open. Every modal in the app shares the
+// .upset-modal-overlay shell, so this covers them all — naming them
+// individually meant the cell-line picker, the curated lists and the validate
+// species prompt could only be closed with their own X button.
+function _closeOpenModals(only) {
+    document.querySelectorAll(".upset-modal-overlay.fazeIn").forEach(modal => {
+        if (!only || only === modal) modal.className = "fazeOut upset-modal-overlay";
     });
+}
+
+// Click on the backdrop, but not inside the box
+document.addEventListener("click", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("upset-modal-overlay")) {
+        _closeOpenModals(e.target);
+    }
 });
 
-// Close modals on Escape
+// Escape
 document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-        ["upsetModal", "infoModal"].forEach(id => {
-            const modal = document.getElementById(id);
-            if (modal && modal.classList.contains("fazeIn")) {
-                modal.className = "fazeOut upset-modal-overlay";
-            }
-        });
-    }
+    if (e.key === "Escape") _closeOpenModals();
 });
