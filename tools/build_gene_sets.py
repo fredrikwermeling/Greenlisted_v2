@@ -7,14 +7,20 @@ Run from the repository root:      python3 tools/build_gene_sets.py
 geneSets.json is a build artefact, not hand-maintained. Re-run this when the
 upstream sources publish new releases; it downloads everything it needs.
 
-Sourcing note. DGIdb carries every functional category in one file and is
-tempting to use throughout, but its coverage is uneven: its KINASE category
-resolves to ~1850 genes against a canonical kinome of ~518, its PROTEIN
-PHOSPHATASE category to only ~97 against a phosphatome of ~200, and its
-DNA REPAIR category omits ATM, BRCA2, MLH1, NBN, LIG4 and PRKDC. So each
-class is taken from whichever source actually curates it, and DGIdb is kept
-only for the classes where its categorisation holds up (checked against
-marker panels: cell surface, GPCRs, ion channels, transporters, proteases).
+Sourcing note. DGIdb carries every functional category in one file and was
+tempting to use throughout, but its category data is stamped Feb-14 and its
+coverage is uneven: KINASE resolved to ~1850 genes against a kinome of ~518,
+PROTEIN PHOSPHATASE to ~97 against a phosphatome of ~200, and DNA REPAIR
+omitted ATM, BRCA2, MLH1, NBN, LIG4 and PRKDC. It is no longer used.
+
+Each class now comes from whichever source actually curates it: the Human
+Protein Atlas protein classes, UniProt keywords and GO annotation, HGNC gene
+groups, OncoKB, and Lambert et al. for the transcription factors. Where two
+candidates existed the choice was settled against a marker panel — HPA's
+membrane class intersected with its antibody-based plasma-membrane
+localisation drops CD19, PDCD1 and TFRC, so cell surface uses UniProt's
+Cell membrane keyword instead; HPA's ion channel class covers only
+voltage-gated channels, so that uses a UniProt keyword too.
 
 Every symbol is resolved against the union of symbols in the built-in human
 libraries, directly or through libraries/human synonym.txt, so a list can
@@ -37,6 +43,13 @@ def fetch(url, label):
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=180) as r:
         return r.read().decode("utf-8", "replace")
+
+
+def fetch_bytes(url, label):
+    sys.stderr.write(f"  fetching {label}\n")
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=300) as r:
+        return r.read()
 
 
 def uniprot(query, label):
@@ -118,19 +131,23 @@ def main():
         r["symbol"] for r in csv.DictReader(io.StringIO(hgnc), delimiter="\t")
         if {g.strip() for g in (r.get("gene_group") or "").split("|")} & PP_GROUPS)
 
-    dg_rows = list(csv.DictReader(io.StringIO(
-        fetch("https://dgidb.org/data/latest/categories.tsv", "DGIdb categories")), delimiter="\t"))
-    dg_ver = dg_rows[0]["source_db_version"] if dg_rows else "?"
-    bycat = collections.defaultdict(set)
-    for r in dg_rows:
-        s = resolve(r["name"])
-        if s:
-            bycat[r["name-2"]].add(s)
+    # Human Protein Atlas protein classes — current and curated, unlike the
+    # 2014 DGIdb categories they replace.
+    hpa_zip = fetch_bytes("https://www.proteinatlas.org/download/proteinatlas.tsv.zip",
+                          "Human Protein Atlas")
+    import zipfile
+    with zipfile.ZipFile(io.BytesIO(hpa_zip)) as z:
+        with z.open("proteinatlas.tsv") as fh:
+            hpa_rows = list(csv.DictReader(io.TextIOWrapper(fh, "utf-8"), delimiter="\t"))
 
-    def dg(*cats):
-        return set().union(*[bycat.get(c, set()) for c in cats])
+    def hpa(*classes):
+        want = set(classes)
+        out = set()
+        for r in hpa_rows:
+            if want & {c.strip() for c in (r.get("Protein class") or "").split(",")}:
+                out.add(r["Gene"])
+        return resolved(out)
 
-    DGIDB = f"DGIdb categories ({dg_ver})"
     sets = [
         ("cancer", "Cancer genes", cancer,
          "Genes with an established role in cancer.", "OncoKB Cancer Gene List"),
@@ -145,15 +162,30 @@ def main():
         ("ddr", "DNA damage response & repair", ddr,
          "Repair enzymes plus the checkpoint and signalling layer — includes TP53, MDM2, CHEK2 and ATM.",
          "UniProt (GO:0006974)"),
-        ("surface", "Cell surface", dg("CELL SURFACE", "EXTERNAL SIDE OF PLASMA MEMBRANE"),
-         "Proteins at the cell surface — the fraction reachable by antibodies and CAR targets.", DGIDB),
-        ("druggable", "Druggable genome", dg("DRUGGABLE GENOME", "CLINICALLY ACTIONABLE"),
-         "Genes whose products are considered tractable to small molecules or biologics.", DGIDB),
-        ("gpcr", "GPCRs", dg("G PROTEIN COUPLED RECEPTOR"), "G protein-coupled receptors.", DGIDB),
-        ("ionchannel", "Ion channels", dg("ION CHANNEL"), "Ion channels.", DGIDB),
-        ("transporter", "Transporters", dg("TRANSPORTER", "ABC TRANSPORTER"),
-         "Solute carriers and ABC transporters.", DGIDB),
-        ("protease", "Proteases", dg("PROTEASE"), "Proteases and peptidases.", DGIDB),
+        ("surface", "Cell surface", resolved(uniprot("keyword:KW-1003", "UniProt cell membrane")),
+         "Proteins at the plasma membrane — the fraction reachable by antibodies and CAR targets.",
+         "UniProt (Cell membrane keyword)"),
+        ("cd", "CD markers", hpa("CD markers"),
+         "Cluster-of-differentiation surface markers used to type and sort cells.",
+         "Human Protein Atlas protein classes"),
+        ("druggable", "Druggable genome", hpa("FDA approved drug targets", "Potential drug targets"),
+         "Targets of an approved drug, plus those judged tractable to small molecules or biologics.",
+         "Human Protein Atlas protein classes"),
+        ("fda", "FDA-approved drug targets", hpa("FDA approved drug targets"),
+         "Proteins targeted by a drug already approved for clinical use.",
+         "Human Protein Atlas protein classes"),
+        ("gpcr", "GPCRs", hpa("G-protein coupled receptors"),
+         "G protein-coupled receptors.", "Human Protein Atlas protein classes"),
+        ("ionchannel", "Ion channels", resolved(uniprot("keyword:KW-0407", "UniProt ion channels")),
+         "Ion channels — voltage-gated, ligand-gated and mechanosensitive.",
+         "UniProt (Ion channel keyword)"),
+        ("transporter", "Transporters", hpa("Transporters"),
+         "Solute carriers, ABC transporters and pumps.", "Human Protein Atlas protein classes"),
+        ("protease", "Proteases", resolved(uniprot("keyword:KW-0645", "UniProt proteases")),
+         "Proteases and peptidases.", "UniProt (Protease keyword)"),
+        # HPA's "RAS pathway related proteins" class was considered and rejected:
+        # it contains RAF1 but not BRAF or ARAF, and a RAS-pathway list missing
+        # the canonical drug target of that pathway would mislead more than help.
     ]
 
     out = {
