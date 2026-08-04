@@ -271,9 +271,9 @@ Use these settings to thin the guide list, add control guides, attach the adapte
 
 Limit to top keeps only the best N guides per gene — the usual way to shrink a library while keeping its strongest guides. Leave it blank to keep them all.
 
-Ranking order is preset per library so that best-first is already correct; you rarely need to change it.">i</span></h3>
+Ranking order is set automatically for each built-in library, so it only appears if you upload your own.">i</span></h3>
                     <table class="plateContent">
-                        <tr>
+                        <tr class="custom-only">
                             <td>Ranking order</td>
                             <td>
                                 <select id="rankingOrder" onchange="changeSettings()">
@@ -315,7 +315,7 @@ Ranking order is preset per library so that best-first is already correct; you r
                             <td><label for="includeEssential" class="ctrlHint"
                                        title="Positive controls: core-essential genes that drop out in virtually every proliferating cell line, so a screen that worked shows them strongly depleted. Picked in a fixed order, with the default three spanning distinct processes — RAN (nuclear transport), RPS8 (ribosome), PLK1 (mitosis) — so a partial failure tells you which process did not respond. Later entries are ordered by how rarely the gene is lost across DepMap lines. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.">Essential genes</label></td>
                             <td><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
-                            <td><input type="number" id="essentialCount" min="1" max="9" placeholder="3"
+                            <td><input type="number" id="essentialCount" min="1" max="9"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
                                        title="How many essential genes to add (1-9). Pre-filled with 3; type your own value to override."></td>
                         </tr>
@@ -325,12 +325,10 @@ Ranking order is preset per library so that best-first is already correct; you r
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Sequence modifications (optional)<span class="infoDot" title="Trim removes bases from the 5' or 3' end of every sgRNA, for libraries that ship guides longer than your vector expects.
-
-Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></h3>
+                    <h3 class="smallTitle">Sequence modifications (optional)<span class="infoDot" title="Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></h3>
                     <div class="plateContent">
                         <table>
-                            <tr>
+                            <tr class="custom-only">
                                 <td>Trim </td>
                                 <td>5'<input type="number" id="trimBefore" min="0" value="0"
                                         onchange="changeSettings()"></td>

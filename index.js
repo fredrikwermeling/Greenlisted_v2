@@ -872,6 +872,11 @@ async function changeLibrary() {
     const customLibrarie = document.getElementById("User Upload")
     await _displayLibraryCitation("")
 
+    // Ranking order and Trim only apply to an uploaded library: the built-in
+    // ones already declare which direction their score ranks and ship a
+    // uniform guide length. Revealed by the .custom-only rule in index.css.
+    document.body.classList.toggle("custom-library", libraryName == "custom")
+
     if (libraryName == "custom") { //shows new input fields for custom library
         customLibrarie.classList.remove("inactive")
         changeLibraryColumn()
@@ -1091,7 +1096,16 @@ function _updateControlsStatus() {
     const essCount = document.getElementById("essentialCount")
     if (essCb && essCount) {
         essCount.disabled = !essCb.checked
-        if (essCb.checked && typeof LIB_essentialPanel === "function") {
+        if (!essCb.checked) {
+            // Same rule as the two spike-in boxes: a suggested number is
+            // blanked while its checkbox is off, so nothing shows a figure
+            // that isn't being used. A number the user typed is kept.
+            if (essCount.dataset.auto !== "0") {
+                essCount.value = ""
+                essCount.placeholder = ""
+            }
+        } else if (typeof LIB_essentialPanel === "function") {
+            essCount.placeholder = String(_ESSENTIAL_DEFAULT)
             if (essCount.dataset.auto !== "0") {
                 essCount.value = String(_ESSENTIAL_DEFAULT)
                 essCount.dataset.auto = "1"

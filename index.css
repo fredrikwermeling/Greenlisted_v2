@@ -690,3 +690,9 @@ body.validate-mode #upsetButton {
     cursor: help;
 }
 .infoDot:hover { opacity: 1; }
+
+/* Ranking order and Trim only matter for an uploaded library — the built-in
+   ones already carry the right ranking direction and a uniform guide length.
+   Hidden unless "User Upload" is the selected library. */
+.custom-only { display: none; }
+body.custom-library .custom-only { display: table-row; }
