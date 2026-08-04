@@ -925,6 +925,8 @@ async function changeLibrary() {
 
     }
     changeSymbols()
+    // A loaded curated list follows the library's species.
+    if (typeof SETS_syncToLibrary === "function") await SETS_syncToLibrary()
 }
 
 async function changeSynonyms() {
@@ -1325,6 +1327,46 @@ function SETS_closeModal() {
     document.getElementById("setsModal").className = "fazeOut upset-modal-overlay"
 }
 
+// Keep a loaded curated list in step with the library's species.
+//
+// A species mismatch is easy to miss, because matching is case-insensitive and
+// most orthologues share their letters — a human kinase list run against a
+// mouse library still resolves 456 of 468 symbols. The danger is the handful
+// that do not: those fall through to the synonym table, which can resolve an
+// ambiguous alias to a DIFFERENT gene, so the output quietly carries guides
+// for something else. Swapping the list removes that whole class of error.
+//
+// Only a list the user has not edited is swapped; an edited one is theirs, so
+// the mismatch is reported instead.
+async function SETS_syncToLibrary() {
+    const loaded = _setsState.loaded
+    const box = document.getElementById("searchSymbols")
+    if (!loaded || !box) return
+    const species = _setsSpecies()
+    if (species === loaded.species) return
+    if (box.value.trim() !== loaded.text.trim()) {
+        _setStatus("statusSearchSymbolsRows",
+            `Note: these symbols were loaded as a ${loaded.species.toLowerCase()} list, but the library is ${species.toLowerCase()}.`)
+        return
+    }
+    try {
+        if (!_setsState.bySpecies) {
+            if (!_setsState.loading) _setsState.loading = FH_fetchJsonFile("geneSets.json")
+            _setsState.bySpecies = (await _setsState.loading).species || {}
+        }
+    } catch (e) {
+        console.warn("Could not switch the curated list species:", e)
+        return
+    }
+    const set = (_setsState.bySpecies[species] || []).find(s => s.key === loaded.key)
+    if (!set) return
+    box.value = set.genes.join("\n")
+    _setsState.loaded = { key: set.key, species: species, text: box.value }
+    changeSymbols()
+    _setStatus("statusSearchSymbolsRows",
+        `${set.label}: switched to the ${species.toLowerCase()} list, ${set.genes.length} genes`)
+}
+
 function _renderSetsList() {
     const list = document.getElementById("setsList")
     list.innerHTML = _setsState.sets.map((s, i) => `
@@ -1360,6 +1402,10 @@ function SETS_load(index, append) {
         merged.push(g)
     }
     box.value = merged.join("\n")
+    // Remember a whole list so it can follow a library species change. An
+    // appended list leaves a mixture that is nobody's set, so forget it.
+    _setsState.loaded = append ? null
+        : { key: set.key, species: _setsSpecies(), text: box.value }
     changeSymbols()
     SETS_closeModal()
     _setStatus("statusSearchSymbolsRows",

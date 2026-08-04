@@ -215,7 +215,10 @@ a:hover {
 
 .smallTitle {
     background-color: var(--outlineColor);
-    font-size: calc(var(--base-fontsize) * 1.1);
+    /* One line at ordinary window widths. At 1.1 the longer titles wrapped,
+       which made the right-hand column ~23px taller and knocked it out of
+       step with the middle one. */
+    font-size: calc(var(--base-fontsize) * 1.0);
     text-align: center;
     border-radius: calc(var(--plateRadius)-4) calc(var(--plateRadius)-4) 0 0;
     padding: 5px;
@@ -734,3 +737,23 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .gene-set-count { font-size: 0.78rem; color: var(--mainColor); font-weight: 600; }
 .gene-set-desc { font-size: 0.8rem; color: #4b5563; margin-top: 2px; }
 .gene-set-src { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; }
+
+/* Keeps "(optional)" and its info dot together, so the dot is never left
+   alone on a second line and every small title stays one row high — which
+   is what lets the middle and right columns line up. */
+.titleTail { white-space: nowrap; }
+
+/* The symbol box is deliberately a little shorter than the default textarea
+   height, so that "Symbols not found" lines up with "Pick human cell line"
+   in the next column. Targeted at #searchSymbols rather than textarea, which
+   would also resize the output and not-found boxes. */
+#searchSymbols {
+    height: 232px;
+}
+
+/* Reserve the one line the controls panel uses for its positive-control
+   names, so ticking a control box does not change the column's height and
+   knock it out of step with the symbol column beside it. */
+#controlsStatus {
+    min-height: 1.15rem;
+}

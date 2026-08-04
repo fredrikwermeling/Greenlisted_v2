@@ -303,11 +303,11 @@ Use these settings to thin the guide list, add control guides, attach the adapte
             <div class="plateContent">
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Ranking (optional)<span class="infoDot" title="Libraries score their sgRNAs for predicted cutting efficiency and off-target risk.
+                    <h3 class="smallTitle">Ranking <span class="titleTail">(optional)<span class="infoDot" title="Libraries score their sgRNAs for predicted cutting efficiency and off-target risk.
 
 Limit to top keeps only the best N guides per gene — the usual way to shrink a library while keeping its strongest guides. Leave it blank to keep them all.
 
-Ranking order is set automatically for each built-in library, so it only appears if you upload your own.">i</span></h3>
+Ranking order is set automatically for each built-in library, so it only appears if you upload your own.">i</span></span></h3>
                     <table class="plateContent">
                         <tr class="custom-only">
                             <td>Ranking order</td>
@@ -328,8 +328,8 @@ Ranking order is set automatically for each built-in library, so it only appears
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Controls (optional)<span class="infoDot"
-                        title="Controls set the baseline your genes are measured against. A focused library needs its own, because unlike a genome-wide screen it has no large set of no-effect genes to fall back on.&#10;&#10;The suggested number is a total across both control types, so ticking both splits it rather than doubling it. It grows with how many genes you screen, and with how many sgRNAs each gene has — more sgRNAs sharpen each gene's measurement, so the baseline has to be sharper too. It stays between 50 and 120 and never exceeds what the library holds. Type your own number in a box to override it.&#10;&#10;Safe-targeting controls cut the genome at a harmless site, so they carry the same damage cost as a real guide and make the better baseline. Non-targeting controls never cut, and are best used as a second check.&#10;&#10;Essential genes are positive controls: they should drop out strongly if the screen worked.">i</span></h3>
+                    <h3 class="smallTitle">Controls <span class="titleTail">(optional)<span class="infoDot"
+                        title="Controls set the baseline your genes are measured against. A focused library needs its own, because unlike a genome-wide screen it has no large set of no-effect genes to fall back on.&#10;&#10;The suggested number is a total across both control types, so ticking both splits it rather than doubling it. It grows with how many genes you screen, and with how many sgRNAs each gene has — more sgRNAs sharpen each gene's measurement, so the baseline has to be sharper too. It stays between 50 and 120 and never exceeds what the library holds. Type your own number in a box to override it.&#10;&#10;Safe-targeting controls cut the genome at a harmless site, so they carry the same damage cost as a real guide and make the better baseline. Non-targeting controls never cut, and are best used as a second check.&#10;&#10;Essential genes are positive controls: they should drop out strongly if the screen worked.">i</span></span></h3>
                     <table class="plateContent">
                         <tr>
                             <td><label for="includeSafeTargeting" class="ctrlHint"
@@ -361,7 +361,7 @@ Ranking order is set automatically for each built-in library, so it only appears
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Sequence modifications (optional)<span class="infoDot" title="Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></h3>
+                    <h3 class="smallTitle">Sequence modifications <span class="titleTail">(optional)<span class="infoDot" title="Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></span></h3>
                     <div class="plateContent">
                         <table>
                             <tr class="custom-only">
@@ -384,9 +384,9 @@ Ranking order is set automatically for each built-in library, so it only appears
 
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Pick human cell line (optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
+                    <h3 class="smallTitle">Pick human cell line <span class="titleTail">(optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
 
-The Output with adapters file gains a column warning about genes that are deeply deleted in that line (their guides cannot report anything) or amplified (many simultaneous cuts can kill cells regardless of the gene, a classic false positive). A separate per-gene copy-number file is produced alongside it.">i</span></h3>
+The Output with adapters file gains a column warning about genes that are deeply deleted in that line (their guides cannot report anything) or amplified (many simultaneous cuts can kill cells regardless of the gene, a classic false positive). A separate per-gene copy-number file is produced alongside it.">i</span></span></h3>
                     <div class="plateContent">
                         <input type="text" id="screeningCellLineInput" list="screeningCellLineList"
                                placeholder="Type to search&hellip;" autocomplete="off"
