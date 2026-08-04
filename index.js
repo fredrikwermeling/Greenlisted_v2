@@ -21,6 +21,9 @@ async function init() {
         throw new Error(`Failed to get default settings:\n ${error.message}`)
     }
     await insertData(data)
+    // Warm the copy-number matrix in the background so the first click on a
+    // CN feature doesn't wait on a 62 MB download. Deliberately not awaited.
+    if (typeof CN_prefetchWhenIdle === "function") CN_prefetchWhenIdle()
 }
 
 async function loadTestSettings() {
@@ -1268,6 +1271,20 @@ function _setStatus(elemId, text, isNotInnerHtml) {
 // Validate sgRNA — species picker modal (consolidates the old Mouse / Human
 // buttons into one button that asks which genome to validate against)
 // =============================================================================
+
+// "sgRNA design" in the tool strip — returns to the main flow from whichever
+// takeover mode is running. Already being in design mode is a no-op, so the
+// button is safe to click at any time. The highlight itself is pure CSS off
+// the body mode class, so nothing here has to maintain it.
+function TOOL_showDesign() {
+    if (typeof _validateState !== "undefined" && _validateState.isValidateMode) {
+        toggleValidateMode(_validateState.activeSpecies)
+        return
+    }
+    if (typeof _cnState !== "undefined" && _cnState.isMode) {
+        _cnExitMode()
+    }
+}
 
 function openValidateSpeciesModal() {
     // Toggle off if already in validate mode — restores design mode.

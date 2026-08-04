@@ -696,3 +696,27 @@ body.validate-mode #upsetButton {
    Hidden unless "User Upload" is the selected library. */
 .custom-only { display: none; }
 body.custom-library .custom-only { display: table-row; }
+
+/* Tool strip — a mode switcher above the numbered workflow. Reads as a row
+   of tabs: exactly one of sgRNA design / Validate / Copy number is in effect
+   at any time, and Library overlap opens a reference modal without changing
+   which. */
+.toolStrip {
+    /* main is a 3-column grid; without this the strip becomes a single
+       grid item in column one and its buttons wrap out of sight. */
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 auto 4px auto;
+    padding: 6px 8px;
+}
+
+/* The active mode. sgRNA design is the default, so it lights up whenever
+   neither of the two takeover modes is on — no JS needed to keep it in sync
+   with the mode actually in effect. */
+body:not(.validate-mode):not(.cn-mode) #designButton {
+    background-color: var(--mainColor);
+    color: white;
+}

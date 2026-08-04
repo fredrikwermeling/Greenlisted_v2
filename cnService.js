@@ -112,6 +112,33 @@ async function CN_loadIfNeeded() {
     return _CN_STATE.loading
 }
 
+// Start fetching the copy-number matrix in the background once the app has
+// settled, so the first click on a CN feature doesn't sit through the ~62 MB
+// download. Idempotent — CN_loadIfNeeded returns the in-flight promise if a
+// user opens the picker mid-prefetch, and the picker's progress bar picks up
+// the download already under way.
+//
+// Skipped when the browser reports a metered or slow connection: nobody on
+// mobile data should pay for 62 MB of a feature they may never open. Errors
+// are swallowed, since a failed prefetch must not disturb the main flow —
+// the real load path will surface any problem when the user asks for it.
+function CN_prefetchWhenIdle() {
+    if (_CN_STATE.loaded || _CN_STATE.loading) return
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) {
+        console.log("CN prefetch skipped: metered or slow connection")
+        return
+    }
+    const start = () => {
+        if (_CN_STATE.loaded || _CN_STATE.loading) return
+        CN_loadIfNeeded().catch(e => console.warn("CN prefetch failed (harmless):", e))
+    }
+    // Wait for the browser to be idle so the prefetch never competes with the
+    // library file the user is actually waiting on.
+    if (typeof requestIdleCallback === "function") requestIdleCallback(start, { timeout: 8000 })
+    else setTimeout(start, 4000)
+}
+
 // Loads libraries/human+mouse synonym.txt directly into a CN-internal
 // Map, so symbol resolution (p53 → TP53) works even if the main app's
 // _library.synonymMap hasn't been populated yet. Tab-separated, two-column

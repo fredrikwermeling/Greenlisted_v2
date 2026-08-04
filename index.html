@@ -56,6 +56,24 @@
         </span>
     </header>
     <main>
+        <!-- Tool strip. These are alternative things the app can do, not
+             settings for the library chosen in step 1 — Validate searches its
+             own multi-library index, Copy number reads DepMap, and Library
+             overlap compares every library at once. They sat under the
+             library dropdown, which implied they acted on the selected
+             library. The active one is highlighted from the body mode class,
+             so it always reflects the mode actually in effect. -->
+        <nav class="toolStrip" aria-label="Tools">
+            <button id="designButton" class="validate-btn" onclick="TOOL_showDesign()"
+                title="The main flow: pick a library, paste gene symbols, and get an sgRNA library you can order.">sgRNA design</button>
+            <button id="validateButton" class="validate-btn" onclick="openValidateSpeciesModal()"
+                title="Paste sgRNA sequences and find out which published libraries contain them. Searches its own index across thirteen libraries, independent of the library selected in step 1.">Validate sgRNA</button>
+            <button id="cnButton" class="validate-btn" onclick="CN_openModal()"
+                title="Look up gene copy number across DepMap's human cell lines. Independent of the library selected in step 1.">Copy number (human)</button>
+            <button id="upsetButton" class="validate-btn" onclick="UPSET_showModal()"
+                title="An UpSet plot of how sgRNA sequences are shared between all built-in libraries. Opens as a reference view; it does not change the mode.">Library overlap</button>
+        </nav>
+
         <div id="overlay" class="fazeOut">
             <div class="loading-box">
                 Screening in progress...
@@ -156,11 +174,6 @@ User Upload lets you supply your own library file instead; you then tell the app
 
                             <option value="custom">User Upload</option>
                         </select>
-                        <span style="display: flex; gap: 6px;">
-                            <button id="validateButton" class="validate-btn" onclick="openValidateSpeciesModal()">Validate sgRNA</button>
-                            <button id="cnButton" class="validate-btn" onclick="CN_openModal()">Copy number (human)</button>
-                            <button id="upsetButton" class="validate-btn" onclick="UPSET_showModal()">Library overlap</button>
-                        </span>
                         <!-- Hidden legacy buttons preserved for the existing toggleValidateMode logic.
                              The visible "Validate sgRNA" button above asks the user mouse-or-human in
                              a modal, then calls toggleValidateMode() which still targets these. -->
