@@ -146,7 +146,9 @@
             </div>
         </div>
         <div class="plate">
-            <h2 class="plateTitle">1. Select library</h2>
+            <h2 class="plateTitle">1. Select library<span class="infoDot" title="Pick the CRISPR knockout library your sgRNAs come from. They differ in how many sgRNAs they carry per gene (2 to 6), in how those guides were scored, and in which control guides they include — the panel below shows the details once you choose one.
+
+User Upload lets you supply your own library file instead; you then tell the app which columns hold the gene symbol and the sgRNA sequence.">i</span></h2>
             <div class="plateContent">
                 <div class="smallPlate">
                     <h3 class="smallTitle" style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
@@ -203,11 +205,19 @@
         </div>
 
         <div class="plate">
-            <h2 class="plateTitle" id="inputPlateTitle">2. Input symbols</h2>
+            <h2 class="plateTitle" id="inputPlateTitle"><span id="inputPlateTitleText">2. Input symbols</span><span class="infoDot" title="Paste the genes you want sgRNAs for, one per line. Case does not matter.
+
+Each symbol is looked up in the selected library. Anything that finds no match is listed under Symbols not found, so you can check it before ordering.">i</span></h2>
             <div class="plateContent">
 
                 <div class="smallPlate">
-                    <h3 class="smallTitle" id="symbolsTitle">Symbols</h3>
+                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Symbols</span><span class="infoDot" title="How your typed symbols are matched to the library.
+
+Only direct matches: the symbol must appear exactly as the library spells it.
+
+Allow partial matches: also returns symbols that contain your text — useful for gene families, but it can pull in more than you expect.
+
+Use synonyms: resolves older or alternative names to the one the library uses, so a gene filed under a newer symbol is still found. Pick the species list that matches your library.">i</span></h3>
                     <div class="plateContent">
                         <form class="design-only">
                             <label class="justifyCenter">
@@ -241,7 +251,9 @@
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Symbols not found</h3>
+                    <h3 class="smallTitle">Symbols not found<span class="infoDot" title="Symbols that produced no sgRNAs, with the synonym that was tried where one existed.
+
+Usually an obsolete or misspelled name, a gene the library does not target, or the wrong species list selected above.">i</span></h3>
                     <div class="plateContent">
                         <textarea readonly class="scrollablePlate" id="displaySynonyms"> </textarea>
                     </div>
@@ -249,11 +261,17 @@
             </div>
         </div>
         <div class="plate">
-            <h2 class="plateTitle">3. Set parameters & Run</h2>
+            <h2 class="plateTitle">3. Set parameters & Run<span class="infoDot" title="Everything here is optional — with nothing changed you get every sgRNA the library has for your genes.
+
+Use these settings to thin the guide list, add control guides, attach the adapter sequences your cloning vector needs, and flag genes whose copy number makes them awkward to screen in a particular cell line.">i</span></h2>
             <div class="plateContent">
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Ranking (optional)</h3>
+                    <h3 class="smallTitle">Ranking (optional)<span class="infoDot" title="Libraries score their sgRNAs for predicted cutting efficiency and off-target risk.
+
+Limit to top keeps only the best N guides per gene — the usual way to shrink a library while keeping its strongest guides. Leave it blank to keep them all.
+
+Ranking order is preset per library so that best-first is already correct; you rarely need to change it.">i</span></h3>
                     <table class="plateContent">
                         <tr>
                             <td>Ranking order</td>
@@ -307,7 +325,9 @@
                 </div>
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Sequence modifications (optional)</h3>
+                    <h3 class="smallTitle">Sequence modifications (optional)<span class="infoDot" title="Trim removes bases from the 5' or 3' end of every sgRNA, for libraries that ship guides longer than your vector expects.
+
+Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></h3>
                     <div class="plateContent">
                         <table>
                             <tr>
@@ -330,7 +350,9 @@
 
 
                 <div class="smallPlate design-only">
-                    <h3 class="smallTitle">Pick human cell line (optional)</h3>
+                    <h3 class="smallTitle">Pick human cell line (optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
+
+The Output with adapters file gains a column warning about genes that are deeply deleted in that line (their guides cannot report anything) or amplified (many simultaneous cuts can kill cells regardless of the gene, a classic false positive). A separate per-gene copy-number file is produced alongside it.">i</span></h3>
                     <div class="plateContent">
                         <input type="text" id="screeningCellLineInput" list="screeningCellLineList"
                                placeholder="Type to search&hellip;" autocomplete="off"
@@ -342,7 +364,9 @@
                 </div>
 
                 <div class="smallPlate">
-                    <h3 class="smallTitle">Run</h3>
+                    <h3 class="smallTitle">Run<span class="infoDot" title="Name the output files, then Run.
+
+The status line underneath reports how many symbols were found, how many controls were added and which positive controls went in — worth a glance before you download.">i</span></h3>
                     <table class="plateContent">
                         <tr>
                             <td>Output file name</td>
@@ -374,7 +398,15 @@
 
 
         <footer class="plate">
-            <h2 class="plateTitle">4. Show output </h2>
+            <h2 class="plateTitle">4. Show output <span class="infoDot" title="Preview or download the finished library.
+
+Output with adapters is the ready-to-order list: gene, guide ID and the full sequence including any adapters.
+
+Output for MAGeCK is the library file that mageck count expects.
+
+Full output keeps every column from the source library. Run Settings records exactly what produced this run, worth keeping with the order.
+
+Download all bundles them into one zip.">i</span></h2>
             <div class="plateContent">
                 <table id="outputTable">
                     <tr class="design-only">

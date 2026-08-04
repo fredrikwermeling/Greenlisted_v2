@@ -176,8 +176,8 @@ function toggleValidateMode(species) {
         document.body.classList.remove("validate-mode")
         humanBtn.classList.remove("validate-btn-active")
         mouseBtn.classList.remove("validate-btn-active")
-        if (symbolsTitle) symbolsTitle.textContent = "Symbols"
-        if (inputPlateTitle) inputPlateTitle.textContent = "2. Input symbols"
+        _setSectionTitle("symbolsTitle", "Symbols")
+        _setSectionTitle("inputPlateTitle", "2. Input symbols")
         // Reload default settings to restore a clean design-mode state
         init()
         return
@@ -191,8 +191,8 @@ function toggleValidateMode(species) {
     humanBtn.classList.toggle("validate-btn-active", species === "human")
     mouseBtn.classList.toggle("validate-btn-active", species === "mouse")
 
-    if (symbolsTitle) symbolsTitle.textContent = "Enter sgRNA sequences"
-    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input sgRNA"
+    _setSectionTitle("symbolsTitle", "Enter sgRNA sequences")
+    _setSectionTitle("inputPlateTitle", "2. Input sgRNA")
     document.getElementById("searchSymbols").value = ""
     _setStatus("statusSearchSymbolsRows", "")
 }
@@ -377,6 +377,14 @@ function _renderValidationTsvAsTable(tsv) {
 // Everything writes into its own pane rather than the container's
 // innerHTML — overwriting the container would delete the textarea, which
 // index.html declares as its only child and nothing ever recreates.
+// Section headings carry an info dot as a child element, so their text lives
+// in an inner "<id>Text" span — writing textContent on the heading itself
+// would delete the dot along with the text.
+function _setSectionTitle(id, text) {
+    const el = document.getElementById(id + "Text") || document.getElementById(id)
+    if (el) el.textContent = text
+}
+
 function _showOutputPane(paneId) {
     const container = document.getElementById("fileContentContainer")
     container.style.display = "flex"
@@ -1067,7 +1075,7 @@ function _updateControlsStatus() {
         // value they can edit. The placeholder carries the same number, so
         // clearing the box still shows what the run will fall back to.
         const suggested = SCR_suggestedControlCount(design.genes, design.guidesPerGene,
-                                                    avail.count, sharing.length, sharing.indexOf(ui.id))
+                                                    avail.count, sharing, ui.id)
         countInput.placeholder = String(suggested)
         if (countInput.dataset.auto !== "0") {
             countInput.value = String(suggested)
@@ -1587,9 +1595,9 @@ function _cnEnterMode() {
     document.getElementById("fileContentContainer").style.display = "none"
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    if (symbolsTitle) symbolsTitle.textContent =
-        `Gene symbols (CN lookup in ${_cnState.selectedCellLines.length} cell line${_cnState.selectedCellLines.length === 1 ? "" : "s"}: ${_cnState.selectedCellLines.map(c => c.name).slice(0, 5).join(", ")}${_cnState.selectedCellLines.length > 5 ? ", …" : ""})`
-    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input gene symbols"
+    _setSectionTitle("symbolsTitle",
+        `Gene symbols (CN lookup in ${_cnState.selectedCellLines.length} cell line${_cnState.selectedCellLines.length === 1 ? "" : "s"}: ${_cnState.selectedCellLines.map(c => c.name).slice(0, 5).join(", ")}${_cnState.selectedCellLines.length > 5 ? ", …" : ""})`)
+    _setSectionTitle("inputPlateTitle", "2. Input gene symbols")
     // If the user came in via a "classic example" chip, the gene list
     // was queued on _cnState.pendingTestGenes — pre-fill the textarea
     // and clear the queue so subsequent entries don't get stale.
@@ -1609,8 +1617,8 @@ function _cnExitMode() {
     document.body.classList.remove("cn-mode")
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    if (symbolsTitle) symbolsTitle.textContent = "Symbols"
-    if (inputPlateTitle) inputPlateTitle.textContent = "2. Input symbols"
+    _setSectionTitle("symbolsTitle", "Symbols")
+    _setSectionTitle("inputPlateTitle", "2. Input symbols")
     init()
 }
 

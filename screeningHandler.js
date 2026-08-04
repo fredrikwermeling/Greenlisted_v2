@@ -69,13 +69,14 @@ function SCR_startScreening(library, settings, usedSynonyms) {
     ].filter(k => k.on)
      .map(k => ({ id: k.id, count: k.count, key: LIB_findControlKey(library.libraryMap, k.id) }))
      .filter(k => k.key)
+    const sharingIds = wanted.map(k => k.id)
     var controlsAdded = { nonTargeting: 0, safeTargeting: 0 }
     for (var ki = 0; ki < wanted.length; ki++) {
         const kind = wanted[ki]
         const available = library.libraryMap[kind.key].length
         const requested = parseInt(kind.count, 10)
         const n = (isNaN(requested) || requested <= 0)
-            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available, wanted.length, ki)
+            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available, sharingIds, kind.id)
             : Math.min(requested, available)
         filteredLibraryMap[kind.key] = _randomSample(library.libraryMap[kind.key], n)
         controlsAdded[kind.id] = n
@@ -155,21 +156,40 @@ function _randomSample(rows, n) {
 // above cares about is how many guides define the baseline, regardless of
 // which flavour they are, so ticking both kinds splits this number rather
 // than doubling it.
+// Rounded to the nearest 5. The curve is an estimate resting on assumed
+// guide-level noise, so its last digit is false precision — 50 and 52 do
+// not differ in any way a screen would notice, and a round number reads as
+// the judgement call it is.
 function SCR_suggestedControlTotal(nGenes, guidesPerGene) {
     const genes = Math.max(1, nGenes)
     const G = (guidesPerGene > 0) ? guidesPerGene : 3
-    const curve = Math.round(13.6 + 11.9 * Math.log10(genes) + 7.5 * G)
-    return Math.min(Math.max(50, curve), 120)
+    const curve = 13.6 + 11.9 * Math.log10(genes) + 7.5 * G
+    return Math.min(Math.max(50, Math.round(curve / 5) * 5), 120)
 }
 
-// One kind's share of that budget, when nKinds are being added. The split is
-// even, with any remainder going to the earlier kind — safe-targeting is
-// listed first, so it wins the odd guide, which suits it being the better
-// null. Capped at what the library actually stocks.
-function SCR_suggestedControlCount(nGenes, guidesPerGene, nAvailable, nKinds, kindIndex) {
+// Safe-targeting controls cut the genome, so they carry the same
+// double-strand-break cost as a real guide and make the honest baseline;
+// non-targeting controls never cut and so flatter it. When both are added
+// the budget is therefore weighted 2:1 toward safe-targeting, which keeps
+// the primary null usable if the analysis leans on it alone.
+const _CONTROL_WEIGHT = { safeTargeting: 2, nonTargeting: 1 }
+
+// One kind's share of the budget. kindIds lists every kind sharing it, in
+// display order. Capped at what the library actually stocks.
+function SCR_suggestedControlCount(nGenes, guidesPerGene, nAvailable, kindIds, kindId) {
     const total = SCR_suggestedControlTotal(nGenes, guidesPerGene)
-    const k = Math.max(1, nKinds || 1)
-    const share = Math.floor(total / k) + ((kindIndex || 0) < (total % k) ? 1 : 0)
+    const ids = (kindIds && kindIds.length) ? kindIds : [kindId]
+    const weight = id => _CONTROL_WEIGHT[id] || 1
+    const sum = ids.reduce((s, id) => s + weight(id), 0)
+    var share
+    if (ids[ids.length - 1] === kindId) {
+        // The last kind takes what's left, so the shares total exactly.
+        var used = 0
+        for (var i = 0; i < ids.length - 1; i++) used += Math.round(total * weight(ids[i]) / sum)
+        share = total - used
+    } else {
+        share = Math.round(total * weight(kindId) / sum)
+    }
     return Math.min(share, nAvailable)
 }
 
