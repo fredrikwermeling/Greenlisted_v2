@@ -209,12 +209,22 @@ function LIB_changeSynonyms(synonymData) {
 
 function _createSynonymMap(synonymData) {
     //se top of file for explanation of synonym map datastructure
+    //
+    // Column 4 of the table carries a gene group: an orthologue class where one
+    // exists, so a human gene and its mouse counterpart share it, otherwise the
+    // gene's own HGNC or MGI accession. It is what lets the matcher tell "same
+    // gene, different spelling" from "different gene that once shared a name".
+    // A row whose synonym equals its gene name marks that symbol as an official
+    // current symbol.
     rows = synonymData.trim().split("\n").map((row) => row.split("\t"))
     rows.shift()
     var synonymMap = {}
+    var geneGroups = {}      // symbol -> Set of groups the spelling can denote
+    var officialGroup = {}   // symbol -> its own gene's group, if it is official
     rows.forEach(row => {
         const symbol1 = row[0].toLowerCase().trim()
         const symbol2 = row[1].toLowerCase().trim()
+        const group = (row[3] || "").trim()
 
         if (symbol1 != "" && symbol2 != "") {
 
@@ -227,9 +237,28 @@ function _createSynonymMap(synonymData) {
                 synonymMap[symbol2] = new Set()
             }
             synonymMap[symbol2].add(symbol1)
+
+            if (group) {
+                if (!geneGroups[symbol1]) geneGroups[symbol1] = new Set()
+                geneGroups[symbol1].add(group)
+                if (!geneGroups[symbol2]) geneGroups[symbol2] = new Set()
+                geneGroups[symbol2].add(group)
+                if (symbol1 === symbol2) officialGroup[symbol1] = group
+            }
         }
     })
+    _library.geneGroups = geneGroups
+    _library.officialGroup = officialGroup
     return synonymMap
+}
+
+// Which gene(s) a spelling stands for. An official symbol stands for its own
+// gene and nothing else — that is the point of the check below. Any other
+// spelling stands for whichever genes list it.
+function _groupsOf(symbol) {
+    const own = _library.officialGroup ? _library.officialGroup[symbol] : null
+    if (own) return new Set([own])
+    return (_library.geneGroups && _library.geneGroups[symbol]) || new Set()
 }
 
 function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, synonymMap) {
@@ -307,7 +336,19 @@ function _createMatchingSynonyms(searchSymbols) {
     const matchingSymbols = {}
     symbolsNotFound.forEach(searchSymbol => { // loop through all symbols in search feild that does not have a direct match
         if (_library.synonymMap[searchSymbol]) {
-            matchingSymbols[searchSymbol] = Array.from(_library.synonymMap[searchSymbol].intersection(_library.librarySymbolSet)) // every symbol thats boath in the library and is a synonym to the searched symbol
+            var candidates = Array.from(_library.synonymMap[searchSymbol].intersection(_library.librarySymbolSet)) // every symbol thats boath in the library and is a synonym to the searched symbol
+            // If the searched symbol is itself an official gene symbol, only
+            // accept a candidate standing for the SAME gene — a different
+            // spelling of it, or its orthologue in the other species. Symbols
+            // are reused across genes: HGNC records PIM1 as a former alias of
+            // LONP1, so without this a search for the PIM1 kinase in a library
+            // lacking it would quietly come back with LONP1 guides. Returning
+            // nothing puts it in "Symbols not found", where the user can see it.
+            const own = _library.officialGroup ? _library.officialGroup[searchSymbol] : null
+            if (own) {
+                candidates = candidates.filter(candidate => _groupsOf(candidate).has(own))
+            }
+            matchingSymbols[searchSymbol] = candidates
         }
         else {
             matchingSymbols[searchSymbol] = []
