@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css">
+    <link rel="stylesheet" media="all" href="index.css?v=2.1">
     <title>Green Listed</title>
     
     <!-- Web Analytics -->
@@ -53,6 +53,9 @@
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoScriptsForAnalysis.html','Scripts for analysis')">Scripts for analysis</a>
                 <a target="_blank" rel="noopener noreferrer" href="https://correlate.cmm.se">Correlate</a>
                 <a target="_blank" rel="noopener noreferrer" href="https://wermelinglab.com/">Wermeling Lab</a>
+                <a href="javascript:void(0)" id="versionBadge" class="versionBadge"
+                   onclick="INFO_showModal('infoUpdates.html','Updates')"
+                   title="Green Listed v2.1. Opens the list of what has changed.">v2.1</a>
             </nav>
         </span>
     </header>
@@ -415,7 +418,7 @@ The status line underneath reports how many symbols were found, how many control
                         </tr>
                         <tr>
                             <td>
-                                <button id="startButton" onclick="runScreening()">&nbsp;Run <span
+                                <button id="startButton" class="btn-primary" onclick="runScreening()">&nbsp;Run <span
                                         id="startButtonText">▶</span></button>
                             </td>
                         </tr>
@@ -515,15 +518,16 @@ Download all bundles them into one zip.">i</span></h2>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js"></script>
-    <script type="text/javascript" src="settings.js"></script>
-    <script type="text/javascript" src="grnaService.js"></script>
-    <script type="text/javascript" src="screeningHandler.js"></script>
-    <script type="text/javascript" src="validate.js"></script>
-    <script type="text/javascript" src="upset.js"></script>
-    <script type="text/javascript" src="cnService.js"></script>
-    <script type="text/javascript" src="index.js"></script>
-    <script type="text/javascript" src="fileHandler.js"></script>
+    <script type="text/javascript" src="library.js?v=2.1"></script>
+    <script type="text/javascript" src="settings.js?v=2.1"></script>
+    <script type="text/javascript" src="grnaService.js?v=2.1"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=2.1"></script>
+    <script type="text/javascript" src="validate.js?v=2.1"></script>
+    <script type="text/javascript" src="upset.js?v=2.1"></script>
+    <script type="text/javascript" src="cnService.js?v=2.1"></script>
+    <script type="text/javascript" src="index.js?v=2.1"></script>
+    <script type="text/javascript" src="fileHandler.js?v=2.1"></script>
+    <script type="text/javascript" src="helpPopout.js?v=2.1"></script>
 
 </body>
 

@@ -1,33 +1,75 @@
+/* Self-hosted so the app makes no third-party request and works offline or
+   behind a firewall. One variable file covers 400/600/700. */
+@font-face {
+    font-family: 'Open Sans';
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: url('fonts/open-sans-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                   U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                   U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Open Sans';
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: url('fonts/open-sans-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                   U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+                   U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
     /* Set sans-serif fonts */
-    --sans-font: -apple-system, BlinkMacSystemFont, "Avenir Next", Avenir,
-        Roboto, Noto, "Segoe UI", Arial, Helvetica,
-        "Helvetica Neue", sans-serif;
+    --sans-font: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
 
     --base-fontsize: 1.15rem;
     --header-scale: 1.25rem;
     --line-height: 1.618;
+
+    /* Shared with Correlate, so the two apps read as one product. The ramp
+       replaces the single brand green: hover states, selected states, table
+       headers and borders all come from it. */
+    --green-900: #2d5a27;
+    --green-800: #3a7333;
+    --green-700: #4a8c3f;
+    --green-600: #5a9f4a;
+    --green-500: #6ab257;
+    --green-400: #8bc77a;
+    --green-300: #a8d89a;
+    --green-200: #c5e8bc;
+    --green-100: #e2f4de;
+    --green-50: #f0f9ef;
+    --gray-600: #4b5563;
+    --gray-500: #6b7280;
+    --gray-200: #e5e7eb;
+    --gray-100: #f3f4f6;
+    --earth-700: #8a6a3a;
+    --earth-300: #d6c19a;
+    --earth-50: #f5efe2;
 
     /* Varibles */
     --outlineColor: lightGray;
     --smallBorderRadius: 5px;
 
     --plateBackroundColor: white;
-    --mainColor: rgb(120, 167, 77);
-    /*rgb(119, 175, 60);*/
-    --plateRadius: 10px;
+    --mainColor: var(--green-600);
+    --plateRadius: 8px;
     --titleColor: white;
 
     --inputColor: white;
-    --buttonColor: rgb(235, 235, 235);
-    --inputRadius: 5px;
+    --buttonColor: var(--gray-100);
+    --inputRadius: 6px;
 
     --redColor: #ffdddd;
     --greenColor: green;
 }
 
 * {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--sans-font);
     padding: 0px;
     border: 0px;
     margin: 0px;
@@ -36,6 +78,10 @@
 }
 
 body {
+    color: #1f2937;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-wrap: pretty;
     padding-right: 10%;
     padding-left: 10%;
 }
@@ -106,18 +152,54 @@ select {
 
 button {
     border-radius: var(--inputRadius);
-    font-size: calc(var(--header-scale) * 0.8);
-    padding: 0.3rem 0.9rem;
-    transition: 0.4s;
-    background: var(--buttonColor);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 8px 18px;
+    transition: all 0.2s ease;
+    background: var(--gray-100);
+    color: var(--gray-600);
     align-self: center;
-    border: 1px solid rgba(122, 122, 122, 0.1);
-    box-shadow: 1px 2px 3px rgba(88, 88, 88, 0.2);
+    border: 1px solid var(--gray-200);
+    text-wrap: balance;
 }
 
 button:hover {
-    filter: brightness(0.8);
+    filter: brightness(0.96);
     cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+}
+
+/* The one action that starts the run. Everything else on the page is a
+   setting or a download, so exactly one control carries the brand colour. */
+.btn-primary {
+    background: var(--green-600);
+    color: white;
+    border-color: var(--green-600);
+}
+
+.btn-primary:hover {
+    background: var(--green-700);
+    border-color: var(--green-700);
+    filter: none;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+}
+
+/* Secondary actions that still belong to the app's own vocabulary. */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--green-600);
+    color: var(--green-700);
+}
+
+.btn-outline:hover {
+    background: var(--green-50);
+    filter: none;
 }
 
 textarea {
@@ -146,6 +228,10 @@ table {
     border-collapse: collapse;
 }
 
+table, td, th, code, input[type=number] {
+    font-variant-numeric: tabular-nums;
+}
+
 
 
 td>input {
@@ -165,7 +251,7 @@ tr {
 }
 
 a {
-    color: #5050e7;
+    color: #0055bb;
     text-decoration: none;
 }
 
@@ -189,17 +275,21 @@ a:hover {
     background: var(--plateBackroundColor);
 
     border-radius: var(--plateRadius);
-    border: 1px solid var(--mainColor);
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 16px;
 }
 
 .plateTitle {
     background-color: var(--mainColor);
     color: var(--titleColor);
-    font-size: var(--header-scale);
+    font-size: 1.05rem;
+    font-weight: 600;
     text-align: center;
+    text-wrap: balance;
 
-    border-radius: calc(var(--plateRadius) - 4px) calc(var(--plateRadius) - 4px) 0 0;
-    padding: 8px;
+    border-radius: calc(var(--plateRadius) - 1px) calc(var(--plateRadius) - 1px) 0 0;
+    padding: 12px 20px;
 }
 
 .smallPlate {
@@ -208,20 +298,25 @@ a:hover {
 
     overflow: hidden;
     background: var(--plateBackroundColor);
+    border: 1px solid var(--gray-200);
 
     border-radius: var(--smallBorderRadius);
     /*border: 1px solid var(--outlineColor); */
 }
 
 .smallTitle {
-    background-color: var(--outlineColor);
-    /* One line at ordinary window widths. At 1.1 the longer titles wrapped,
-       which made the right-hand column ~23px taller and knocked it out of
-       step with the middle one. */
-    font-size: calc(var(--base-fontsize) * 1.0);
+    background-color: var(--green-50);
+    color: var(--green-800);
+    /* One line at ordinary window widths. Larger and the longer titles wrap,
+       which makes the right-hand column taller and knocks it out of step with
+       the middle one. */
+    font-size: calc(var(--base-fontsize) * 0.85);
+    font-weight: 600;
     text-align: center;
-    border-radius: calc(var(--plateRadius) - 4px) calc(var(--plateRadius) - 4px) 0 0;
-    padding: 5px;
+    text-wrap: balance;
+    border-radius: calc(var(--smallBorderRadius) - 1px) calc(var(--smallBorderRadius) - 1px) 0 0;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--green-200);
 }
 
 .plateContent {
@@ -274,11 +369,14 @@ a:hover {
 }
 
 #libraries {
-    background-color: var(--outlineColor);
-    font-size: var(--header-scale);
+    background-color: white;
+    border: 1px solid var(--green-300);
+    color: var(--green-800);
+    font-size: 1.05rem;
+    font-weight: 600;
     text-align: center;
-    border-radius: calc(var(--plateRadius) - 4px) calc(var(--plateRadius) - 4px) 0 0;
-    padding: 5px;
+    border-radius: var(--inputRadius);
+    padding: 8px 10px;
 }
 
 #customFile {
@@ -512,9 +610,9 @@ body.validate-mode #validateButton {
 }
 
 .validate-btn {
-    font-size: calc(var(--header-scale) * 0.6);
+    font-size: 12px;
     white-space: nowrap;
-    padding: 0.2rem 0.5rem;
+    padding: 6px 12px;
 }
 
 /* CN picker — cell-line list rows in the modal */
@@ -748,7 +846,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    in the next column. Targeted at #searchSymbols rather than textarea, which
    would also resize the output and not-found boxes. */
 #searchSymbols {
-    height: 232px;
+    height: 272px;
 }
 
 /* Reserve the one line the controls panel uses for its positive-control
@@ -766,4 +864,85 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     justify-content: center;
     align-items: center;
     gap: 2.5rem;
+}
+
+/* Hover explanations, replacing the browser's own tooltip. Same treatment as
+   Correlate so the two apps explain themselves identically. */
+.help-popout {
+    position: fixed;
+    z-index: 12000;
+    max-width: 320px;
+    padding: 8px 11px;
+    background: #1f2937;
+    color: #f9fafb;
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    pointer-events: none;
+}
+
+/* Version pill in the nav. Clicking it opens the Updates list, so the number
+   and the history it refers to are one click apart. Bump it in index.html
+   together with the ?v= cache-busters on the scripts. */
+.versionBadge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    background: var(--gray-100);
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: var(--gray-500);
+    border: 1px solid #d1d5db;
+    vertical-align: middle;
+}
+
+.versionBadge:hover {
+    background: var(--green-50);
+    color: var(--green-800);
+    border-color: var(--green-300);
+    text-decoration: none;
+}
+
+/* Narrow screens. The viewport meta tag means a phone now renders at its own
+   width instead of pretending to be 980px wide, so the three-column grid has
+   to collapse or it becomes three unreadable columns with a horizontal
+   scrollbar. Below 900px the steps stack and read top to bottom, which is the
+   order you work in anyway. */
+@media only screen and (max-width: 900px) {
+    main {
+        grid-template-columns: 1fr;
+    }
+
+    main > *:last-child {
+        grid-column: span 1;
+    }
+
+    /* Fixed heights tuned to line the columns up side by side stop meaning
+       anything once they are stacked. */
+    #searchSymbols {
+        height: 180px;
+    }
+
+    #outputTable {
+        padding-left: 0;
+        padding-right: 0;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .toolStrip {
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .validate-btn {
+        font-size: 11px;
+        padding: 5px 9px;
+    }
+
+    /* Figure export is not a thing you do on a phone. */
+    #cnResultsDiv .validate-btn {
+        display: none;
+    }
 }

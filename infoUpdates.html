@@ -27,6 +27,13 @@
             <h3>2026</h3>
 
             <div class="updateEntry">
+                <div class="updateTitle">v2.1 &mdash; Shared look with Correlate</div>
+                <p>Green Listed and <a target="_blank" rel="noopener noreferrer" href="https://correlate.cmm.se">Correlate</a> now use the same visual language, so the two tools read as one family: the same green palette, the same Open Sans typeface, the same card and button styling. The font is served from this site rather than a font CDN, so no third party sees your visit and the app works offline.</p>
+                <p>Help text has moved out of the browser&rsquo;s small, slow tooltip into a readable panel that appears after a short hover &mdash; the same treatment Correlate uses. The page also works properly on a phone now: below 900&nbsp;px the three columns stack and read top to bottom.</p>
+                <p>A version number sits in the menu bar; clicking it opens this page.</p>
+            </div>
+
+            <div class="updateEntry">
                 <div class="updateTitle">Better synonym matching</div>
                 <p>The synonym tables have been rebuilt from <a target="_blank" href="https://www.genenames.org/">HGNC</a> and <a target="_blank" href="https://www.informatics.jax.org/">MGI</a>, adding several thousand gene names that had been renamed since the previous tables were made, along with proper human&ndash;mouse orthologue links.</p>
                 <p>Matching is also more careful. Gene symbols get reused: HGNC records <em>PIM1</em> as a former name of <em>LONP1</em>, and <em>SCYL3</em> as a former name of <em>CCL15</em>. A search for one of those genes in a library that lacks it used to come back with guides for the other, with nothing to indicate the swap. Each entry now carries the gene it belongs to, and a symbol is only matched to a different spelling of the same gene, or to its orthologue in the other species. Anything else is reported under <em>Symbols not found</em> instead, where you can see it.</p>
