@@ -88,7 +88,7 @@ function VAL_createResultsOutput(results) {
     var out = "# Sequences identified as top picks in libraries extracted from https://www.addgene.org/pooled-library/#crispr and https://portals.broadinstitute.org/gpp/public/pool/index\n"
     out += "sgRNA Sequence\tLibrary\tGene Symbol\tGene ID\tScores\n"
     for (const row of results.found) {
-        out += `${row.sgRNA}\t${row.library}\t${row.symbol}\t${row.geneId}\t${row.scores}\n`
+        out += `${_spreadsheetSafe(row.sgRNA)}\t${_spreadsheetSafe(row.library)}\t${_spreadsheetSafe(row.symbol)}\t${_spreadsheetSafe(row.geneId)}\t${_spreadsheetSafe(row.scores)}\n`
     }
     return out
 }
@@ -96,7 +96,7 @@ function VAL_createResultsOutput(results) {
 function VAL_createNotFoundOutput(results) {
     var out = "sgRNA Sequence\n"
     for (const seq of results.notFound) {
-        out += seq + "\n"
+        out += _spreadsheetSafe(seq) + "\n"
     }
     return out
 }

@@ -275,6 +275,8 @@ function _renderTsvAsTable(tsv, delimiter) {
         const line = lines[i]
         if (line.startsWith("#") || !line.includes(delimiter)) {
             const displayText = line.startsWith("# ") ? line.substring(2) : line
+            // Comment rows are written by this app and may carry deliberate
+            // markup; everything below is data and gets escaped.
             infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
             dataStart = i + 1
         } else {
@@ -299,15 +301,15 @@ function _renderTsvAsTable(tsv, delimiter) {
         if (_GENE_HEADER_RE.test(headers[j].trim())) italicCols.add(j)
     }
     for (const h of headers) {
-        html += `<th>${h}</th>`
+        html += `<th>${_escapeHtml(h)}</th>`
     }
     html += '</tr></thead><tbody>'
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
         html += '<tr>'
         for (let j = 0; j < cols.length; j++) {
-            const cell = italicCols.has(j) ? `<i>${cols[j]}</i>` : cols[j]
-            html += `<td>${cell}</td>`
+            const safe = _escapeHtml(cols[j])
+            html += `<td>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
         }
         html += '</tr>'
     }
@@ -325,6 +327,8 @@ function _renderValidationTsvAsTable(tsv) {
     for (var i = 0; i < lines.length; i++) {
         if (lines[i].startsWith("#")) {
             const displayText = lines[i].startsWith("# ") ? lines[i].substring(2) : lines[i].substring(1)
+            // Comment rows are written by this app and may carry deliberate
+            // markup; everything below is data and gets escaped.
             infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
             dataStart = i + 1
         } else {
@@ -348,9 +352,9 @@ function _renderValidationTsvAsTable(tsv) {
 
     // Build table: insert "# Libraries" column after first column
     var html = infoHtml + '<table class="validationResultsTable"><thead><tr>'
-    html += `<th>${headers[0]}</th><th># Libraries</th>`
+    html += `<th>${_escapeHtml(headers[0])}</th><th># Libraries</th>`
     for (var h = 1; h < headers.length; h++) {
-        html += `<th>${headers[h]}</th>`
+        html += `<th>${_escapeHtml(headers[h])}</th>`
     }
     html += '</tr></thead><tbody>'
 
@@ -362,12 +366,12 @@ function _renderValidationTsvAsTable(tsv) {
 
         html += '<tr>'
         if (isFirst) {
-            html += `<td>${seq}</td><td>${countMap.get(seq)}</td>`
+            html += `<td>${_escapeHtml(seq)}</td><td>${countMap.get(seq)}</td>`
         } else {
             html += `<td></td><td></td>`
         }
         for (var c = 1; c < cols.length; c++) {
-            html += `<td>${cols[c]}</td>`
+            html += `<td>${_escapeHtml(cols[c])}</td>`
         }
         html += '</tr>'
     }
@@ -577,7 +581,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine) {
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
-            out = out + `${capitalizedSymbol}\t${capitalizedSymbol}_${i + 1}\t${_applyPostProcessing(row[settings.RNAColumn - 1])}` + (cl ? `\t${flag}\n` : "\n")
+            out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` + (cl ? `\t${flag}\n` : "\n")
 
         }
     }
@@ -595,7 +599,7 @@ function _createMAGeCKOutput(libraryMap) {
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
-            out = out + `${capitalizedSymbol}_${i + 1},${_applyTrim(row[settings.RNAColumn - 1])},${capitalizedSymbol}\n`
+            out = out + `${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))},${_spreadsheetSafe(_applyTrim(row[settings.RNAColumn - 1]))},${_spreadsheetSafe(capitalizedSymbol)}\n`
         }
     }
     return out
@@ -670,7 +674,7 @@ function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
             const c = CN_approxCopies(v, cl.ploidy, cl.wgd)
             return c == null ? "" : (Number.isInteger(c) ? c.toString() : c.toFixed(1))
         })
-        lines.push([upper, resolved || "", ...cnCells, ...copyCells].join("\t"))
+        lines.push([_spreadsheetSafe(upper), _spreadsheetSafe(resolved || ""), ...cnCells, ...copyCells].join("\t"))
     }
     return lines.join("\n") + "\n"
 }
@@ -694,7 +698,7 @@ function _createFullTxtOutput(libraryMap, headers) {
     var out = out + headers.join("\t") + "\n" //the original headers are placed att the top of the output
     for (var symbol of Object.keys(libraryMap)) {
         libraryMap[symbol].forEach(row => {
-            out = out + `${row.join("\t")}\n`
+            out = out + `${row.map(_spreadsheetSafe).join("\t")}\n`
         })
     }
     return out
@@ -705,11 +709,11 @@ function _createSymbolNotFound(usedSynonyms) {
     for (var symbol of Object.keys(usedSynonyms)) {
         if (settings.enableSynonyms && (usedSynonyms[symbol].length > 0)) {
             for (var synonym of usedSynonyms[symbol]) {
-                out = `${symbol}\t${synonym}\n` + out
+                out = `${_spreadsheetSafe(symbol)}\t${_spreadsheetSafe(synonym)}\n` + out
             }
         }
         else {
-            out = out + `${symbol}\t\n`
+            out = out + `${_spreadsheetSafe(symbol)}\t\n`
         }
     }
     out = "Symbol searched\t Symonym used\r\n" + out
@@ -1389,9 +1393,9 @@ function _renderSetsList() {
     list.innerHTML = _setsState.sets.map((s, i) => `
         <div class="gene-set-row">
             <div>
-                <div><b>${_cnEsc(s.label)}</b> <span class="gene-set-count">${s.genes.length} genes</span></div>
-                <div class="gene-set-desc">${_cnEsc(s.description)}</div>
-                <div class="gene-set-src">Source: ${_cnEsc(s.source)}</div>
+                <div><b>${_escapeHtml(s.label)}</b> <span class="gene-set-count">${s.genes.length} genes</span></div>
+                <div class="gene-set-desc">${_escapeHtml(s.description)}</div>
+                <div class="gene-set-src">Source: ${_escapeHtml(s.source)}</div>
             </div>
             <span style="display:flex; gap:6px; align-items:center; white-space:nowrap;">
                 <button class="validate-btn" onclick="SETS_load(${i}, false)">Replace</button>
@@ -1541,12 +1545,29 @@ function CN_closeModal() {
     document.getElementById("cnModal").className = "fazeOut upset-modal-overlay"
 }
 
-// Escape text that gets interpolated into the CN result markup. Gene
-// symbols come straight from the user's textarea and cell-line names and
-// disease strings come from DepMap, so neither is guaranteed free of
-// &, <, > or quotes. Safe for both HTML and SVG text nodes, and for
-// double-quoted attribute values.
-function _cnEsc(s) {
+// Escape text before it is interpolated into markup. Everything the app
+// renders as a table has passed through a user's textarea, an uploaded
+// library file, or a downloaded dataset, so none of it is guaranteed free of
+// &, <, > or quotes. Safe for HTML and SVG text nodes and for double-quoted
+// attribute values.
+// Neutralise a value that a spreadsheet would treat as a formula. Excel and
+// Sheets execute a cell beginning with = + - @ (or a leading tab/CR), so a
+// gene symbol from a pasted list or an uploaded library could run when the
+// designed library is opened — and these files get emailed to collaborators
+// and to synthesis vendors. Real symbols and sgRNA sequences never start with
+// those characters, so the leading apostrophe only ever appears on input that
+// had no business being there.
+function _spreadsheetSafe(value) {
+    const v = String(value == null ? "" : value)
+    if (!/^[=+\-@\t\r]/.test(v)) return v
+    // A negative number is data, not a formula. Several libraries carry
+    // negative on-target scores (Jacquere runs from -1.4), and quoting those
+    // would land them in the spreadsheet as text and break sorting.
+    if (v !== "" && Number.isFinite(Number(v))) return v
+    return "'" + v
+}
+
+function _escapeHtml(s) {
     return String(s == null ? "" : s)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -1892,7 +1913,7 @@ function _cnBuildTsv(rows) {
             const c = r.perLine[cl.id]?.copies
             return c == null ? "" : String(c)
         })
-        lines.push([r.gene, r.resolved || "", r.viaSynonym || "", ...cnCells, ...copyCells].join("\t"))
+        lines.push([_spreadsheetSafe(r.gene), _spreadsheetSafe(r.resolved || ""), _spreadsheetSafe(r.viaSynonym || ""), ...cnCells, ...copyCells].join("\t"))
     }
     return lines.join("\n")
 }
@@ -2022,9 +2043,9 @@ function CN_showResults() {
         // doubling status, so repeating " · WGD" here was duplication.
         const ploidyNote = cl.knownPloidy ? `ploidy ${cl.ploidy.toFixed(1)}n` : ""
         const sourceTag = ""
-        return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${_cnEsc(cancer)}">
-            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${_cnEsc(cl.name)}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
-            <div style="font-size:0.7rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.25; margin-top:2px; word-break:break-word; white-space:normal;">${_cnEsc(cancer) || "&mdash;"}</div>
+        return `<th style="min-width:115px; max-width:170px; padding:6px 8px; vertical-align:top;" title="${_escapeHtml(cancer)}">
+            <div style="text-align:center; font-weight:600; white-space:nowrap;">${_sexGlyph(cl.sex)} ${_escapeHtml(cl.name)}${_wgdBadge(cl.wgd, cl.ploidy)}${sourceTag}</div>
+            <div style="font-size:0.7rem; color:#6b7280; font-weight:400; text-align:center; line-height:1.25; margin-top:2px; word-break:break-word; white-space:normal;">${_escapeHtml(cancer) || "&mdash;"}</div>
             ${ploidyNote ? `<div style="font-size:0.65rem; color:#9ca3af; text-align:center; margin-top:2px;">${ploidyNote}</div>` : ""}
         </th>`
     }).join("")
@@ -2036,13 +2057,13 @@ function CN_showResults() {
     tableHtml += `<thead><tr><th style="text-align:left;">Gene</th>${headerCells}</tr></thead><tbody>`
     for (const r of _cnState.results.rows) {
         const synNote = r.viaSynonym
-            ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${_cnEsc(r.resolved)}</span>`
+            ? ` <span title="Matched via synonym" style="font-size:0.65rem; color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:6px; border:1px solid #fde68a; margin-left:4px;">via ${_escapeHtml(r.resolved)}</span>`
             : ""
         // Human gene-symbol convention: uppercase + italic. CN data is
         // human-only (DepMap doesn't publish mouse CN), so always use
         // the canonical uppercase resolved symbol when we have it.
         const displayGene = (r.resolved || r.gene || "").toUpperCase()
-        tableHtml += `<tr><td style="font-weight:600; font-style:italic; white-space:nowrap;">${_cnEsc(displayGene)}${synNote}</td>`
+        tableHtml += `<tr><td style="font-weight:600; font-style:italic; white-space:nowrap;">${_escapeHtml(displayGene)}${synNote}</td>`
         for (const cl of _cnState.selectedCellLines) {
             const cell = r.perLine[cl.id]
             const v = cell?.value, t = cell?.tier, copies = cell?.copies
@@ -2064,12 +2085,12 @@ function CN_showResults() {
     }
     tableHtml += "</tbody></table></div>"
     if (_cnState.results.notFound.length) {
-        tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.map(_cnEsc).join(", ")}</code></div>`
+        tableHtml += `<div style="font-size:0.85rem; color:#7f1d1d; margin-top:10px;"><b>Not found</b> in DepMap matrix (no direct hit, no synonym match): <code>${_cnState.results.notFound.map(_escapeHtml).join(", ")}</code></div>`
     }
     // Footer: data source + ploidy / WGD explanation + tier legend + link.
     const wgdLines = _cnState.selectedCellLines.filter(c => c.wgd === true)
     const wgdNote = wgdLines.length > 0
-        ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => _cnEsc(c.name)).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
+        ? `<div style="margin-bottom:6px;"><b>Whole-genome-doubled (WGD) lines in this selection:</b> ${wgdLines.map(c => _escapeHtml(c.name)).join(", ")}. The baseline for these lines is approximately tetraploid, so a relative CN of 1.0 corresponds to ~4 actual copies rather than ~2. The &ldquo;≈ N copies&rdquo; column already accounts for this.</div>`
         : ""
     // Per-line WGS / WES badge in the column header already conveys
     // sequencing modality, so a separate listing of WES lines in the
@@ -2110,7 +2131,7 @@ function _cnBuildResultsSvg() {
     const HEADER_H = 78        // column-header height (name + cancer + ploidy)
     const W = GENE_W + COL_W * cellLines.length + 2
     const H = HEADER_H + ROW_H * rows.length + 2
-    const esc = _cnEsc
+    const esc = _escapeHtml
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`
     svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`
