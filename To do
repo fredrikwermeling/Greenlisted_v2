@@ -1,7 +1,33 @@
+open — needs a human at a real browser:
+Click one Download → .csv and one Methods → Copy, and confirm a file lands / the
+clipboard fills. Both were wired and checked structurally (every format resolves
+to a live blob URL with the right filename, or to a function that exists), but
+neither final step could be exercised: Chrome refuses automatic downloads from
+the dev origin after a handful of saves, and the clipboard write needs a genuine
+user gesture. If Copy fails it falls back to showing the text selected in the
+output pane, so nothing is lost either way.
 
+open — decision, not a bug:
+"Symbols not found" and "Pick human cell line" line up when the page loads, but
+entering adapter sequences shows the oligo preview and pushes the third column
+down ~70px. "Load test data" fills the adapters, so the demo path shows the
+shift. The two columns hold independently variable content and cannot stay
+locked in every state. Reserving the space permanently would fix it at the cost
+of a visible gap in the default view — left as is until someone decides.
 
+open — other repo:
+Correlate has the same cropped-logo bug on a phone (fixed-width logo, no
+`max-width` rule anywhere). Fix is `header img { max-width: 100%; height: auto }`
+plus letting the header nav wrap. Worth also sweeping that app for horizontal
+overflow at 390px — the same sweep here found two more real overflows in a modal
+that eyeballing had missed.
 
-old:
+done:
 Controls in the screen library. Done — Controls box in section 3, non-targeting (NegCtrl) and safe-targeting (CutCtrl), per-kind counts, auto = 10% of targeting guides split across the kinds ticked, floor of 10 each.
 Double check the copy # feature. Done — 8 issues found and fixed (output-pane crash, WGD tooltip contradiction, SVG word-scramble + WGD pill overflow, unescaped symbols, synonym race, HTML in downloaded TSVs, stale header).
-could the copy number feture allow for exporting a list for one or several cell lines with copy# for all genes for the selected cell lines (genes on rows and cell lines on columns? Done — "Download full matrix" in the cell-line picker, genes on rows and selected cell lines on columns, with chromosome and cytoband, ordered by genomic position. 
+could the copy number feture allow for exporting a list for one or several cell lines with copy# for all genes for the selected cell lines (genes on rows and cell lines on columns? Done — "Download full matrix" in the cell-line picker, genes on rows and selected cell lines on columns, with chromosome and cytoband, ordered by genomic position.
+Borrowed controls. Done — a library that lacks one control type takes it from the species-matched donor (Jacquere / Julianna). Covers VBC (both types) and Brunello, Brie and both GeCKO v2 (safe-targeting only).
+Methods text. Done — section 4 writes a short version, a full version and the references for the run that just finished; covers all three tools.
+CSV downloads. Done — the delimited outputs are written as RFC 4180 CSV rather than tab-separated, verified lossless by parsing every row back.
+One Download button per output. Done — replaces the per-format links with a format picker.
+Phone layout. Done — logo, nav, tool strip and the cell-line picker modal all fit at 390px with no horizontal scroll.
