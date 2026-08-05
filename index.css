@@ -30,21 +30,20 @@
     --header-scale: 1.25rem;
     --line-height: 1.618;
 
-    /* Ramp built on the logo's own green. --green-600 is sampled straight from
-       "Green Listed" in the wordmark, and the rest follow Correlate's lightness
-       steps re-hued to match — so the two apps share a structure and a feel
-       while each stays true to its own logo. Correlate's green sits at hue 109;
-       ours at 83, which is the yellower green of the leaves. */
-    --green-900: #48621f;
-    --green-800: #5c7d29;
-    --green-700: #719734;
-    --green-600: #7ea83c;
-    --green-500: #92c049;
-    --green-400: #acd26f;
-    --green-300: #c2e191;
-    --green-200: #d8efb5;
-    --green-100: #ecf7db;
-    --green-50: #f5faee;
+    /* Halfway between the two apps' greens. The logo's own green sits at hue
+       83 and Correlate's at 109; this ramp is built at 96, close enough to the
+       wordmark to sit beside it and close enough to Correlate that the two
+       apps read as a pair. Lightness steps are Correlate's throughout. */
+    --green-900: #3b5e23;
+    --green-800: #4c782e;
+    --green-700: #5d9239;
+    --green-600: #6ba544;
+    --green-500: #7ab950;
+    --green-400: #98cd74;
+    --green-300: #b2dd95;
+    --green-200: #cdebb9;
+    --green-100: #e6f6dc;
+    --green-50: #f3faee;
     --gray-600: #4b5563;
     --gray-500: #6b7280;
     --gray-200: #e5e7eb;
@@ -415,7 +414,10 @@ a:hover {
 }
 
 #startButtonText {
-    color: var(--greenColor);
+    /* Inherit the button's own colour. This was a fixed CSS green, which read
+       as an accent on the old grey button but as a second, clashing green once
+       Run became the primary action. */
+    color: inherit;
 }
 
 
