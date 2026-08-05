@@ -4,4 +4,4 @@
 old:
 Controls in the screen library. Done — Controls box in section 3, non-targeting (NegCtrl) and safe-targeting (CutCtrl), per-kind counts, auto = 10% of targeting guides split across the kinds ticked, floor of 10 each.
 Double check the copy # feature. Done — 8 issues found and fixed (output-pane crash, WGD tooltip contradiction, SVG word-scramble + WGD pill overflow, unescaped symbols, synonym race, HTML in downloaded TSVs, stale header).
-could the copy number feture allow for exporting a list for one or several cell lines with copy# for all genes for the selected cell lines (genes on rows and cell lines on columns? 
+could the copy number feture allow for exporting a list for one or several cell lines with copy# for all genes for the selected cell lines (genes on rows and cell lines on columns? Done — "Download full matrix" in the cell-line picker, genes on rows and selected cell lines on columns, with chromosome and cytoband, ordered by genomic position. 
