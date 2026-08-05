@@ -27,6 +27,12 @@
             <h3>2026</h3>
 
             <div class="updateEntry">
+                <div class="updateTitle">Excel workbook export</div>
+                <p>A new <em>Excel workbook</em> button in section 4 saves every output as one .xlsx file, each on its own sheet. Use it in preference to the .tsv files if you intend to open the result in Excel: opening a delimited file lets Excel rewrite gene symbols, so <em>MARCH1</em>, <em>SEPT9</em> and <em>DEC1</em> become dates and an alias such as <em>2E4</em> becomes 20&nbsp;000. Nothing inside a .csv or .tsv can prevent that, but in a workbook the cell types are already set, so the symbols arrive intact while scores stay numeric and sortable.</p>
+                <p>The delimited downloads are unchanged, since those are what downstream tools read. Note that Brunello, VBC and GeCKO&nbsp;v2 still use the pre-2020 symbols, while Jacquere, Julianna and Gattinara carry the current ones (<em>MARCHF1</em>, <em>SEPTIN9</em>), which HGNC introduced to end this problem.</p>
+            </div>
+
+            <div class="updateEntry">
                 <div class="updateTitle">Better synonym matching</div>
                 <p>The synonym tables were rebuilt from <a target="_blank" rel="noopener noreferrer" href="https://www.genenames.org/">HGNC</a> and <a target="_blank" rel="noopener noreferrer" href="https://www.informatics.jax.org/">MGI</a>, adding several thousand recently renamed genes and proper human&ndash;mouse orthologue links. Matching now checks that a symbol and its match are the same gene, so a search is no longer answered with a different gene that once shared the name &mdash; across all pairs of built-in libraries this resolves about 1&nbsp;300 more symbols while cutting wrong matches by 93%.</p>
             </div>

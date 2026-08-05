@@ -821,6 +821,40 @@ function _generateZipName(prefix) {
     return `${prefix}_${date}_${uid}`
 }
 
+// One workbook, each output on its own sheet. Offered alongside the delimited
+// downloads rather than replacing them, because the .tsv and MAGeCK .csv files
+// are what downstream tools read — this is for the copy a person opens.
+async function downloadAllExcel() {
+    const sheets = []
+    const add = (name, text, delimiter) => {
+        if (text) sheets.push({ name: name, rows: XLSX_rowsFromDelimited(text, delimiter) })
+    }
+    if (_validateState.isValidateMode) {
+        add("Validation results", _validateState.resultsOutput, "\t")
+        add("Sequences not found", _validateState.notFoundOutput, "\t")
+    } else if (_cnState.isMode) {
+        add("Copy number", _cnState.tsvOutput, "\t")
+    } else {
+        add("With adapters", outputTexts.textOutputAdapter, "\t")
+        add("MAGeCK", outputTexts.textOutputMAGeCK, ",")
+        add("Full output", outputTexts.textOutputFull, "\t")
+        add("Copy number", outputTexts.textOutputCn, "\t")
+        add("Symbols not found", outputTexts.textOutputNotFound, "\t")
+        add("Run settings", SET_settingsToStr(), "\t")
+    }
+    if (!sheets.length) {
+        _setStatus("statusSearch", "Nothing to export yet — run a screening first.")
+        return
+    }
+    try {
+        const blob = await XLSX_build(sheets)
+        _downloadBlob(blob, _generateZipName(settings["outputName"] || "Green Listed") + ".xlsx")
+    } catch (e) {
+        console.error("Excel export failed:", e)
+        _setStatus("statusSearch", "Error: could not build the Excel file")
+    }
+}
+
 async function downloadAll() {
     if (_validateState.isValidateMode) {
         await downloadAllValidation()

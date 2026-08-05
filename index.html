@@ -492,6 +492,8 @@ Download all bundles them into one zip.">i</span></h2>
                     <tr>
                         <td>Download<br> all</td>
                         <td><button onclick="downloadAll()">Download all</button></td>
+                        <td><button onclick="downloadAllExcel()"
+                            title="One Excel workbook with each output on its own sheet. Use this rather than the .tsv files if you plan to open the result in Excel: opening a delimited file lets Excel rewrite gene symbols, turning MARCH1, SEPT1 and DEC1 into dates and an alias like 2E4 into 20000. In a workbook the cell types are already set, so the symbols survive.">Excel workbook</button></td>
                     </tr>
                 </table>
 
@@ -524,6 +526,7 @@ Download all bundles them into one zip.">i</span></h2>
     <script type="text/javascript" src="cnService.js?v=2.1"></script>
     <script type="text/javascript" src="index.js?v=2.1"></script>
     <script type="text/javascript" src="fileHandler.js?v=2.1"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=2.1"></script>
     <script type="text/javascript" src="helpPopout.js?v=2.1"></script>
 
 </body>
