@@ -863,11 +863,6 @@ function showSettingsOutput() {
     _showTextareaOutput(SET_settingsToStr())
 }
 
-function dowloadSettingsOutput() {
-    element = document.getElementById("settingsDowload")
-    _createDownloadLink(SET_settingsToStr(), _outName() + " Settings", element, "text", ".txt")
-}
-
 function _generateZipName(prefix) {
     const now = new Date()
     const date = now.toISOString().slice(0, 10)
@@ -888,7 +883,8 @@ const _XLS_OUTPUTS = {
     settings:           { label: "Run settings",        get: () => SET_settingsToStr(),           delimiter: "\t" },
     validation:         { label: "Validation results",  get: () => _validateState.resultsOutput,  delimiter: "\t" },
     validationNotFound: { label: "Sequences not found", get: () => _validateState.notFoundOutput, delimiter: "\t" },
-    cnTable:            { label: "Copy number",         get: () => _cnState.tsvOutput,            delimiter: "\t" }
+    cnTable:            { label: "Copy number",         get: () => _cnState.tsvOutput,            delimiter: "\t" },
+    methods:            { label: "Methods",             get: () => METH_text(),                   delimiter: "\t" }
 }
 
 async function XLS_download(key) {

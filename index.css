@@ -425,6 +425,9 @@ a:hover {
 /* The guide slot. Marked only by weight — colouring it read as a status,
    as though something about that part of the oligo needed attention. */
 #ExampleSequance .seqSlot {
+    /* Same reason as the table cells: `*` would otherwise put this span back
+       into the sans face, mid-sequence. */
+    font-family: var(--monoFont);
     font-weight: 700;
     color: #4b5563;
 }
@@ -738,6 +741,7 @@ body.validate-mode #validateButton {
     font-size: 0.8rem;
 }
 .cn-results-table th, .cn-results-table td {
+    font-family: var(--monoFont);
     padding: 4px 8px;
     border: 1px solid #e5e7eb;
     text-align: left;
@@ -783,6 +787,10 @@ footer.plate {
 
 .validationResultsTable th,
 .validationResultsTable td {
+    /* The reset at the top of this file sets a font on every element via `*`,
+       which beats inheritance — so naming the face on the table alone left the
+       cells in the sans face and only the raw view looked monospaced. */
+    font-family: var(--monoFont);
     padding: 4px 12px;
     text-align: left;
     border-bottom: 1px solid var(--outlineColor);
@@ -1039,11 +1047,58 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     }
 }
 
-/* Download links in the output table. Each row offers the same file in two
-   formats, so they are styled identically and labelled only by extension —
-   the format is the choice, not the content. */
+/* The per-output Download button. One button rather than a link per format:
+   the format is a detail of saving, not a different output, so it is asked
+   for on the way out instead of doubling the row. */
+.dlBtn {
+    font-size: 14px;
+}
+
+/* The real download anchors still exist and still have their blob URLs and
+   filenames set after each run — the format picker clicks them. Keeping them
+   means the download path itself is unchanged. */
+.dlHidden {
+    display: none;
+}
+
+/* The format choices inside the picker. Some are anchors and some buttons —
+   an anchor when the file already exists, a button when it is built on
+   demand — so both are styled here to look like one control. */
+.fmtBtn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    background: white;
+    border: 1px solid var(--gray-200);
+}
+
+.fmtBtn:hover {
+    background: var(--green-50);
+    border-color: var(--green-300);
+}
+
+.fmtBtn .fmtName {
+    font-family: var(--monoFont);
+    font-weight: 700;
+    color: var(--green-800);
+}
+
+.fmtBtn .fmtNote {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--gray-600);
+}
+
 .dlLink {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--monoFont);
     font-size: 12px;
     padding: 3px 8px;
     border-radius: var(--inputRadius);

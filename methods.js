@@ -340,11 +340,6 @@ function showMethodsOutput() {
     _showTextareaOutput(METH_text())
 }
 
-function downloadMethodsOutput() {
-    const element = document.getElementById("methodsDownload")
-    _createDownloadLink(METH_text(), _outName() + " Methods", element, "text", ".txt")
-}
-
 // Copying is offered beside the download because this output exists to be
 // pasted into a manuscript, not filed away.
 //
