@@ -953,3 +953,25 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     padding: 12px 28px;
     font-size: 16px;
 }
+
+/* The output row is a set of columns, one per file, and each column's
+   controls must start at the same height or the buttons stagger. Reserving
+   two lines for every label does that without depending on how each one
+   happens to wrap. */
+#outputTable .outLabel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* A fixed box, not a minimum: every label is two lines, and letting the
+       height follow the content lets one column drift and stagger its
+       buttons against the rest. */
+    box-sizing: border-box;
+    width: 100%;
+    height: 62px;
+    line-height: 1.3;
+    padding: 5px 4px;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
