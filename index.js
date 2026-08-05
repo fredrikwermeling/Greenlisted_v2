@@ -247,8 +247,8 @@ async function runValidation() {
         _validateState.notFoundOutput = VAL_createNotFoundOutput(results)
 
         const outputName = document.getElementById("outputFileName").value || "validation"
-        _createDownloadLink(_validateState.resultsOutput, outputName + " Validation Results", document.getElementById("validationDownload"), "text/tab-separated-values", ".tsv")
-        _createDownloadLink(_validateState.notFoundOutput, outputName + " Not Found", document.getElementById("validationNotFoundDownload"), "text/tab-separated-values", ".tsv")
+        _createDownloadLinkRaw(_toCsv(_validateState.resultsOutput), outputName + " Validation Results", document.getElementById("validationDownload"), "text/csv;charset=utf-8", ".csv")
+        _createDownloadLinkRaw(_toCsv(_validateState.notFoundOutput), outputName + " Not Found", document.getElementById("validationNotFoundDownload"), "text/csv;charset=utf-8", ".csv")
 
         _setStatus("statusSearch", `Validation complete: ${results.found.length} found, ${results.notFound.length} not found`)
     } catch (error) {
@@ -511,17 +511,17 @@ async function runScreening() {
             "textOutputAdapter": adapterOutput,
             "textOutputMAGeCK": MAGeCKOutput
         }
-        _createDownloadLink(adapterOutput, settings["outputName"] + " with Adapters", document.getElementById("adapterDownload"), "text/tab-separated-values", ".tsv")
-        _createDownloadLink(fullOutput, settings["outputName"] + " Output", document.getElementById("fullDownload"), "text/tab-separated-values", ".tsv")
-        _createDownloadLink(notFoundOutput, settings["outputName"] + " not found", document.getElementById("notFoundDownload"), "text/tab-separated-values", ".tsv")
-        _createDownloadLink(MAGeCKOutput, settings["outputName"] + " MAGeCK", document.getElementById("MAGeCKDownload"), "text/csv", ".csv")
+        _createDownloadLinkRaw(_toCsv(adapterOutput), _outName() + " with Adapters", document.getElementById("adapterDownload"), "text/csv;charset=utf-8", ".csv")
+        _createDownloadLinkRaw(_toCsv(fullOutput), _outName() + " Output", document.getElementById("fullDownload"), "text/csv;charset=utf-8", ".csv")
+        _createDownloadLinkRaw(_toCsv(notFoundOutput), _outName() + " not found", document.getElementById("notFoundDownload"), "text/csv;charset=utf-8", ".csv")
+        _createDownloadLink(MAGeCKOutput, _outName() + " MAGeCK", document.getElementById("MAGeCKDownload"), "text/csv", ".csv")
 
         const cnRow = document.getElementById("cnAnnotationOutputRow")
         if (cnReady) {
             try {
                 const cnOutput = _createCnAnnotationOutput(searchOutput.filteredLibraryMap, screeningCl)
                 outputTexts["textOutputCn"] = cnOutput
-                _createDownloadLinkRaw(cnOutput, settings["outputName"] + " copy number", document.getElementById("cnAnnotationDownload"), "text/tab-separated-values;charset=utf-8", ".tsv")
+                _createDownloadLinkRaw(_toCsv(cnOutput), _outName() + " copy number", document.getElementById("cnAnnotationDownload"), "text/csv;charset=utf-8", ".csv")
                 if (cnRow) cnRow.style.display = ""
             } catch (e) {
                 console.error("CN annotation failed:", e)
@@ -781,6 +781,36 @@ function _createDownloadLink(text, name, element, filetype, fileEnding) {
     element.download = name + fileEnding
 }
 
+// The delimited outputs are assembled tab-separated, because no library field
+// contains a tab and that makes them safe to build by string concatenation.
+// They are written to disk as CSV, because that is what opens in Excel on a
+// double-click while a .tsv typically does not. Quoting follows RFC 4180: a
+// field holding a comma, a quote or a newline is wrapped in quotes and its
+// own quotes doubled, so the round trip is lossless.
+// The output-name field is optional, so it is usually blank — without a
+// fallback every download came out named " with Adapters.csv", leading space
+// and all.
+function _outName() {
+    return (settings["outputName"] || "").trim() || "Green Listed"
+}
+
+function _toCsv(text) {
+    if (!text) return text
+    return text.split("\n").map(line => {
+        if (line === "") return ""
+        // Strip a trailing CR before splitting so it cannot land inside the
+        // last field and force it to be quoted.
+        const cr = line.endsWith("\r")
+        const body = cr ? line.slice(0, -1) : line
+        return body.split("\t").map(_csvField).join(",") + (cr ? "\r" : "")
+    }).join("\n")
+}
+
+function _csvField(value) {
+    const v = String(value == null ? "" : value)
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
+}
+
 // Same as _createDownloadLink but writes the text verbatim. The base
 // version rewrites the first run of four spaces as a tab, which would
 // shift a column in any TSV whose prose header happens to contain one.
@@ -828,7 +858,7 @@ function showSettingsOutput() {
 
 function dowloadSettingsOutput() {
     element = document.getElementById("settingsDowload")
-    _createDownloadLink(SET_settingsToStr(), settings["outputName"] + " Settings", element, "text", ".txt")
+    _createDownloadLink(SET_settingsToStr(), _outName() + " Settings", element, "text", ".txt")
 }
 
 function _generateZipName(prefix) {
@@ -864,7 +894,7 @@ async function XLS_download(key) {
     }
     try {
         const blob = await XLSX_build([{ name: spec.label, rows: XLSX_rowsFromDelimited(text, spec.delimiter) }])
-        const base = settings["outputName"] || "Green Listed"
+        const base = _outName()
         _downloadBlob(blob, `${_generateZipName(base)}_${spec.label.replace(/[^A-Za-z0-9]+/g, "_")}.xlsx`)
     } catch (e) {
         console.error("Excel export failed:", e)
@@ -899,7 +929,7 @@ async function downloadAllExcel() {
     }
     try {
         const blob = await XLSX_build(sheets)
-        _downloadBlob(blob, _generateZipName(settings["outputName"] || "Green Listed") + ".xlsx")
+        _downloadBlob(blob, _generateZipName(_outName()) + ".xlsx")
     } catch (e) {
         console.error("Excel export failed:", e)
         _setStatus("statusSearch", "Error: could not build the Excel file")
@@ -924,20 +954,21 @@ function _downloadBlob(blob, filename) {
 }
 
 async function downloadAllDesign() {
-    const name = settings["outputName"] || "output"
+    const name = _outName()
     const folderName = _generateZipName(name)
     const zip = new JSZip()
     const folder = zip.folder(folderName)
-    folder.file(name + " with Adapters.tsv", outputTexts.textOutputAdapter)
+    folder.file(name + " with Adapters.csv", _toCsv(outputTexts.textOutputAdapter))
     folder.file(name + " MAGeCK.csv", outputTexts.textOutputMAGeCK)
-    folder.file(name + " Output.tsv", outputTexts.textOutputFull)
-    folder.file(name + " not found.tsv", outputTexts.textOutputNotFound)
+    folder.file(name + " Output.csv", _toCsv(outputTexts.textOutputFull))
+    folder.file(name + " not found.csv", _toCsv(outputTexts.textOutputNotFound))
     folder.file(name + " Settings.txt", SET_settingsToStr())
     // Include the per-gene copy-number annotation if the user picked a
     // screening cell line in section 3 and the file was generated.
     if (outputTexts.textOutputCn) {
-        folder.file(name + " copy number.tsv", outputTexts.textOutputCn)
+        folder.file(name + " copy number.csv", _toCsv(outputTexts.textOutputCn))
     }
+    if (typeof METH_text === "function") folder.file(name + " Methods.txt", METH_text())
     const blob = await zip.generateAsync({ type: "blob" })
     _downloadBlob(blob, folderName + ".zip")
 }
@@ -947,8 +978,9 @@ async function downloadAllValidation() {
     const folderName = _generateZipName(name)
     const zip = new JSZip()
     const folder = zip.folder(folderName)
-    folder.file(name + " Validation Results.tsv", _validateState.resultsOutput)
-    folder.file(name + " Not Found.tsv", _validateState.notFoundOutput)
+    folder.file(name + " Validation Results.csv", _toCsv(_validateState.resultsOutput))
+    folder.file(name + " Not Found.csv", _toCsv(_validateState.notFoundOutput))
+    if (typeof METH_text === "function") folder.file(name + " Methods.txt", METH_text())
     const blob = await zip.generateAsync({ type: "blob" })
     _downloadBlob(blob, folderName + ".zip")
 }
@@ -1285,8 +1317,13 @@ function updateCustomlibrary() {
 
 function _updateExampleText() {
     //Displays the text SEQUENCE modified by trim and adapter sequences
-    const example = _applyPostProcessing("SEQUENCE")
-    document.getElementById("ExampleSequance").innerHTML = example
+    // Assembled from the parts rather than by searching the finished string,
+    // so the guide stays highlighted even when a trim setting eats into it.
+    const middle = _applyTrim("SEQUENCE")
+    const before = settings.adapterBefore || ""
+    const after = settings.adapterAfter || ""
+    document.getElementById("ExampleSequance").innerHTML =
+        `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
 }
 
 async function _displaySymbolsNotFound(synonymMap) {
@@ -1375,9 +1412,17 @@ function _setStatus(elemId, text, isNotInnerHtml) {
     if ((element.value == text) && !isNotInnerHtml) {
         return
     }
-    element.classList.add("statusFadeOut"); // Add class to fade out the old text
-
-    element.addEventListener("animationend", function () {    // Listen for the "transitionend" event
+    // The new text is written when the fade-out finishes. Two things can stop
+    // that event ever arriving: re-adding a class the element already carries
+    // does not restart its animation, and an element that is hidden does not
+    // animate at all. Either way the text would silently stay stale — which
+    // is what used to leave the MAGeCK, run-settings and methods views empty.
+    // So the animation is restarted explicitly, and a timer applies the text
+    // regardless if the event does not come.
+    var applied = false
+    const apply = function () {
+        if (applied) return
+        applied = true
         if (isNotInnerHtml) {
             element.innerHTML = text;
         }
@@ -1387,7 +1432,16 @@ function _setStatus(elemId, text, isNotInnerHtml) {
 
         element.classList.remove("statusFadeOut"); // Remove class to fade in the new text
         element.classList.add("statusFadeIn"); // Add class to fade in the new text
-    }, { once: true }); // Ensure the event listener is called only once
+    }
+
+    element.classList.remove("statusFadeIn");
+    element.classList.remove("statusFadeOut");
+    void element.offsetWidth;                  // reflow, so the animation replays
+    element.classList.add("statusFadeOut");    // Add class to fade out the old text
+
+    element.addEventListener("animationend", apply, { once: true });
+    // Just past the 0.2s animation, so the fade still plays when it can.
+    setTimeout(apply, 250);
 
     if (text.includes("Failed") || text.includes("Error")) {
         element.style.color = "red";
@@ -2027,7 +2081,7 @@ async function CN_runLookup() {
         }
         _cnState.results = { rows, notFound }
         _cnState.tsvOutput = _cnBuildTsv(rows)
-        _createDownloadLinkRaw(_cnState.tsvOutput, "CN lookup", document.getElementById("cnDownload"), "text/tab-separated-values;charset=utf-8", ".tsv")
+        _createDownloadLinkRaw(_toCsv(_cnState.tsvOutput), "CN lookup", document.getElementById("cnDownload"), "text/csv;charset=utf-8", ".csv")
         const hitGenes = rows.length - notFound.length
         const synN = rows.filter(r => r.viaSynonym).length
         const synNote = synN > 0 ? `, ${synN} via synonym` : ""
@@ -2155,11 +2209,11 @@ async function CN_exportMatrixTsv() {
     const slug = lines.length <= 3
         ? lines.map(c => c.name.replace(/[^A-Za-z0-9._-]+/g, "_")).join("_")
         : `${lines.length}_lines`
-    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8" })
+    const blob = new Blob([_toCsv(tsv)], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `copy_number_matrix_${slug}.tsv`
+    a.download = `copy_number_matrix_${slug}.csv`
     document.body.appendChild(a); a.click(); a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

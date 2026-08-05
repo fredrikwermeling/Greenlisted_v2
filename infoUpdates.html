@@ -27,6 +27,18 @@
             <h3>2026</h3>
 
             <div class="updateEntry">
+                <div class="updateTitle">Methods text for your manuscript</div>
+                <p>A new <em>Methods text</em> row in section 4 writes a Materials &amp; Methods description of the run you just made: a one-sentence version for the main text, a fuller paragraph for a detailed or supplementary section, and the references for the software and for the library you used. Copy it straight into a manuscript, or download it with the other outputs.</p>
+                <p>It describes only what the run actually did, so an option you left off produces no sentence. Check it against your final protocol before submission.</p>
+            </div>
+
+            <div class="updateEntry">
+                <div class="updateTitle">Downloads are now .csv</div>
+                <p>The delimited outputs are written as comma-separated <em>.csv</em> files rather than tab-separated <em>.tsv</em>, so they open directly in Excel and other spreadsheet software. Any field containing a comma is quoted, so nothing is lost on the way in.</p>
+                <p>If you plan to open a result in Excel, the <em>.xlsx</em> workbook beside each download is still the better choice &mdash; it is the only format that stops gene symbols being read as dates.</p>
+            </div>
+
+            <div class="updateEntry">
                 <div class="updateTitle">Excel downloads</div>
                 <p>Every output in section 4 is now offered in two formats side by side, labelled by extension: the text file that MAGeCK and other tools read, and an <em>.xlsx</em> workbook. There is the same pair for everything at once &mdash; a <em>.zip</em> of the text files, or one workbook with a sheet per output.</p>
                 <p>Use the workbook if you plan to open the result in Excel. Opening a text file lets Excel rewrite gene symbols, so <em>MARCH1</em>, <em>SEPT9</em> and <em>DEC1</em> become dates and an alias such as <em>2E4</em> becomes 20&nbsp;000. Nothing inside a .csv or .tsv can prevent that, but in a workbook the cell types are already set, so symbols arrive intact while scores stay numeric and sortable. Note that Brunello, VBC and GeCKO&nbsp;v2 still use the pre-2020 symbols, while Jacquere, Julianna and Gattinara carry the current ones (<em>MARCHF1</em>, <em>SEPTIN9</em>) that HGNC introduced to end this problem.</p>

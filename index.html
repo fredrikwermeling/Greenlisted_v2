@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=2.2">
+    <link rel="stylesheet" media="all" href="index.css?v=2.3">
     <title>Green Listed</title>
     
     <!-- Web Analytics -->
@@ -178,7 +178,7 @@
                     </div>
                     <div class="cn-modal-actions" style="display:flex; gap:10px; justify-content:flex-end; align-items:center; margin-top:12px;">
                         <button class="validate-btn" id="cnPickerMatrixBtn" onclick="CN_exportMatrixTsv()" disabled
-                                title="Download a TSV of every gene in the DepMap matrix (~19k) × the selected cell line(s), with raw CN values — for R / pandas / Excel. No need to activate CN mode.">Download full matrix (all genes, TSV)</button>
+                                title="Download a CSV of every gene in the DepMap matrix (~19k) × the selected cell line(s), with raw CN values — for R / pandas / Excel. No need to activate CN mode.">Download full matrix (all genes, CSV)</button>
                         <button class="validate-btn" onclick="CN_closeModal()" style="background:#f3f4f6; color:#374151;">Cancel</button>
                         <button class="validate-btn" id="cnPickerConfirmBtn" onclick="CN_confirmSelection()" disabled>Activate CN mode →</button>
                     </div>
@@ -362,7 +362,7 @@ Ranking order is set automatically for each built-in library, so it only appears
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Sequence modifications <span class="titleTail">(optional)<span class="infoDot" title="Adapter sequences are the flanking bases required for cloning or oligo synthesis; they are added to every guide. The line underneath previews the result so you can check it before ordering.">i</span></span></h3>
                     <div class="plateContent">
-                        <table>
+                        <table id="sequenceModTable">
                             <tr class="custom-only">
                                 <td>Trim </td>
                                 <td>5'<input type="number" id="trimBefore" min="0" value="0"
@@ -372,9 +372,12 @@ Ranking order is set automatically for each built-in library, so it only appears
 
                             </tr>
                             <tr>
-                                <td>Adapter sequences</td>
-                                <td>5'<input type="text" id="adapterBefore" onchange="changeSettings()"></td>
-                                <td>3'<input type="text" id="adapterAfter" onchange="changeSettings()"></td>
+                                <td><label for="adapterBefore">Adapter 5'</label></td>
+                                <td colspan="2"><input type="text" id="adapterBefore" onchange="changeSettings()"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="adapterAfter">Adapter 3'</label></td>
+                                <td colspan="2"><input type="text" id="adapterAfter" onchange="changeSettings()"></td>
                             </tr>
                         </table>
                         <p id="ExampleSequance"></p>
@@ -444,7 +447,7 @@ Download all bundles them into one zip.">i</span></h2>
                 <table id="outputTable">
                     <tr class="design-only">
                         <td class="outLabel">Output with<br>adapters</td>
-                        <td><a href="" id="adapterDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="adapterDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('adapter')">.xlsx</a></td>
                         <td><button data-show="adapter" onclick="showAdapterOutput()">Show</button></td>
                     </tr>
@@ -456,19 +459,19 @@ Download all bundles them into one zip.">i</span></h2>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Full<br>output</td>
-                        <td><a href="" id="fullDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="fullDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('full')">.xlsx</a></td>
                         <td><button data-show="full" onclick="showFullOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only" id="cnAnnotationOutputRow" style="display:none;">
                         <td class="outLabel">Copy number<br>per gene</td>
-                        <td><a href="" id="cnAnnotationDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="cnAnnotationDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('cnAnnotation')">.xlsx</a></td>
                         <td><button data-show="cnAnnotation" onclick="showCnAnnotationOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Symbols<br>not found</td>
-                        <td><a href="" id="notFoundDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="notFoundDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('notFound')">.xlsx</a></td>
                         <td><button data-show="notFound" onclick="showNotFoundOutput()">Show</button></td>
                     </tr>
@@ -480,21 +483,29 @@ Download all bundles them into one zip.">i</span></h2>
                     </tr>
                     <tr class="validate-only">
                         <td class="outLabel">Validation<br>results</td>
-                        <td><a href="" id="validationDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="validationDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('validation')">.xlsx</a></td>
                         <td><button data-show="validation" onclick="showValidationOutput()">Show</button></td>
                     </tr>
                     <tr class="validate-only">
                         <td class="outLabel">Sequences<br>not found</td>
-                        <td><a href="" id="validationNotFoundDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="validationNotFoundDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('validationNotFound')">.xlsx</a></td>
                         <td><button data-show="validationNotFound" onclick="showValidationNotFoundOutput()">Show</button></td>
                     </tr>
                     <tr class="cn-only">
                         <td class="outLabel">Copy-number<br>table</td>
-                        <td><a href="" id="cnDownload" class="dlLink">.tsv</a></td>
+                        <td><a href="" id="cnDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('cnTable')">.xlsx</a></td>
                         <td><button data-show="cnTable" onclick="CN_showResults()">Show</button></td>
+                    </tr>
+                    <tr>
+                        <td class="outLabel">Methods<br>text<span class="infoDot" title="A short Materials &amp; Methods paragraph describing this run — the library and its reference, how symbols were matched, any ranking, the controls added and the oligo design.
+
+It reports only what the run actually used, so an option you left off produces no sentence. Check it against your final protocol before submission.">i</span></td>
+                        <td><a href="" id="methodsDownload" class="dlLink" onclick="downloadMethodsOutput()">.txt</a></td>
+                        <td><a href="javascript:void(0)" class="dlLink" onclick="copyMethodsOutput()">Copy</a></td>
+                        <td><button data-show="methods" onclick="showMethodsOutput()">Show</button></td>
                     </tr>
                     <tr>
                         <td class="outLabel">Download<br>all<span class="infoDot" title="Every output above, bundled. The .zip holds one text file per output; the .xlsx is a single workbook with one sheet per output.
@@ -526,17 +537,18 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=2.2"></script>
-    <script type="text/javascript" src="settings.js?v=2.2"></script>
-    <script type="text/javascript" src="grnaService.js?v=2.2"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=2.2"></script>
-    <script type="text/javascript" src="validate.js?v=2.2"></script>
-    <script type="text/javascript" src="upset.js?v=2.2"></script>
-    <script type="text/javascript" src="cnService.js?v=2.2"></script>
-    <script type="text/javascript" src="index.js?v=2.2"></script>
-    <script type="text/javascript" src="fileHandler.js?v=2.2"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=2.2"></script>
-    <script type="text/javascript" src="helpPopout.js?v=2.2"></script>
+    <script type="text/javascript" src="library.js?v=2.3"></script>
+    <script type="text/javascript" src="settings.js?v=2.3"></script>
+    <script type="text/javascript" src="grnaService.js?v=2.3"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=2.3"></script>
+    <script type="text/javascript" src="validate.js?v=2.3"></script>
+    <script type="text/javascript" src="upset.js?v=2.3"></script>
+    <script type="text/javascript" src="cnService.js?v=2.3"></script>
+    <script type="text/javascript" src="index.js?v=2.3"></script>
+    <script type="text/javascript" src="fileHandler.js?v=2.3"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=2.3"></script>
+    <script type="text/javascript" src="helpPopout.js?v=2.3"></script>
+    <script type="text/javascript" src="methods.js?v=2.3"></script>
 
 </body>
 

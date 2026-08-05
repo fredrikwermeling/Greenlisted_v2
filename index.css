@@ -26,6 +26,11 @@
     --sans-font: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
 
+    /* Nucleotide runs read better fixed-width: the bases line up, and a
+       lower-case string of acgt stops looking like a word. */
+    --monoFont: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+
     --base-fontsize: 1.15rem;
     --header-scale: 1.25rem;
     --line-height: 1.618;
@@ -390,8 +395,57 @@ a:hover {
     display: flex;
 }
 
+/* The preview is one unbroken run of bases with no spaces in it, so it will
+   not wrap on its own — it used to run off both edges of the panel. Wrapping
+   it and setting it in a smaller monospace face keeps the whole oligo visible
+   however long the adapters are. */
 #ExampleSequance {
     align-self: center;
+    width: 100%;
+    margin: 10px 0 2px 0;
+    padding: 7px 9px;
+    box-sizing: border-box;
+    background: var(--green-50);
+    border: 1px solid var(--green-100);
+    border-radius: var(--inputRadius);
+    font-family: var(--monoFont);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    letter-spacing: 0.01em;
+    overflow-wrap: anywhere;
+    /* Left-aligned: a wrapped sequence centred on the last line leaves a
+       stranded fragment that reads as a separate string. */
+    text-align: left;
+    color: #6b7280;
+}
+
+
+/* The guide itself, so the adapters read as the flanks they are. */
+#ExampleSequance .seqSlot {
+    color: var(--green-700);
+    font-weight: 700;
+}
+
+/* Full width and the same monospace face, so a 25-base adapter is readable
+   in the box rather than cut off halfway. */
+#adapterBefore,
+#adapterAfter {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-family: var(--monoFont);
+    font-size: 0.72rem;
+}
+
+/* Without this the two input cells size to their content and push the row
+   wider than the panel. */
+#sequenceModTable {
+    width: 100%;
+    table-layout: fixed;
+}
+
+#sequenceModTable td:first-child {
+    width: 34%;
 }
 
 #libraries {
