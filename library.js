@@ -111,6 +111,75 @@ function LIB_essentialPanel(n) {
     return _ESSENTIAL_PANEL.slice(0, Math.max(1, Math.min(n, _ESSENTIAL_PANEL.length)))
 }
 
+// Control guides borrowed from another library, for the ones that ship none.
+// VBC human and VBC mouse are the only built-ins without any, so a screen
+// designed from them has no baseline unless it borrows. Loaded on demand from
+// controlGuides.json; see tools/build_control_guides.py.
+var _borrowedControls = { data: null, loading: null }
+
+async function LIB_loadBorrowedControls() {
+    if (_borrowedControls.data) return _borrowedControls.data
+    if (!_borrowedControls.loading) {
+        _borrowedControls.loading = FH_fetchJsonFile("controlGuides.json")
+            .then(d => { _borrowedControls.data = d; return d })
+            .catch(e => { console.warn("Could not load controlGuides.json:", e); return null })
+    }
+    return _borrowedControls.loading
+}
+
+// What the selected library's own guides look like. Used to decide whether a
+// borrowed guide would fit: VBC's spacers all begin with G, because that is
+// what its U6 promoter design requires, and dropping in a guide that starts
+// with anything else would break that. Read from the library rather than
+// hardcoded, so an uploaded library with the same convention is respected.
+function LIB_guideConvention() {
+    var checked = 0, startG = 0
+    const lengths = new Set()
+    for (const symbol in _library.libraryMap) {
+        for (const row of _library.libraryMap[symbol]) {
+            const seq = (row[_library.rnaColumn - 1] || "").trim().toUpperCase()
+            if (!seq || /[^ACGT]/.test(seq)) continue
+            checked++
+            lengths.add(seq.length)
+            if (seq[0] === "G") startG++
+            if (checked >= 4000) break
+        }
+        if (checked >= 4000) break
+    }
+    return {
+        // "Effectively all" rather than "all": a stray exception in a 100k-row
+        // file should not decide that the library has no convention.
+        requiresLeading5pG: checked > 0 && startG / checked > 0.98,
+        lengths: lengths
+    }
+}
+
+// Controls of one kind from the species-matched donor, shaped as library rows
+// so every output builder handles them like any other guide. Returns [] when
+// nothing is available or nothing survives the host library's convention.
+function LIB_borrowedControlRows(kindId, species, count) {
+    const data = _borrowedControls.data
+    if (!data || !data.species) return { rows: [], symbol: null, source: null, available: 0 }
+    const block = data.species[/mouse/i.test(species || "") ? "Mouse" : "Human"]
+    const set = block && block[kindId]
+    if (!set || !set.guides || !set.guides.length) return { rows: [], symbol: null, source: null, available: 0 }
+
+    const convention = LIB_guideConvention()
+    var guides = set.guides
+    if (convention.requiresLeading5pG) guides = guides.filter(g => g[0] === "G")
+
+    const width = Math.max(_library.headers ? _library.headers.length : 0,
+                           _library.symbolColumn, _library.rnaColumn)
+    const picked = _randomSample(guides, Math.min(count, guides.length))
+    const rows = picked.map(seq => {
+        const row = new Array(width).fill("")
+        row[_library.symbolColumn - 1] = set.symbol
+        row[_library.rnaColumn - 1] = seq
+        return row
+    })
+    return { rows: rows, symbol: set.symbol, source: block.source, available: guides.length }
+}
+
 // The key under which a library map holds controls of the given kind, or
 // null if it has none of that kind.
 function LIB_findControlKey(libraryMap, kindId) {
@@ -177,7 +246,9 @@ function LIB_startScreening(settings) {
     const symbolCount = Object.keys(searchOutput.filteredLibraryMap).length - blocksAdded
     var controlNote = ""
     if (addedNotes.length) {
-        controlNote = `<br> Controls added: ${addedNotes.join(" + ")}`
+        const borrowed = searchOutput.controlsBorrowedFrom
+            ? ` (borrowed from ${searchOutput.controlsBorrowedFrom}, which this library has none of its own)` : ""
+        controlNote = `<br> Controls added: ${addedNotes.join(" + ")}${borrowed}`
     } else if (settings.includeNonTargeting || settings.includeSafeTargeting) {
         controlNote = `<br> This library ships none of the selected control types &mdash; none added`
     }
@@ -198,6 +269,9 @@ function LIB_setLibraryCustomData(fileData, settings) {
 function LIB_setLibraryData(librarySettings, fileData, citationInfo) {
     //uppdates synonymMap, citationInfo and libraryMap
     _library.citationInfo = citationInfo
+    // Kept so borrowed control guides can be shaped like this library's rows.
+    _library.symbolColumn = librarySettings.symbolColumn
+    _library.rnaColumn = librarySettings.RNAColumn
     var libraryMap = _createLibraryMap(fileData, librarySettings.symbolColumn, librarySettings.RNAColumn, librarySettings.rankingColumn, _library.synonymMap)
     _library.librarySymbolSet = new Set(Object.keys(libraryMap)), //a set containing all symbols in the library
         _library.libraryMap = libraryMap

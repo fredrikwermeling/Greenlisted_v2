@@ -986,6 +986,10 @@ async function changeLibrary() {
             // Species of the selected library, used to pick which curated gene
             // lists to offer. Built-in libraries declare it via their synonym list.
             settings.librarySpecies = librarySettings.synonymName || ""
+            // Needed only by libraries that ship no controls of their own, but
+            // it is 45 KB and the panel has to know what is on offer before the
+            // user ticks anything.
+            if (typeof LIB_loadBorrowedControls === "function") await LIB_loadBorrowedControls()
             await _displayLibraryCitation(SER_getLibraryCitation())
             SET_settingsSetIndexes(librarySettings.RNAColumn, librarySettings.symbolColumn, librarySettings.RankColumn)
 
@@ -1152,18 +1156,25 @@ function _updateControlsStatus() {
         const cb = document.getElementById(ui.checkbox)
         const countInput = document.getElementById(ui.count)
         if (!cb || !countInput) continue
-        const avail = info[ui.id]
+        var avail = info[ui.id]
+        var borrowed = null
         if (!avail) {
-            // Clear the box as well as disabling it — switching from a library
-            // that has this control type to one that doesn't would otherwise
-            // leave a stale number sitting in a greyed-out field.
-            cb.checked = false
-            cb.disabled = true
-            countInput.disabled = true
-            countInput.value = ""
-            countInput.placeholder = ""
-            delete countInput.dataset.auto
-            continue
+            // The library ships none of this kind. Rather than disabling the
+            // option, offer to take them from the species-matched donor —
+            // ticking the box is the opt-in. Only VBC needs this.
+            borrowed = (typeof LIB_borrowedControlRows === "function")
+                ? LIB_borrowedControlRows(ui.id, settings.librarySpecies, 0) : null
+            if (!borrowed || !borrowed.available) {
+                cb.checked = false
+                cb.disabled = true
+                countInput.disabled = true
+                countInput.value = ""
+                countInput.placeholder = ""
+                delete countInput.dataset.auto
+                lines.push(`${ui.label}: none available`)
+                continue
+            }
+            avail = { count: borrowed.available }
         }
         cb.disabled = false
         countInput.disabled = !cb.checked
@@ -1188,7 +1199,11 @@ function _updateControlsStatus() {
             countInput.dataset.auto = "1"
         }
         const raw = parseInt(countInput.value, 10)
-        if (!isNaN(raw) && raw > avail.count) {
+        if (borrowed) {
+            const n = (!isNaN(raw) && raw > 0) ? Math.min(raw, borrowed.available) : suggested
+            lines.push(`${ui.label}: none in this library &mdash; adding <b>${n}</b> borrowed from ${_escapeHtml(borrowed.source)}` +
+                       (borrowed.available < 50 ? ` (only ${borrowed.available} fit this library's guide design)` : ""))
+        } else if (!isNaN(raw) && raw > avail.count) {
             lines.push(`${ui.label}: only ${avail.count} in this library &mdash; adding all ${avail.count}`)
         }
     }

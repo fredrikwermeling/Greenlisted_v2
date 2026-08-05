@@ -68,18 +68,34 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         { id: "nonTargeting",  on: settings.includeNonTargeting,  count: settings.nonTargetingCount }
     ].filter(k => k.on)
      .map(k => ({ id: k.id, count: k.count, key: LIB_findControlKey(library.libraryMap, k.id) }))
-     .filter(k => k.key)
     const sharingIds = wanted.map(k => k.id)
     var controlsAdded = { nonTargeting: 0, safeTargeting: 0 }
+    var controlsBorrowedFrom = null
     for (var ki = 0; ki < wanted.length; ki++) {
         const kind = wanted[ki]
-        const available = library.libraryMap[kind.key].length
         const requested = parseInt(kind.count, 10)
-        const n = (isNaN(requested) || requested <= 0)
-            ? SCR_suggestedControlCount(nGenes, guidesPerGene, available, sharingIds, kind.id)
-            : Math.min(requested, available)
-        filteredLibraryMap[kind.key] = _randomSample(library.libraryMap[kind.key], n)
-        controlsAdded[kind.id] = n
+        if (kind.key) {
+            const available = library.libraryMap[kind.key].length
+            const n = (isNaN(requested) || requested <= 0)
+                ? SCR_suggestedControlCount(nGenes, guidesPerGene, available, sharingIds, kind.id)
+                : Math.min(requested, available)
+            filteredLibraryMap[kind.key] = _randomSample(library.libraryMap[kind.key], n)
+            controlsAdded[kind.id] = n
+        } else {
+            // This library ships none of this kind, so take them from the
+            // species-matched donor. LIB_borrowedControlRows drops any guide
+            // that would break the host library's own design convention.
+            const probe = LIB_borrowedControlRows(kind.id, settings.librarySpecies, 0)
+            if (!probe.symbol || !probe.available) continue
+            const n = (isNaN(requested) || requested <= 0)
+                ? SCR_suggestedControlCount(nGenes, guidesPerGene, probe.available, sharingIds, kind.id)
+                : Math.min(requested, probe.available)
+            const borrowed = LIB_borrowedControlRows(kind.id, settings.librarySpecies, n)
+            if (!borrowed.rows.length) continue
+            filteredLibraryMap[borrowed.symbol.toLowerCase()] = borrowed.rows
+            controlsAdded[kind.id] = borrowed.rows.length
+            controlsBorrowedFrom = borrowed.source
+        }
     }
 
     searchOutput = {
@@ -87,6 +103,7 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         "filteredLibraryMap": filteredLibraryMap,
         "usedSynonyms": usedSynonyms,
         "controlsAdded": controlsAdded,
+        "controlsBorrowedFrom": controlsBorrowedFrom,
         "essentialAdded": essentialAdded
     }
     return searchOutput
