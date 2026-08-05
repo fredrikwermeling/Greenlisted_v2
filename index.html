@@ -73,6 +73,8 @@
                 title="Look up gene copy number across DepMap's human cell lines. Independent of the library selected in step 1.">Copy number (human)</button>
             <button id="upsetButton" class="validate-btn" onclick="UPSET_showModal()"
                 title="An UpSet plot of how sgRNA sequences are shared between all built-in libraries. Opens as a reference view; it does not change the mode.">Library overlap</button>
+            <button id="resetButton" class="validate-btn" onclick="TOOL_resetApp()"
+                title="Clear everything and start again: the gene list, the parameters, the results and any cell line you picked, back to how the app opens. The library files stay loaded, so this is instant.">Reset app</button>
         </nav>
 
         <div id="overlay" class="fazeOut">
@@ -330,27 +332,24 @@ Ranking order is set automatically for each built-in library, so it only appears
 
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Controls <span class="titleTail">(optional)<span class="infoDot"
-                        title="Controls set the baseline your genes are measured against. A focused library needs its own, because unlike a genome-wide screen it has no large set of no-effect genes to fall back on.&#10;&#10;The suggested number is a total across both control types, so ticking both splits it rather than doubling it. It grows with how many genes you screen, and with how many sgRNAs each gene has — more sgRNAs sharpen each gene's measurement, so the baseline has to be sharper too. It stays between 50 and 120 and never exceeds what the library holds. Type your own number in a box to override it.&#10;&#10;Safe-targeting controls cut the genome at a harmless site, so they carry the same damage cost as a real guide and make the better baseline. Non-targeting controls never cut, and are best used as a second check.&#10;&#10;Essential genes are positive controls: they should drop out strongly if the screen worked.">i</span></span></h3>
+                        title="Controls set the baseline your genes are measured against. A focused library needs its own, because unlike a genome-wide screen it has no large set of no-effect genes to fall back on.&#10;&#10;Safe-targeting cuts the genome at a harmless site, so it carries the same damage cost as a real guide and makes the more honest baseline. Non-targeting never cuts, so it flatters the baseline and is best used as a second check. Essential genes are positive controls: they should drop out strongly if the screen worked.&#10;&#10;The suggested number is a total across both spike-in types, so ticking both splits it rather than doubling it. It grows with how many genes you screen and how many sgRNAs each gene has, stays between 50 and 120, and never exceeds what the library holds. Type your own number in a box to override it.">i</span></span></h3>
                     <table class="plateContent">
                         <tr>
-                            <td><label for="includeSafeTargeting" class="ctrlHint"
-                                       title="Safe-targeting controls (CutCtrl): one cut site in a gene desert. They control for the DNA-damage response that any double-strand break provokes, so they set a more honest baseline than non-targeting guides in a Cas9 screen — a non-targeting guide never cuts, so it makes the baseline look better than it is. Preferred as the statistical null.">Safe-targeting</label></td>
+                            <td><label for="includeSafeTargeting">Safe-targeting</label></td>
                             <td><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
                             <td><input type="number" id="safeTargetingCount" min="1"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
                         <tr>
-                            <td><label for="includeNonTargeting" class="ctrlHint"
-                                       title="Non-targeting controls (NegCtrl): sequences with no match anywhere in the genome. They control for the vector and the selection, but not for cutting, so they under-report the fitness cost of a double-strand break. Useful as a secondary sanity check alongside safe-targeting controls.">Non-targeting</label></td>
+                            <td><label for="includeNonTargeting">Non-targeting</label></td>
                             <td><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
                             <td><input type="number" id="nonTargetingCount" min="1"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
                         <tr>
-                            <td><label for="includeEssential" class="ctrlHint"
-                                       title="Positive controls: core-essential genes that drop out in virtually every proliferating cell line, so a screen that worked shows them strongly depleted. Picked in a fixed order, with the default three spanning distinct processes — RAN (nuclear transport), RPS8 (ribosome), PLK1 (mitosis) — so a partial failure tells you which process did not respond. Later entries are ordered by how rarely the gene is lost across DepMap lines. These are ordinary genes, so they are ranked and top-N sliced like any gene you type.">Essential genes</label></td>
+                            <td><label for="includeEssential">Essential genes</label></td>
                             <td><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
                             <td><input type="number" id="essentialCount" min="1" max="9"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"

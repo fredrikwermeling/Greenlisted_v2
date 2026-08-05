@@ -8,7 +8,7 @@
     "rankingTop": "2",
     "includeSafeTargeting": true,
     "safeTargetingCount": "",
-    "includeNonTargeting": true,
+    "includeNonTargeting": false,
     "nonTargetingCount": "",
     "includeEssential": true,
     "essentialCount": "3",

@@ -1518,6 +1518,44 @@ function SETS_load(index, append) {
         `${set.label}: ${set.genes.length} genes ${append ? "added" : "loaded"} (${merged.length} in the box)`)
 }
 
+// "Reset app" in the tool strip — back to how the app opens, without a page
+// reload. A reload would work too, but it would throw away the library file
+// and the copy-number matrix, and re-fetching 62 MB to clear a form is not a
+// reasonable trade. Everything reset here is cheap to retype; the expensive
+// data stays in memory.
+async function TOOL_resetApp() {
+    if (typeof _validateState !== "undefined" && _validateState.isValidateMode) {
+        toggleValidateMode(_validateState.activeSpecies)
+    } else if (typeof _cnState !== "undefined" && _cnState.isMode) {
+        _cnExitMode()
+    }
+    outputTexts = {}
+    if (typeof _cnState !== "undefined") {
+        _cnState.screeningCellLines = []
+        _cnState.results = null
+        _cnState.tsvOutput = null
+        _cnState.selectedCellLines = []
+    }
+    if (typeof _setsState !== "undefined") _setsState.loaded = null
+    const cellLine = document.getElementById("screeningCellLineInput")
+    if (cellLine) cellLine.value = ""
+    const cellLineStatus = document.getElementById("screeningCellLineStatus")
+    if (cellLineStatus) cellLineStatus.textContent = ""
+    // The count boxes go back to tracking the suggestion rather than keeping
+    // whatever was typed.
+    for (const id of ["safeTargetingCount", "nonTargetingCount", "essentialCount"]) {
+        const el = document.getElementById(id)
+        if (el) { el.value = ""; delete el.dataset.auto }
+    }
+    document.querySelectorAll("#outputTable button[data-show]").forEach(b => b.classList.remove("show-active"))
+    const row = document.getElementById("cnAnnotationOutputRow")
+    if (row) row.style.display = "none"
+    document.getElementById("outputTable").style.display = "none"
+    document.getElementById("fileContentContainer").style.display = "none"
+    await init()
+    _setStatus("statusSearch", "")
+}
+
 // "sgRNA design" in the tool strip — returns to the main flow from whichever
 // takeover mode is running. Already being in design mode is a no-op, so the
 // button is safe to click at any time. The highlight itself is pure CSS off
