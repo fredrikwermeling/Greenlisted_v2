@@ -110,6 +110,31 @@ header {
     justify-content: center;
 }
 
+/* The logo is 779px wide. Without this it keeps that width on a phone and is
+   cropped by the viewport — which is why it appears only when the handset is
+   turned landscape. */
+header img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* width:100% plus padding and a border overflows without this, which pushed
+   the cell-line search box past the edge of the modal on a phone. */
+#cnPickerSearch {
+    box-sizing: border-box;
+}
+
+/* Three buttons do not fit on one line at phone width. */
+#cnPickerMatrixBtn {
+    margin-right: auto;
+}
+
+header nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
 .centerContent {
     margin-left: auto;
     margin-right: auto;
@@ -887,6 +912,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    scrollbar. Below 900px the steps stack and read top to bottom, which is the
    order you work in anyway. */
 @media only screen and (max-width: 900px) {
+    header {
+        padding: 0.5rem 0 1rem 0;
+    }
+
     main {
         grid-template-columns: 1fr;
     }
@@ -921,6 +950,16 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     /* Figure export is not a thing you do on a phone. */
     #cnResultsDiv .validate-btn {
         display: none;
+    }
+
+    .cn-modal-actions {
+        flex-wrap: wrap;
+    }
+
+    /* On its own line the "auto" margin would leave a blank row above it. */
+    #cnPickerMatrixBtn {
+        margin-right: 0;
+        width: 100%;
     }
 }
 

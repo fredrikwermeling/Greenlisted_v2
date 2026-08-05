@@ -1143,12 +1143,28 @@ function _updateControlsStatus() {
     // control inventory is already in the citation panel on the left, and the
     // number being added is in the box itself. So this is limited to the
     // essential-gene names and any warning that a request exceeds stock.
-    // The suggested number is a total budget shared by whichever kinds are
-    // both ticked and stocked, so that has to be counted before any box can
-    // be filled in.
+    //
+    // Where each kind would come from has to be settled before any box can be
+    // filled in, because the suggested number is a total budget split between
+    // the kinds that are ticked. A borrowed kind counts towards that split
+    // exactly like a stocked one — Brunello, Brie and both GeCKO v2 libraries
+    // carry non-targeting controls but no safe-targeting ones, so ticking both
+    // there means one of each source.
+    const source = {}
+    for (const ui of _CONTROL_UI) {
+        if (info[ui.id]) { source[ui.id] = { avail: info[ui.id], borrowed: null }; continue }
+        // The library ships none of this kind. Rather than disabling the
+        // option, offer to take them from the species-matched donor —
+        // ticking the box is the opt-in.
+        const borrowed = (typeof LIB_borrowedControlRows === "function")
+            ? LIB_borrowedControlRows(ui.id, settings.librarySpecies, 0) : null
+        source[ui.id] = (borrowed && borrowed.available)
+            ? { avail: { count: borrowed.available }, borrowed: borrowed }
+            : null
+    }
     const sharing = _CONTROL_UI.filter(ui => {
         const cb = document.getElementById(ui.checkbox)
-        return cb && cb.checked && info[ui.id]
+        return cb && cb.checked && source[ui.id]
     }).map(ui => ui.id)
 
     const lines = []
@@ -1156,26 +1172,18 @@ function _updateControlsStatus() {
         const cb = document.getElementById(ui.checkbox)
         const countInput = document.getElementById(ui.count)
         if (!cb || !countInput) continue
-        var avail = info[ui.id]
-        var borrowed = null
-        if (!avail) {
-            // The library ships none of this kind. Rather than disabling the
-            // option, offer to take them from the species-matched donor —
-            // ticking the box is the opt-in. Only VBC needs this.
-            borrowed = (typeof LIB_borrowedControlRows === "function")
-                ? LIB_borrowedControlRows(ui.id, settings.librarySpecies, 0) : null
-            if (!borrowed || !borrowed.available) {
-                cb.checked = false
-                cb.disabled = true
-                countInput.disabled = true
-                countInput.value = ""
-                countInput.placeholder = ""
-                delete countInput.dataset.auto
-                lines.push(`${ui.label}: none available`)
-                continue
-            }
-            avail = { count: borrowed.available }
+        if (!source[ui.id]) {
+            cb.checked = false
+            cb.disabled = true
+            countInput.disabled = true
+            countInput.value = ""
+            countInput.placeholder = ""
+            delete countInput.dataset.auto
+            lines.push(`${ui.label}: none available`)
+            continue
         }
+        const avail = source[ui.id].avail
+        const borrowed = source[ui.id].borrowed
         cb.disabled = false
         countInput.disabled = !cb.checked
         if (!cb.checked) {

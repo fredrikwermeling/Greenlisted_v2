@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=2.1">
+    <link rel="stylesheet" media="all" href="index.css?v=2.2">
     <title>Green Listed</title>
     
     <!-- Web Analytics -->
@@ -176,10 +176,9 @@
                         <span style="color:#6b7280;">Selected:</span>
                         <span id="cnPickerSelectedCount">0</span> cell line(s).
                     </div>
-                    <div style="display:flex; gap:10px; justify-content:flex-end; align-items:center; margin-top:12px;">
+                    <div class="cn-modal-actions" style="display:flex; gap:10px; justify-content:flex-end; align-items:center; margin-top:12px;">
                         <button class="validate-btn" id="cnPickerMatrixBtn" onclick="CN_exportMatrixTsv()" disabled
-                                title="Download a TSV of every gene in the DepMap matrix (~19k) × the selected cell line(s), with raw CN values — for R / pandas / Excel. No need to activate CN mode."
-                                style="margin-right:auto;">Download full matrix (all genes, TSV)</button>
+                                title="Download a TSV of every gene in the DepMap matrix (~19k) × the selected cell line(s), with raw CN values — for R / pandas / Excel. No need to activate CN mode.">Download full matrix (all genes, TSV)</button>
                         <button class="validate-btn" onclick="CN_closeModal()" style="background:#f3f4f6; color:#374151;">Cancel</button>
                         <button class="validate-btn" id="cnPickerConfirmBtn" onclick="CN_confirmSelection()" disabled>Activate CN mode →</button>
                     </div>
@@ -527,17 +526,17 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=2.1"></script>
-    <script type="text/javascript" src="settings.js?v=2.1"></script>
-    <script type="text/javascript" src="grnaService.js?v=2.1"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=2.1"></script>
-    <script type="text/javascript" src="validate.js?v=2.1"></script>
-    <script type="text/javascript" src="upset.js?v=2.1"></script>
-    <script type="text/javascript" src="cnService.js?v=2.1"></script>
-    <script type="text/javascript" src="index.js?v=2.1"></script>
-    <script type="text/javascript" src="fileHandler.js?v=2.1"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=2.1"></script>
-    <script type="text/javascript" src="helpPopout.js?v=2.1"></script>
+    <script type="text/javascript" src="library.js?v=2.2"></script>
+    <script type="text/javascript" src="settings.js?v=2.2"></script>
+    <script type="text/javascript" src="grnaService.js?v=2.2"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=2.2"></script>
+    <script type="text/javascript" src="validate.js?v=2.2"></script>
+    <script type="text/javascript" src="upset.js?v=2.2"></script>
+    <script type="text/javascript" src="cnService.js?v=2.2"></script>
+    <script type="text/javascript" src="index.js?v=2.2"></script>
+    <script type="text/javascript" src="fileHandler.js?v=2.2"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=2.2"></script>
+    <script type="text/javascript" src="helpPopout.js?v=2.2"></script>
 
 </body>
 

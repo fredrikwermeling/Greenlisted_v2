@@ -237,18 +237,21 @@ function LIB_startScreening(settings) {
     // reported on their own line instead.
     const added = searchOutput.controlsAdded || {}
     const essential = searchOutput.essentialAdded || []
+    // Naming the donor beside the kind it supplied, rather than once for the
+    // whole run, so a library that stocks one kind and borrows the other does
+    // not read as though both were borrowed.
+    const borrowedFrom = searchOutput.controlsBorrowedFrom || {}
+    const from = id => borrowedFrom[id] ? ` (borrowed from ${borrowedFrom[id]})` : ""
     const addedNotes = []
-    if (added.safeTargeting > 0) addedNotes.push(`${added.safeTargeting} safe-targeting`)
-    if (added.nonTargeting > 0) addedNotes.push(`${added.nonTargeting} non-targeting`)
+    if (added.safeTargeting > 0) addedNotes.push(`${added.safeTargeting} safe-targeting${from("safeTargeting")}`)
+    if (added.nonTargeting > 0) addedNotes.push(`${added.nonTargeting} non-targeting${from("nonTargeting")}`)
     const blocksAdded = (added.nonTargeting > 0 ? 1 : 0) + (added.safeTargeting > 0 ? 1 : 0)
     // Essential-gene controls are ordinary genes and already counted among
     // the symbols found; the control blocks are not.
     const symbolCount = Object.keys(searchOutput.filteredLibraryMap).length - blocksAdded
     var controlNote = ""
     if (addedNotes.length) {
-        const borrowed = searchOutput.controlsBorrowedFrom
-            ? ` (borrowed from ${searchOutput.controlsBorrowedFrom}, which this library has none of its own)` : ""
-        controlNote = `<br> Controls added: ${addedNotes.join(" + ")}${borrowed}`
+        controlNote = `<br> Controls added: ${addedNotes.join(" + ")}`
     } else if (settings.includeNonTargeting || settings.includeSafeTargeting) {
         controlNote = `<br> This library ships none of the selected control types &mdash; none added`
     }

@@ -60,9 +60,10 @@ function SCR_startScreening(library, settings, usedSynonyms) {
     var nGuides = 0
     for (const symbol in filteredLibraryMap) nGuides += filteredLibraryMap[symbol].length
     const guidesPerGene = nGenes > 0 ? nGuides / nGenes : 3
-    // Only kinds that are both requested and actually stocked by this library
-    // share the control budget — otherwise ticking a kind the library lacks
-    // would silently halve the controls the other kind contributes.
+    // Every ticked kind shares the control budget, whether this library stocks
+    // it or it has to be borrowed from the species-matched donor — what the
+    // budget measures is how many guides define the baseline, not where they
+    // came from.
     const wanted = [
         { id: "safeTargeting", on: settings.includeSafeTargeting, count: settings.safeTargetingCount },
         { id: "nonTargeting",  on: settings.includeNonTargeting,  count: settings.nonTargetingCount }
@@ -70,7 +71,9 @@ function SCR_startScreening(library, settings, usedSynonyms) {
      .map(k => ({ id: k.id, count: k.count, key: LIB_findControlKey(library.libraryMap, k.id) }))
     const sharingIds = wanted.map(k => k.id)
     var controlsAdded = { nonTargeting: 0, safeTargeting: 0 }
-    var controlsBorrowedFrom = null
+    // Per kind, not per run: a library can stock one kind and borrow the
+    // other, as Brunello, Brie and both GeCKO v2 libraries do.
+    var controlsBorrowedFrom = {}
     for (var ki = 0; ki < wanted.length; ki++) {
         const kind = wanted[ki]
         const requested = parseInt(kind.count, 10)
@@ -94,7 +97,7 @@ function SCR_startScreening(library, settings, usedSynonyms) {
             if (!borrowed.rows.length) continue
             filteredLibraryMap[borrowed.symbol.toLowerCase()] = borrowed.rows
             controlsAdded[kind.id] = borrowed.rows.length
-            controlsBorrowedFrom = borrowed.source
+            controlsBorrowedFrom[kind.id] = borrowed.source
         }
     }
 
