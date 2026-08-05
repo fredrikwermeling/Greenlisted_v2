@@ -821,6 +821,40 @@ function _generateZipName(prefix) {
     return `${prefix}_${date}_${uid}`
 }
 
+// Each output, as a one-sheet workbook. Paired with the text download on the
+// same row so the choice reads as a format, not as a different thing: the text
+// file is what MAGeCK and other tools read, the workbook is what survives being
+// opened in Excel.
+const _XLS_OUTPUTS = {
+    adapter:            { label: "With adapters",       get: () => outputTexts.textOutputAdapter, delimiter: "\t" },
+    mageck:             { label: "MAGeCK",              get: () => outputTexts.textOutputMAGeCK,  delimiter: "," },
+    full:               { label: "Full output",         get: () => outputTexts.textOutputFull,    delimiter: "\t" },
+    cnAnnotation:       { label: "Copy number",         get: () => outputTexts.textOutputCn,      delimiter: "\t" },
+    notFound:           { label: "Symbols not found",   get: () => outputTexts.textOutputNotFound, delimiter: "\t" },
+    settings:           { label: "Run settings",        get: () => SET_settingsToStr(),           delimiter: "\t" },
+    validation:         { label: "Validation results",  get: () => _validateState.resultsOutput,  delimiter: "\t" },
+    validationNotFound: { label: "Sequences not found", get: () => _validateState.notFoundOutput, delimiter: "\t" },
+    cnTable:            { label: "Copy number",         get: () => _cnState.tsvOutput,            delimiter: "\t" }
+}
+
+async function XLS_download(key) {
+    const spec = _XLS_OUTPUTS[key]
+    if (!spec) return
+    const text = spec.get()
+    if (!text) {
+        _setStatus("statusSearch", "Nothing to export yet — run first.")
+        return
+    }
+    try {
+        const blob = await XLSX_build([{ name: spec.label, rows: XLSX_rowsFromDelimited(text, spec.delimiter) }])
+        const base = settings["outputName"] || "Green Listed"
+        _downloadBlob(blob, `${_generateZipName(base)}_${spec.label.replace(/[^A-Za-z0-9]+/g, "_")}.xlsx`)
+    } catch (e) {
+        console.error("Excel export failed:", e)
+        _setStatus("statusSearch", "Error: could not build the Excel file")
+    }
+}
+
 // One workbook, each output on its own sheet. Offered alongside the delimited
 // downloads rather than replacing them, because the .tsv and MAGeCK .csv files
 // are what downstream tools read — this is for the copy a person opens.
