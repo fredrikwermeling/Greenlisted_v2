@@ -30,19 +30,21 @@
     --header-scale: 1.25rem;
     --line-height: 1.618;
 
-    /* Shared with Correlate, so the two apps read as one product. The ramp
-       replaces the single brand green: hover states, selected states, table
-       headers and borders all come from it. */
-    --green-900: #2d5a27;
-    --green-800: #3a7333;
-    --green-700: #4a8c3f;
-    --green-600: #5a9f4a;
-    --green-500: #6ab257;
-    --green-400: #8bc77a;
-    --green-300: #a8d89a;
-    --green-200: #c5e8bc;
-    --green-100: #e2f4de;
-    --green-50: #f0f9ef;
+    /* Ramp built on the logo's own green. --green-600 is sampled straight from
+       "Green Listed" in the wordmark, and the rest follow Correlate's lightness
+       steps re-hued to match — so the two apps share a structure and a feel
+       while each stays true to its own logo. Correlate's green sits at hue 109;
+       ours at 83, which is the yellower green of the leaves. */
+    --green-900: #48621f;
+    --green-800: #5c7d29;
+    --green-700: #719734;
+    --green-600: #7ea83c;
+    --green-500: #92c049;
+    --green-400: #acd26f;
+    --green-300: #c2e191;
+    --green-200: #d8efb5;
+    --green-100: #ecf7db;
+    --green-50: #f5faee;
     --gray-600: #4b5563;
     --gray-500: #6b7280;
     --gray-200: #e5e7eb;
@@ -283,7 +285,7 @@ a:hover {
 .plateTitle {
     background-color: var(--mainColor);
     color: var(--titleColor);
-    font-size: 1.05rem;
+    font-size: var(--header-scale);
     font-weight: 600;
     text-align: center;
     text-wrap: balance;
@@ -881,27 +883,6 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     line-height: 1.5;
     white-space: pre-wrap;
     pointer-events: none;
-}
-
-/* Version pill in the nav. Clicking it opens the Updates list, so the number
-   and the history it refers to are one click apart. Bump it in index.html
-   together with the ?v= cache-busters on the scripts. */
-.versionBadge {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    background: var(--gray-100);
-    padding: 2px 8px;
-    border-radius: 10px;
-    color: var(--gray-500);
-    border: 1px solid #d1d5db;
-    vertical-align: middle;
-}
-
-.versionBadge:hover {
-    background: var(--green-50);
-    color: var(--green-800);
-    border-color: var(--green-300);
-    text-decoration: none;
 }
 
 /* Narrow screens. The viewport meta tag means a phone now renders at its own
