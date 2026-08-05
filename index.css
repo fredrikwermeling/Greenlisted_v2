@@ -1097,24 +1097,6 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     color: var(--gray-600);
 }
 
-.dlLink {
-    font-family: var(--monoFont);
-    font-size: 12px;
-    padding: 3px 8px;
-    border-radius: var(--inputRadius);
-    border: 1px solid var(--gray-200);
-    background: var(--gray-100);
-    color: var(--gray-600);
-    white-space: nowrap;
-}
-
-.dlLink:hover {
-    background: var(--green-50);
-    border-color: var(--green-300);
-    color: var(--green-800);
-    text-decoration: none;
-}
-
 /* The one action that starts a run, so it carries more weight than the
    settings around it. */
 #startButton {
