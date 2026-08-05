@@ -448,58 +448,58 @@ Download all bundles them into one zip.">i</span></h2>
                         <td class="outLabel">Output with<br>adapters</td>
                         <td><a href="" id="adapterDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('adapter')">.xlsx</a></td>
-                        <td><button onclick="showAdapterOutput()">Show</button></td>
+                        <td><button data-show="adapter" onclick="showAdapterOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Output for<br>MAGeCK</td>
                         <td><a href="" id="MAGeCKDownload" class="dlLink">.csv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('mageck')">.xlsx</a></td>
-                        <td><button onclick="showMAGeCKOutput()">Show</button></td>
+                        <td><button data-show="mageck" onclick="showMAGeCKOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Full<br>output</td>
                         <td><a href="" id="fullDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('full')">.xlsx</a></td>
-                        <td><button onclick="showFullOutput()">Show</button></td>
+                        <td><button data-show="full" onclick="showFullOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only" id="cnAnnotationOutputRow" style="display:none;">
                         <td class="outLabel">Copy number<br>per gene</td>
                         <td><a href="" id="cnAnnotationDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('cnAnnotation')">.xlsx</a></td>
-                        <td><button onclick="showCnAnnotationOutput()">Show</button></td>
+                        <td><button data-show="cnAnnotation" onclick="showCnAnnotationOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Symbols<br>not found</td>
                         <td><a href="" id="notFoundDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('notFound')">.xlsx</a></td>
-                        <td><button onclick="showNotFoundOutput()">Show</button></td>
+                        <td><button data-show="notFound" onclick="showNotFoundOutput()">Show</button></td>
                     </tr>
                     <tr class="design-only">
                         <td class="outLabel">Run<br>settings</td>
                         <td><a href="" id="settingsDowload" class="dlLink" onclick="dowloadSettingsOutput()">.txt</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('settings')">.xlsx</a></td>
-                        <td><button onclick="showSettingsOutput()">Show</button></td>
+                        <td><button data-show="settings" onclick="showSettingsOutput()">Show</button></td>
                     </tr>
                     <tr class="validate-only">
                         <td class="outLabel">Validation<br>results</td>
                         <td><a href="" id="validationDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('validation')">.xlsx</a></td>
-                        <td><button onclick="showValidationOutput()">Show</button></td>
+                        <td><button data-show="validation" onclick="showValidationOutput()">Show</button></td>
                     </tr>
                     <tr class="validate-only">
                         <td class="outLabel">Sequences<br>not found</td>
                         <td><a href="" id="validationNotFoundDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('validationNotFound')">.xlsx</a></td>
-                        <td><button onclick="showValidationNotFoundOutput()">Show</button></td>
+                        <td><button data-show="validationNotFound" onclick="showValidationNotFoundOutput()">Show</button></td>
                     </tr>
                     <tr class="cn-only">
                         <td class="outLabel">Copy-number<br>table</td>
                         <td><a href="" id="cnDownload" class="dlLink">.tsv</a></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="XLS_download('cnTable')">.xlsx</a></td>
-                        <td><button onclick="CN_showResults()">Show</button></td>
+                        <td><button data-show="cnTable" onclick="CN_showResults()">Show</button></td>
                     </tr>
                     <tr>
-                        <td class="outLabel">Download all<span class="infoDot" title="Every output above, bundled. The .zip holds one text file per output; the .xlsx is a single workbook with one sheet per output.
+                        <td class="outLabel">Download<br>all<span class="infoDot" title="Every output above, bundled. The .zip holds one text file per output; the .xlsx is a single workbook with one sheet per output.
 
 Use the .xlsx if you plan to open the result in Excel: opening a text file lets Excel rewrite gene symbols, turning MARCH1, SEPT9 and DEC1 into dates and an alias like 2E4 into 20000. In a workbook the cell types are already set, so the symbols survive.">i</span></td>
                         <td><a href="javascript:void(0)" class="dlLink" onclick="downloadAll()">.zip</a></td>

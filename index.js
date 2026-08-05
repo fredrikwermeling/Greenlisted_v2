@@ -395,6 +395,15 @@ function _setSectionTitle(id, text) {
     if (el) el.textContent = text
 }
 
+// Mark which output is on screen. Several of these views look alike once
+// rendered — the adapter, MAGeCK and full outputs are all a table of guides —
+// so without this there is nothing to say which one you are reading.
+function _setActiveShow(key) {
+    document.querySelectorAll("#outputTable button[data-show]").forEach(b => {
+        b.classList.toggle("show-active", b.dataset.show === key)
+    })
+}
+
 function _showOutputPane(paneId) {
     const container = document.getElementById("fileContentContainer")
     container.style.display = "flex"
@@ -419,6 +428,7 @@ function _showTableOutput(text, delimiter) {
 }
 
 function showValidationOutput() {
+    _setActiveShow("validation")
     _showOutputPane("validationTableDiv").innerHTML = _renderValidationTsvAsTable(_validateState.resultsOutput)
 }
 
@@ -435,6 +445,7 @@ function copyValidationNotFoundOutput() {
 }
 
 function showValidationNotFoundOutput() {
+    _setActiveShow("validationNotFound")
     _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(_validateState.notFoundOutput)
 }
 
@@ -681,6 +692,7 @@ function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
 
 function showCnAnnotationOutput() {
     if (outputTexts && outputTexts.textOutputCn) {
+        _setActiveShow("cnAnnotation")
         _showTableOutput(outputTexts.textOutputCn)
     }
 }
@@ -786,10 +798,12 @@ function _showTextareaOutput(text) {
 }
 
 function showAdapterOutput() {
+    _setActiveShow("adapter")
     _showTableOutput(outputTexts.textOutputAdapter)
 }
 
 function showMAGeCKOutput() {
+    _setActiveShow("mageck")
     // Raw .csv view — comma-separated, monospaced, exactly as the file
     // would look opened in a text editor. MAGeCK count consumes this
     // format directly, so seeing the literal text is what users want
@@ -798,14 +812,17 @@ function showMAGeCKOutput() {
 }
 
 function showFullOutput() {
+    _setActiveShow("full")
     _showTableOutput(outputTexts.textOutputFull)
 }
 
 function showNotFoundOutput() {
+    _setActiveShow("notFound")
     _showTableOutput(outputTexts.textOutputNotFound)
 }
 
 function showSettingsOutput() {
+    _setActiveShow("settings")
     _showTextareaOutput(SET_settingsToStr())
 }
 
@@ -2088,6 +2105,7 @@ async function CN_exportMatrixTsv() {
 
 function CN_showResults() {
     if (!_cnState.results) return
+    _setActiveShow("cnTable")
 
     // Header row with download buttons for figure export.
     const exportButtons = `

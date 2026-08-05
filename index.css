@@ -975,3 +975,14 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .nowrap {
     white-space: nowrap;
 }
+
+/* Which output is currently on screen. The adapter, MAGeCK and full views all
+   render as a table of guides, so without a marker there is nothing to say
+   which one you are looking at. A ring rather than a fill, since this reports
+   state rather than offering an action. */
+#outputTable button.show-active {
+    background: var(--green-50);
+    border-color: var(--green-500);
+    color: var(--green-800);
+    box-shadow: 0 0 0 2px var(--green-100);
+}
