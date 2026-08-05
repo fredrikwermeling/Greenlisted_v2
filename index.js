@@ -277,7 +277,11 @@ function _renderTsvAsTable(tsv, delimiter) {
             const displayText = line.startsWith("# ") ? line.substring(2) : line
             // Comment rows are written by this app and may carry deliberate
             // markup; everything below is data and gets escaped.
-            infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
+            // The run banner is the only line specific to this file, so it is
+            // drawn as a callout instead of a fourth line of grey small print.
+            infoHtml += /^THIS RUN:/.test(displayText)
+                ? `<p class="runBanner">${displayText}</p>`
+                : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
             dataStart = i + 1
         } else {
             break
@@ -649,9 +653,12 @@ function _cnHeaderComments(cellLines) {
         const wgdNote = c.wgd ? `, whole-genome doubled (WGD)` : `, non-WGD`
         return `${c.name} — ploidy ${c.ploidy.toFixed(2)}n${wgdNote}`
     })
-    const ploidyRow = `# This run: ${ploidyParts.join("; ")}`
+    const ploidyRow = `# THIS RUN: ${ploidyParts.join("; ")}`
 
-    return [ploidyConceptRow, cnRow, copiesRow, ploidyRow]
+    // The run banner goes first. It is the one line here that is specific to
+    // this file rather than general explanation, so it should not be the
+    // fourth paragraph of small print.
+    return [ploidyRow, ploidyConceptRow, cnRow, copiesRow]
 }
 
 function _createCnAnnotationOutput(libraryMap, screeningCellLines) {
@@ -923,6 +930,8 @@ async function downloadAllExcel() {
         add("Symbols not found", outputTexts.textOutputNotFound, "\t")
         add("Run settings", SET_settingsToStr(), "\t")
     }
+    // Every bundle gets the methods text, whichever tool produced the rest.
+    if (typeof METH_text === "function") add("Methods", METH_text(), "\t")
     if (!sheets.length) {
         _setStatus("statusSearch", "Nothing to export yet — run a screening first.")
         return
@@ -1322,6 +1331,12 @@ function _updateExampleText() {
     const middle = _applyTrim("SEQUENCE")
     const before = settings.adapterBefore || ""
     const after = settings.adapterAfter || ""
+    // With no adapters entered the preview only restates the word SEQUENCE,
+    // which tells the user nothing — so it stays out of the way until there
+    // is something to preview.
+    const el = document.getElementById("ExampleSequance")
+    el.style.display = (before || after) ? "" : "none"
+    if (!before && !after) { el.innerHTML = ""; return }
     document.getElementById("ExampleSequance").innerHTML =
         `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
 }
@@ -2166,12 +2181,12 @@ function _cnBuildMatrixTsv() {
         return `${c.name} (ploidy ${c.ploidy.toFixed(2)}n, ${c.wgd ? "WGD" : "non-WGD"})`
     }).join("; ")
     const headerLines = [
+        `# THIS RUN: ${lineNote}`,
         `# Green Listed — copy-number matrix. Source: DepMap OmicsCNGene dataset, 24Q4 release (human cell lines).`,
         `# Values are raw relative copy number (CN): 1.0 = the line's own genome-wide baseline (typical copy level), >= 3.0 = amplification, <= 0.5 = deletion. A blank cell means DepMap has no CN value for that gene in that line.`,
         haveLoc
             ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
-            : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`,
-        `# This run: ${lineNote}`
+            : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
     ]
     const baseCols = haveLoc ? ["Gene", "Chromosome", "Cytoband"] : ["Gene"]
     const header = [...baseCols, ...cellLines.map(c => c.name)].join("\t")

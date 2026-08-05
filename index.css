@@ -169,7 +169,7 @@ main>*:last-child {
 }
 
 code {
-    font-family: monospace;
+    font-family: var(--monoFont);
 }
 
 select {
@@ -405,8 +405,10 @@ a:hover {
     margin: 10px 0 2px 0;
     padding: 7px 9px;
     box-sizing: border-box;
-    background: var(--green-50);
-    border: 1px solid var(--green-100);
+    /* Neutral rather than tinted: this is a readout, and a green box beside
+       the green panel headers read as another piece of chrome. */
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
     border-radius: var(--inputRadius);
     font-family: var(--monoFont);
     font-size: 0.72rem;
@@ -420,14 +422,31 @@ a:hover {
 }
 
 
-/* The guide itself, so the adapters read as the flanks they are. */
+/* The guide slot. Marked only by weight — colouring it read as a status,
+   as though something about that part of the oligo needed attention. */
 #ExampleSequance .seqSlot {
-    color: var(--green-700);
     font-weight: 700;
+    color: #4b5563;
 }
 
 /* Full width and the same monospace face, so a 25-base adapter is readable
    in the box rather than cut off halfway. */
+/* The one line in a copy-number file that is specific to that file: which
+   cell line it was built for, and whether that line is whole-genome doubled.
+   It sat fourth in a stack of identical grey paragraphs and was routinely
+   missed, which matters because the ploidy changes how every value reads. */
+.runBanner {
+    margin: 0 0 10px 0;
+    padding: 8px 12px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-left: 4px solid #d97706;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #92400e;
+}
+
 #adapterBefore,
 #adapterAfter {
     width: 100%;
@@ -745,7 +764,10 @@ footer.plate {
 }
 
 #fileContent {
-    font-family: monospace;
+    /* The bare `monospace` keyword resolves to a different face inside a form
+       control than in page content, so the raw view and the table view did not
+       match. Both now name the same stack. */
+    font-family: var(--monoFont);
     font-size: 0.8rem;
     tab-size: 16;
     -moz-tab-size: 16;
@@ -755,7 +777,7 @@ footer.plate {
 .validationResultsTable {
     width: 100%;
     border-collapse: collapse;
-    font-family: monospace;
+    font-family: var(--monoFont);
     font-size: 0.8rem;
 }
 
@@ -923,7 +945,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    in the next column. Targeted at #searchSymbols rather than textarea, which
    would also resize the output and not-found boxes. */
 #searchSymbols {
-    height: 272px;
+    height: 253px;
 }
 
 /* Reserve the one line the controls panel uses for its positive-control
