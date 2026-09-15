@@ -7,7 +7,7 @@
 // around the cut site, and for that you need the genomic sequence around the
 // guide. The manual route is to BLAT the spacer at UCSC and copy flanking
 // sequence out by hand. This does the same thing from a button on the results
-// table: it fetches 500 bp either side of the guide from the UCSC Genome
+// table: it fetches 500 bp either side of the spacer from the UCSC Genome
 // Browser API, marks the spacer, PAM, cut site and exons, and offers the
 // sequence in the forms that survive a paste — a FASTA with the spacer in
 // upper case, an HTML copy for Word, a GenBank file for SnapGene or Benchling,
@@ -572,11 +572,14 @@ async function _gcRender() {
     const cur = _GC.current
     const g = _GC_GENOMES[cur.species]
     const site = cur.site
+    // The window is the spacer plus `flank` on each side, and nothing else,
+    // so a 20 nt guide at the default flank gives exactly 500 + 20 + 500. The
+    // PAM is not added on top of that: it sits immediately 3' of the spacer
+    // and is therefore already inside the downstream flank, where it is
+    // marked like any other feature.
     const L = site.spacer.length
-    const spanStart = site.strand === "+" ? site.spacerStart : site.spacerStart - 3
-    const spanEnd = site.strand === "+" ? site.spacerStart + L + 3 : site.spacerStart + L
-    const windowStart = Math.max(0, spanStart - cur.flank)
-    const windowEnd = spanEnd + cur.flank
+    const windowStart = Math.max(0, site.spacerStart - cur.flank)
+    const windowEnd = site.spacerStart + L + cur.flank
 
     _gcStatus(`Fetching ${site.chrom}:${(windowStart + 1).toLocaleString()}-${windowEnd.toLocaleString()} and its exons…`)
     var dna, txList
