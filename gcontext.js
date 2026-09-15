@@ -51,7 +51,7 @@ const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
 // an older version is dropped rather than merged, so a new default is not
 // silently overridden by the previous default sitting in localStorage.
-const _GC_PB_VERSION = 2
+const _GC_PB_VERSION = 3
 
 var _GC = {
     locus: new Map(),     // genome|symbol|spacer -> locate result
@@ -64,10 +64,12 @@ var _GC = {
     pb: null              // Primer-BLAST settings, loaded lazily from localStorage
 }
 
-// A sequencing amplicon for ICE or TIDE: the forward primer within the
-// first 350 bp of the window and the reverse within the last 350, which
-// with the default 500 bp flank keeps both at least 150 bp from the cut, and
-// a product of at least 500 bp. That satisfies both tools' published
+// A sequencing amplicon for ICE or TIDE. The primer windows are not stored
+// as fixed positions but derived from the flank: everything up to `minDist`
+// before the cut is open to the forward primer, everything from `minDist`
+// after it to the reverse. At the default 500 bp flank that is the first and
+// last 350 bp, and the windows move with the flank instead of going stale.
+// With a product of at least 500 bp that satisfies both tools' published
 // guidance — ICE asks for primers 150 bp or more from the cut and a 400 to
 // 800 bp amplicon, TIDE for the break about 200 bp into the read (100 bp at
 // minimum, for its alignment window) and a 500 to 1500 bp amplicon — while
@@ -77,7 +79,7 @@ var _GC = {
 // Anything the user changes is kept in localStorage, so their usual
 // settings are entered once.
 const _GC_PB_DEFAULTS = {
-    windowBp: 350,
+    minDist: 150,
     productMin: 500, productMax: 1000,
     tmMin: 57, tmOpt: 60, tmMax: 63, tmDiff: 3,
     sizeMin: 15, sizeOpt: 20, sizeMax: 25,
@@ -478,9 +480,15 @@ function GC_setSpecies(species) {
 
 function GC_setFlank(value) {
     if (!_GC.current) return
-    var f = parseInt(value, 10)
-    if (isNaN(f)) f = _GC_FLANK_DEFAULT
+    const raw = parseInt(value, 10)
+    var f = isNaN(raw) ? _GC_FLANK_DEFAULT : raw
     f = Math.max(_GC_FLANK_MIN, Math.min(_GC_FLANK_MAX, f))
+    // Silently clamping looks like the field ignored the typed value, so say
+    // what happened and leave the message up until the next change.
+    _GC.current.flankNotice = (!isNaN(raw) && raw !== f)
+        ? `${raw.toLocaleString("en-US")} bp is outside the permitted ${_GC_FLANK_MIN}–${_GC_FLANK_MAX.toLocaleString("en-US")} bp range — using ${f.toLocaleString("en-US")} bp.`
+        : null
+    if (f === _GC.current.flank) { if (_GC.current.site) _gcShow(); return }
     _GC.current.flank = f
     if (_GC.current.site) _gcRender()
 }
@@ -654,13 +662,42 @@ function _gcShow() {
 
     var html = `<div class="gcMeta">` + meta.map(([k, val]) => `<div class="gcKey">${k}</div><div class="gcVal">${val}</div>`).join("") + `</div>`
 
+    // "Guide" and "Gene" differ by one letter and say nothing about what
+    // changes, so the choice is named by the strand each one shows. The help
+    // sits on each label rather than on the pair, or hovering either one
+    // explains the other.
     html += `<div class="gcRow gcControls">` +
-        `<label title="Bases fetched on each side of the spacer and PAM. 500 is enough for primers 150–250 bp from the cut; go longer for a bigger amplicon.">Flank ` +
+        `<label title="How much genomic sequence to fetch on each side of the spacer. The PAM is counted inside this, not added to it. 500 bp suits a sequencing amplicon; go longer for a bigger product or to read through long deletions. Permitted range ${_GC_FLANK_MIN}–${_GC_FLANK_MAX} bp.">Flank ` +
         `<input type="number" id="gcFlank" min="${_GC_FLANK_MIN}" max="${_GC_FLANK_MAX}" step="50" value="${cur.flank}" onchange="GC_setFlank(this.value)"> bp each side</label>` +
-        `<span class="gcOrient" title="Guide orientation keeps the spacer reading 5' to 3' at fixed positions with the PAM after it, whichever strand the guide is on. Gene orientation shows the transcript's strand so exons read in order.">` +
-        `<label><input type="radio" name="gcOrient" value="guide" ${cur.orientation === "guide" ? "checked" : ""} onchange="GC_setOrientation('guide')"> Guide orientation</label> ` +
-        `<label><input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> Gene orientation</label></span>` +
+        `<span class="gcHint">(${_GC_FLANK_MIN}–${_GC_FLANK_MAX} bp)</span>` +
+        `<span class="gcOrient">Strand shown: ` +
+        `<label title="The strand the sgRNA matches. The spacer reads 5' to 3' at the same positions every time, with the PAM straight after it. Use this when you are working from the guide.">` +
+        `<input type="radio" name="gcOrient" value="guide" ${cur.orientation === "guide" ? "checked" : ""} onchange="GC_setOrientation('guide')"> sgRNA strand</label> ` +
+        `<label title="${tx ? "The strand the transcript is on, so exons are numbered in reading order. When the guide is on the opposite strand the spacer appears as its reverse complement, with the PAM (CCN) before it." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to show."}">` +
+        `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene strand</label></span>` +
         `</div>`
+
+    // What the flank change did, and whether the result can still carry
+    // primers. Both are consequences of the number just typed, so they sit
+    // directly under it.
+    const warnings = []
+    if (cur.flankNotice) warnings.push(cur.flankNotice)
+    const win = _gcPrimerWindows(v)
+    if (win.fwdRoom < 40 || win.revRoom < 40) {
+        warnings.push(`Too short for primer design: keeping ${win.minDist} bp clear of the cut leaves ` +
+            `${Math.max(0, win.fwdRoom)} bp before it and ${Math.max(0, win.revRoom)} bp after. ` +
+            `Raise the flank to about ${_gcFlankFor(v, win.minDist, 100)} bp.`)
+    } else if (win.fwdRoom < 100 || win.revRoom < 100) {
+        warnings.push(`Tight for primer design: only ${Math.min(win.fwdRoom, win.revRoom)} bp of window on one side once ` +
+            `${win.minDist} bp is kept clear of the cut. About ${_gcFlankFor(v, win.minDist, 100)} bp of flank would give Primer-BLAST more to work with.`)
+    }
+    const pbNow = _gcPbLoad()
+    const prodMin = parseInt(pbNow.productMin, 10)
+    if (!isNaN(prodMin) && prodMin > v.n) {
+        warnings.push(`The Primer-BLAST settings ask for a product of at least ${prodMin} bp, which is longer than this ${v.n} bp sequence — ` +
+            `Primer-BLAST would return nothing. Raise the flank to at least ${Math.ceil((prodMin - (v.n - 2 * cur.flank)) / 2)} bp, or lower the minimum product size.`)
+    }
+    for (const w of warnings) html += `<p class="gcWarn">${_escapeHtml(w)}</p>`
 
     html += `<div class="gcRow gcActions">` +
         `<button class="validate-btn" onclick="GC_copyFasta()" title="Plain text: flanks in lower case, spacer and PAM in upper case, positions in the header. Paste into Primer-BLAST, Primer3 or any editor.">Copy FASTA</button>` +
@@ -680,7 +717,7 @@ function _gcShow() {
         `<span><span class="gcSwatch"></span>intron / intergenic</span>` +
         `</div>`
 
-    html += _gcPbSettingsHtml()
+    html += _gcPbSettingsHtml(v)
     html += `<p class="gcFoot">Sequence and annotation from the UCSC Genome Browser API (${v.g.assembly}, ${tx ? tx.track : "RefSeq"}). ` +
             `Cut site assumes SpCas9, 3 nt from the PAM.</p>`
 
@@ -770,11 +807,13 @@ function GC_copyRich() {
         else if (b.exon) s += b.coding ? "background:#dbeafe;" : "background:#ede9fe;"
         return s
     }
+    // One unbroken run of bases rather than numbered 60-base lines: the fixed
+    // breaks survive the paste as hard line ends, which cannot be reflowed and
+    // leave stray characters behind if the sequence is copied onward. Word
+    // wraps the run to the page instead.
     var html = `<p style="font-family:Consolas,Menlo,monospace;font-size:10pt">${_escapeHtml(_gcFastaHeader(v))}</p>` +
-               `<p style="font-family:Consolas,Menlo,monospace;font-size:10pt">`
-    v.bases.forEach((b, i) => {
-        if (i > 0 && i % 60 === 0) html += "<br>"
-        else if (i > 0 && i % 10 === 0) html += " "
+               `<p style="font-family:Consolas,Menlo,monospace;font-size:10pt;word-wrap:break-word;word-break:break-all;overflow-wrap:break-word">`
+    v.bases.forEach(b => {
         const ch = (b.spacer || b.pam) ? b.base.toUpperCase() : b.base.toLowerCase()
         html += `<span style="${style(b)}">${ch}</span>`
         if (b.cutAfter) html += `<span style="color:#dc2626;font-weight:bold">|</span>`
@@ -855,25 +894,47 @@ function GC_downloadGenBank() {
     _downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), name)
 }
 
-// Primer windows: the forward primer within the first `windowBp` bases and
-// the reverse within the last `windowBp`. The sequence goes in as plain
-// bases; Primer-BLAST reads GET parameters for every field set here
-// (checked against the live form).
+// Where each primer may sit, derived from the cut and the clearance the user
+// wants around it. Returned for both the URL and the panel, so the numbers on
+// screen are the ones actually sent.
+function _gcPrimerWindows(v) {
+    const pb = _gcPbLoad()
+    const minDist = Math.max(0, parseInt(pb.minDist, 10) || 0)
+    const fwdEnd = v.cutAfter - minDist
+    const revStart = v.cutAfter + 1 + minDist
+    return {
+        minDist: minDist,
+        fwdStart: 1, fwdEnd: fwdEnd,
+        revStart: revStart, revEnd: v.n,
+        // How much room each primer actually has to land in.
+        fwdRoom: fwdEnd,
+        revRoom: v.n - revStart + 1
+    }
+}
+
+// The smallest flank that leaves `room` bp for each primer outside `minDist`.
+function _gcFlankFor(v, minDist, room) {
+    // cutAfter sits `flank + spacerLen - 3` into the sequence in guide
+    // orientation, and the reverse side mirrors it; solving either for the
+    // flank gives the same figure, so the larger of the two margins governs.
+    const lead = v.cutAfter - v.cur.flank
+    return Math.max(_GC_FLANK_MIN, minDist + room - lead + 3)
+}
+
+// The sequence goes in as plain bases; Primer-BLAST reads GET parameters for
+// every field set here (checked against the live form).
 function GC_openPrimerBlast() {
     if (!_gcReady()) return
     const v = _gcView()
     const pb = _gcPbLoad()
-    const windowBp = Math.max(20, parseInt(pb.windowBp, 10) || _GC_PB_DEFAULTS.windowBp)
-    const fwdEnd = Math.min(windowBp, v.n)
-    const revStart = Math.max(1, v.n - windowBp + 1)
-    const clearLeft = v.cutAfter - fwdEnd
-    const clearRight = revStart - (v.cutAfter + 1)
-    if (clearLeft < 20 || clearRight < 20) {
-        // Both windows are measured from the ends, so the flank that would
-        // clear the cut is the window plus the margin the tools want.
-        const needFlank = windowBp + 100
-        alert(`Primer windows of ${windowBp} bp leave no room around the cut in a ${v.n} bp sequence — they would reach the cut site itself.\n\n` +
-              `Either raise the flank to about ${needFlank} bp each side, or shorten the primer windows.`)
+    const w = _gcPrimerWindows(v)
+    const fwdEnd = w.fwdEnd
+    const revStart = w.revStart
+    if (w.fwdRoom < 40 || w.revRoom < 40) {
+        const need = _gcFlankFor(v, w.minDist, 100)
+        alert(`A ${v.n} bp sequence leaves too little room for primers when ${w.minDist} bp is kept clear on each side of the cut ` +
+              `(${Math.max(0, w.fwdRoom)} bp before it, ${Math.max(0, w.revRoom)} bp after).\n\n` +
+              `Raise the flank to about ${need} bp each side, or reduce the clearance.`)
         return
     }
     const p = new URLSearchParams()
@@ -928,16 +989,25 @@ function GC_pbReset() {
     if (_GC.current && _GC.current.plusBases) _gcShow()
 }
 
-function _gcPbSettingsHtml() {
+function _gcPbSettingsHtml(v) {
     const pb = _gcPbLoad()
     const changed = Object.keys(_GC_PB_DEFAULTS).some(k => String(pb[k]) !== String(_GC_PB_DEFAULTS[k]))
     const num = (key, label, title, step) =>
         `<label title="${_escapeHtml(title)}">${label} <input type="number" step="${step || 1}" value="${_escapeHtml(pb[key])}" onchange="GC_pbChange('${key}', this.value)"></label>`
-    return `<details class="gcPb" ${changed ? "open" : ""}>` +
+    // The windows are computed from the flank, so they are shown rather than
+    // typed — otherwise the panel would state a range the link no longer uses.
+    const w = _gcPrimerWindows(v)
+    const windowLine = (w.fwdRoom < 1 || w.revRoom < 1)
+        ? `<span class="gcPbComputed gcPbBad">No usable window at this flank.</span>`
+        : `<span class="gcPbComputed">With the current ${v.cur.flank} bp flank: forward primer in ` +
+          `<b>${w.fwdStart}–${w.fwdEnd}</b>, reverse in <b>${w.revStart}–${w.revEnd}</b> of ${v.n} bp. ` +
+          `Changing the flank moves both.</span>`
+    return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
         `<summary>Primer-BLAST settings${changed ? " (customised)" : ""}</summary>` +
         `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) for the specificity check against its genome. The defaults give an amplicon of 500 bp or more with the cut at least 150 bp from either primer, which meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Remembered in this browser, so enter your usual values once. Blank fields leave Primer-BLAST's own default in place.</p>` +
         `<div class="gcPbGrid">` +
-        num("windowBp", "Primer windows", "The forward primer must lie within this many bases from the start of the sequence and the reverse within the same distance from the end. With a 500 bp flank, 350 keeps both primers at least 150 bp from the cut. ICE asks for 150 bp or more; TIDE prefers the cut about 200 bp into the read and needs at least 100 bp before it for alignment. More room after the cut helps when deletions are long.", 10) + `<span class="gcUnit">bp at each end (forward in the first, reverse in the last)</span>` +
+        num("minDist", "Keep primers clear of the cut", "Neither primer may sit closer than this to the cut site, so an indel cannot land under a primer and the trace has settled before the edit. ICE asks for 150 bp or more; TIDE prefers the cut about 200 bp into the read and needs at least 100 bp before it for alignment. The primer windows are worked out from this and the flank, so they follow whatever flank you choose.", 10) + `<span class="gcUnit">bp each side</span>` +
+        windowLine +
         `<span class="gcPbHead">Product size</span>` + num("productMin", "min", "PCR product size minimum") + num("productMax", "max", "PCR product size maximum") +
         `<span class="gcPbHead">Primer Tm</span>` + num("tmMin", "min", "Primer melting temperature, minimum", 0.5) + num("tmOpt", "opt", "Primer melting temperature, optimum", 0.5) + num("tmMax", "max", "Primer melting temperature, maximum", 0.5) + num("tmDiff", "max diff", "Maximum Tm difference between the two primers", 0.5) +
         `<span class="gcPbHead">Primer length</span>` + num("sizeMin", "min", "Primer length, minimum") + num("sizeOpt", "opt", "Primer length, optimum") + num("sizeMax", "max", "Primer length, maximum") +

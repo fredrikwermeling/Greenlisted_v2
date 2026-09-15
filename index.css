@@ -1415,6 +1415,47 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     color: var(--gray-500);
 }
 
+/* The permitted range beside the flank box, so the limits are visible before
+   a value is rejected rather than only after it is clamped. */
+.gcHint {
+    color: var(--gray-500);
+    font-size: 0.8rem;
+}
+
+/* A consequence of the number the user just typed: clamped, or too short to
+   design primers in. Advisory, so amber rather than the red used for a
+   failure. */
+.gcWarn {
+    margin: -2px 0 8px 0;
+    padding: 7px 11px;
+    background: #fffbeb;
+    border-left: 4px solid #d97706;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.82rem;
+    color: #92400e;
+}
+
+/* The primer windows are derived from the flank, so they are reported rather
+   than typed. */
+.gcPbComputed {
+    flex-basis: 100%;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    padding: 5px 9px;
+    background: var(--green-50);
+    border-radius: 4px;
+}
+
+.gcPbComputed b {
+    color: var(--green-800);
+    font-family: var(--monoFont);
+}
+
+.gcPbBad {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
 .gcFoot {
     font-size: 0.75rem;
     color: var(--gray-500);
