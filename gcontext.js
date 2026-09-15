@@ -314,13 +314,38 @@ function _gcFindSpacer(dna, spacer) {
     return hits
 }
 
+// Names to try for one library entry, best first. Jacquere and Julianna list
+// roughly 2,950 genes under a piped label — "ACE|nan" where the second field
+// is a missing value, or "ABCF2|ABCF2-H2BK1" where the guide also hits a
+// read-through transcript. Neither is a gene symbol any browser knows, so
+// searching the label verbatim finds nothing; the parts are real symbols.
+function _gcSymbolCandidates(symbol) {
+    const raw = String(symbol || "").trim()
+    const out = [raw]
+    if (raw.includes("|")) {
+        for (const part of raw.split("|")) {
+            const t = part.trim()
+            // "nan" is how a missing second field was written out when these
+            // library files were built; it is not a gene.
+            if (t && t.toLowerCase() !== "nan" && !out.includes(t)) out.push(t)
+        }
+    }
+    return out
+}
+
 async function _gcLocate(species, symbol, spacer) {
     const g = _GC_GENOMES[species]
     const key = `${g.genome}|${symbol.toLowerCase()}|${spacer}`
     if (_GC.locus.has(key)) return _GC.locus.get(key)
 
-    const search = await _gcFetch(`/search?search=${encodeURIComponent(symbol)};genome=${g.genome}`)
-    const span = _gcGeneSpan(search, symbol)
+    // Try each candidate name until one resolves to a gene. Only the search
+    // is repeated; everything after it runs once.
+    var search = null, span = null, usedSymbol = symbol
+    for (const cand of _gcSymbolCandidates(symbol)) {
+        search = await _gcFetch(`/search?search=${encodeURIComponent(cand)};genome=${g.genome}`)
+        span = _gcGeneSpan(search, cand)
+        if (span) { usedSymbol = cand; break }
+    }
     var result
     if (!span) {
         result = { status: "noGene" }
@@ -346,7 +371,8 @@ async function _gcLocate(species, symbol, spacer) {
                     chrom: span.chrom, strand: h.strand,
                     spacerStart: start + h.spacerStart, spacer: used, trimmed: used !== spacer
                 }))
-                result = { status: sites.length === 1 ? "ok" : "multi", sites: sites, span: span }
+                result = { status: sites.length === 1 ? "ok" : "multi", sites: sites, span: span,
+                           usedSymbol: usedSymbol, renamed: usedSymbol !== symbol }
             }
         }
     }
@@ -636,7 +662,9 @@ async function _gcRun() {
         `<button class="validate-btn" onclick="GC_retrySymbol()">Look up</button></div>`
 
     if (locus.status === "noGene") {
-        _gcMessage(`<p class="gcError"><b>${_escapeHtml(cur.symbol)}</b> was not found in ${g.assembly} at UCSC. ` +
+        const tried = _gcSymbolCandidates(cur.symbol)
+        _gcMessage(`<p class="gcError"><b>${_escapeHtml(cur.symbol)}</b> was not found in ${g.assembly} at UCSC` +
+                   (tried.length > 1 ? ` (tried ${tried.map(t => `<b>${_escapeHtml(t)}</b>`).join(" and ")})` : "") + `. ` +
                    `Libraries built before 2020 use older symbols; try the current one.</p>` + retry)
         return
     }
@@ -739,6 +767,9 @@ function _gcShow() {
     meta.push(["Region", `${v.g.assembly} ${v.region}, ${v.n.toLocaleString("en-US")} bp, ${strandWord(v.viewStrand)} strand shown` +
         (v.viewStrand === "-" ? " (reverse complement of the reference)" : "")])
     meta.push(["Guide strand", `${strandWord(cur.site.strand)} (reference)`])
+    if (cur.locus && cur.locus.renamed) {
+        meta.push(["Searched as", `<i>${_escapeHtml(cur.locus.usedSymbol)}</i>, from the library's <i>${_escapeHtml(cur.symbol)}</i>`])
+    }
     if (tx) {
         meta.push(["Gene", `<i>${_escapeHtml(tx.gene)}</i>` +
             (tx.gene.toLowerCase() !== cur.symbol.toLowerCase() ? ` (listed in the library as <i>${_escapeHtml(cur.symbol)}</i>)` : "") +
