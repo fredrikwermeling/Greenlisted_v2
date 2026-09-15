@@ -234,8 +234,18 @@ function _methDesign() {
         sentences.push(`The final library comprises ${totalGuides} ${_methPlural(totalGuides, "sgRNA")}.`)
     }
 
-    return _methWrap("sgRNA library design", short, sentences,
-                     lib ? [{ label: `Library (${libName})`, text: lib.full }] : [])
+    // Genomic context, when a guide was looked up for primer design during
+    // this run. Reported like everything else: only if it happened.
+    const refs = lib ? [{ label: `Library (${libName})`, text: lib.full }] : []
+    if (typeof GC_methodsSentence === "function") {
+        const gcSentence = GC_methodsSentence()
+        if (gcSentence) {
+            sentences.push(gcSentence)
+            refs.push(GC_methodsReference())
+        }
+    }
+
+    return _methWrap("sgRNA library design", short, sentences, refs)
 }
 
 function _methValidate() {

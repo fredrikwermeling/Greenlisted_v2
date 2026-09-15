@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=2.5">
+    <link rel="stylesheet" media="all" href="index.css?v=2.6">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -108,6 +108,18 @@
                     <button class="upset-close-btn" onclick="INFO_closeModal()">&times;</button>
                 </div>
                 <div id="infoModalContent" class="upset-modal-body"></div>
+            </div>
+        </div>
+
+        <!-- Genomic context for one sgRNA: opened from the "Context" button
+             on a results row. The body is drawn by gcontext.js. -->
+        <div id="gcModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box gcBox">
+                <div class="upset-modal-header">
+                    <h3 id="gcTitle">Genomic context</h3>
+                    <button class="upset-close-btn" onclick="GC_close()">&times;</button>
+                </div>
+                <div id="gcBody" class="upset-modal-body"></div>
             </div>
         </div>
 
@@ -446,7 +458,7 @@ The status line underneath reports how many symbols were found, how many control
         <footer class="plate">
             <h2 class="plateTitle">4. Show output <span class="infoDot" title="Preview or download the finished library.
 
-Output with adapters is the ready-to-order list: gene, guide ID and the full sequence including any adapters.
+Output with adapters is the ready-to-order list: gene, guide ID and the full sequence including any adapters. The Context button on each row fetches the genomic sequence around that guide, with exons, spacer, PAM and cut site marked, for designing primers to check the edit.
 
 Output for MAGeCK is the library file that mageck count expects.
 
@@ -536,19 +548,20 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=2.5"></script>
-    <script type="text/javascript" src="settings.js?v=2.5"></script>
-    <script type="text/javascript" src="grnaService.js?v=2.5"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=2.5"></script>
-    <script type="text/javascript" src="validate.js?v=2.5"></script>
-    <script type="text/javascript" src="upset.js?v=2.5"></script>
-    <script type="text/javascript" src="cnService.js?v=2.5"></script>
-    <script type="text/javascript" src="index.js?v=2.5"></script>
-    <script type="text/javascript" src="fileHandler.js?v=2.5"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=2.5"></script>
-    <script type="text/javascript" src="helpPopout.js?v=2.5"></script>
-    <script type="text/javascript" src="methods.js?v=2.5"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=2.5"></script>
+    <script type="text/javascript" src="library.js?v=2.6"></script>
+    <script type="text/javascript" src="settings.js?v=2.6"></script>
+    <script type="text/javascript" src="grnaService.js?v=2.6"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=2.6"></script>
+    <script type="text/javascript" src="validate.js?v=2.6"></script>
+    <script type="text/javascript" src="upset.js?v=2.6"></script>
+    <script type="text/javascript" src="cnService.js?v=2.6"></script>
+    <script type="text/javascript" src="index.js?v=2.6"></script>
+    <script type="text/javascript" src="fileHandler.js?v=2.6"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=2.6"></script>
+    <script type="text/javascript" src="helpPopout.js?v=2.6"></script>
+    <script type="text/javascript" src="methods.js?v=2.6"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=2.6"></script>
+    <script type="text/javascript" src="gcontext.js?v=2.6"></script>
 
 </body>
 

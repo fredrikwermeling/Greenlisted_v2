@@ -263,7 +263,10 @@ async function runValidation() {
     document.getElementById("outputTable").classList.add("statusFadeIn")
 }
 
-function _renderTsvAsTable(tsv, delimiter) {
+// `rowExtra`, when given, appends one column: { header, cell(cols) } where
+// cell returns HTML for the row or null for an empty cell. The adapter and
+// full views use it for the per-guide "Context" button.
+function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     if (!delimiter) delimiter = "\t"
     const lines = tsv.trim().split("\n").filter(l => l.length > 0)
     if (lines.length === 0) return "<p>No data</p>"
@@ -307,6 +310,7 @@ function _renderTsvAsTable(tsv, delimiter) {
     for (const h of headers) {
         html += `<th>${_escapeHtml(h)}</th>`
     }
+    if (rowExtra) html += `<th>${_escapeHtml(rowExtra.header)}</th>`
     html += '</tr></thead><tbody>'
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
@@ -315,6 +319,7 @@ function _renderTsvAsTable(tsv, delimiter) {
             const safe = _escapeHtml(cols[j])
             html += `<td>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
         }
+        if (rowExtra) html += `<td class="gcCell">${rowExtra.cell(cols) || ""}</td>`
         html += '</tr>'
     }
     html += '</tbody></table>'
@@ -427,8 +432,8 @@ function _showOutputPane(paneId) {
     return document.getElementById(paneId)
 }
 
-function _showTableOutput(text, delimiter) {
-    _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(text, delimiter)
+function _showTableOutput(text, delimiter, rowExtra) {
+    _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(text, delimiter, rowExtra)
 }
 
 function showValidationOutput() {
@@ -509,6 +514,9 @@ async function runScreening() {
         const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null)
         const MAGeCKOutput = _createMAGeCKOutput(searchOutput.filteredLibraryMap)
 
+        // A new design starts a clean slate for the genomic-context feature,
+        // so the methods text only mentions it for the run it was used on.
+        if (typeof GC_newRun === "function") GC_newRun()
         outputTexts = {
             "textOutputFull": fullOutput,
             "textOutputNotFound": notFoundOutput,
@@ -836,7 +844,7 @@ function _showTextareaOutput(text) {
 
 function showAdapterOutput() {
     _setActiveShow("adapter")
-    _showTableOutput(outputTexts.textOutputAdapter)
+    _showTableOutput(outputTexts.textOutputAdapter, undefined, (typeof GC_rowExtraAdapter === "function") ? GC_rowExtraAdapter() : null)
 }
 
 function showMAGeCKOutput() {
@@ -850,7 +858,7 @@ function showMAGeCKOutput() {
 
 function showFullOutput() {
     _setActiveShow("full")
-    _showTableOutput(outputTexts.textOutputFull)
+    _showTableOutput(outputTexts.textOutputFull, undefined, (typeof GC_rowExtraFull === "function") ? GC_rowExtraFull() : null)
 }
 
 function showNotFoundOutput() {
