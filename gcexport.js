@@ -19,12 +19,14 @@
 // workbook export, so PowerPoint needs no new dependency.
 //
 
+// Vector first: this figure is text and flat colour, so the drawn formats are
+// both sharper and a fraction of the size of a picture of the same thing.
 const _GCX_FORMATS = [
-    { id: "png", label: "PNG", note: "Raster image at the resolution you choose" },
-    { id: "svg", label: "SVG", note: "Vector — scales without blurring, editable in Illustrator or Inkscape" },
-    { id: "pdf", label: "PDF", note: "Single page at the exact width, for printing or a figure panel" },
-    { id: "tiff", label: "TIFF", note: "Journal-ready RGB at the chosen resolution" },
-    { id: "pptx", label: "PowerPoint", note: "One 16:9 slide with the figure placed on it" }
+    { id: "pdf", label: "PDF", note: "Vector single page at the exact width — sharp at any zoom, a few kilobytes", vector: true },
+    { id: "svg", label: "SVG", note: "Vector, editable in Illustrator or Inkscape", vector: true },
+    { id: "pptx", label: "PowerPoint", note: "One 16:9 slide, placed as vector artwork", vector: true },
+    { id: "png", label: "PNG", note: "Raster image at the resolution you choose", vector: false },
+    { id: "tiff", label: "TIFF", note: "Journal-ready RGB, run-length compressed", vector: false }
 ]
 
 const _GCX_DPIS = [150, 300, 600]
@@ -92,6 +94,38 @@ function _gcxFont(family, size, extra) {
     return `font-family:${family};font-size:${size}px;${extra || ""}`
 }
 
+// Width of a string in a given face and size. The figure is sized from these
+// rather than from the sequence block alone: the legend and the provenance
+// line are both wider than 60 bases, and anything past the viewBox is clipped
+// by the SVG itself — which cropped the right-hand end of every exported
+// format, PowerPoint included.
+var _gcxMeasureCtx = null
+function _gcxTextW(text, family, size, bold) {
+    try {
+        if (!_gcxMeasureCtx) _gcxMeasureCtx = document.createElement("canvas").getContext("2d")
+        _gcxMeasureCtx.font = `${bold ? "bold " : ""}${size}px ${family}`
+        return _gcxMeasureCtx.measureText(String(text)).width
+    } catch (e) {
+        // Rough fallback, deliberately generous so a failure widens the page
+        // rather than cropping it.
+        return String(text).length * size * 0.62
+    }
+}
+
+// Break `text` into lines that each fit `maxW`, on word boundaries.
+function _gcxWrap(text, maxW, family, size) {
+    const words = String(text).split(/\s+/)
+    const lines = []
+    var cur = ""
+    for (const w of words) {
+        const test = cur ? `${cur} ${w}` : w
+        if (cur && _gcxTextW(test, family, size) > maxW) { lines.push(cur); cur = w }
+        else cur = test
+    }
+    if (cur) lines.push(cur)
+    return lines
+}
+
 function _gcxEsc(s) {
     return String(s == null ? "" : s)
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -120,7 +154,6 @@ function GC_buildSvg(v) {
     const rowAdvances = _gcxCol(perLine - 1) + 1
     const seqW = rowAdvances * _GCX.advance
     const x0 = _GCX.padX + _GCX.numW
-    const width = Math.ceil(x0 + seqW + _GCX.padX)
 
     const strandWord = s => s === "+" ? "plus" : "minus"
     const head = [
@@ -134,12 +167,57 @@ function GC_buildSvg(v) {
          _gcExonSummary(v.bases, tx)].join("  ·  ")
     ]
 
+    // Legend geometry, measured rather than guessed from character counts.
+    const legendItems = [
+        ["spacer", C.spacer], ["PAM", C.pam],
+        ["exon (coding)", C.exonC], ["exon (UTR)", C.exonU],
+        ["intron / intergenic", "#ffffff"], ["cut site", null]
+    ]
+    const LEG_SWATCH = 10, LEG_TEXT_GAP = 5, LEG_ITEM_GAP = 16, LEG_FONT = 9.5
+    const legendItemW = legendItems.map(([label]) =>
+        LEG_SWATCH + LEG_TEXT_GAP + _gcxTextW(label, _GCX.sans, LEG_FONT))
+
+    // The page is as wide as the widest thing on it.
+    const headW = Math.max(...head.map((t, i) => _gcxTextW(t, _GCX.sans, i === 0 ? 12 : 10.5, i === 0)))
+    const legendTotalW = legendItemW.reduce((a, b) => a + b, 0) + LEG_ITEM_GAP * (legendItems.length - 1)
+    const contentW = Math.max(x0 - _GCX.padX + seqW, headW, legendTotalW)
+    const width = Math.ceil(_GCX.padX + contentW + _GCX.padX)
+    const innerW = width - _GCX.padX * 2
+
+    // The provenance line is the one thing allowed to wrap instead of setting
+    // the width — it is a sentence, and letting it govern would leave a
+    // sequence block floating in a very wide page.
+    const footText = `Green Listed (greenlisted.cmm.se). Sequence and annotation from the UCSC Genome Browser API (${v.g.assembly}). Cut site assumes SpCas9, 3 nt from the PAM.`
+    const footLines = _gcxWrap(footText, innerW, _GCX.sans, 9)
+
+    // The legend wraps too, if even the widest content cannot hold it.
+    const legendRows = []
+    var rowItems = [], rowW = 0
+    legendItems.forEach((item, i) => {
+        const w = legendItemW[i]
+        if (rowItems.length && rowW + LEG_ITEM_GAP + w > innerW) { legendRows.push(rowItems); rowItems = []; rowW = 0 }
+        rowW += (rowItems.length ? LEG_ITEM_GAP : 0) + w
+        rowItems.push(i)
+    })
+    if (rowItems.length) legendRows.push(rowItems)
+
     const headH = _GCX.padY + head.length * 15 + 10
     const nLines = Math.ceil(v.n / perLine)
     const seqH = nLines * _GCX.lineH
-    const legendH = 34
-    const footH = 26
+    const legendH = 12 + legendRows.length * 15
+    const footH = 8 + footLines.length * 12
     const height = Math.ceil(headH + seqH + legendH + footH + _GCX.padY)
+
+    // Every mark is recorded as well as written, so the PDF writer can draw
+    // the same figure as real vector art instead of embedding a picture of
+    // it. Courier and Helvetica are PDF base-14 fonts, and this figure uses
+    // nothing else, so the vector PDF needs no embedded font and comes out a
+    // fraction of the size of the raster one.
+    const ops = []
+    const opRect = (x, y, w, h, fill, stroke) => ops.push({ t: "rect", x: x, y: y, w: w, h: h, fill: fill, stroke: stroke })
+    const opLine = (x1, y1, x2, y2, stroke, width) => ops.push({ t: "line", x1: x1, y1: y1, x2: x2, y2: y2, stroke: stroke, w: width })
+    const opText = (x, y, str, size, fill, mono, bold, anchorEnd) =>
+        ops.push({ t: "text", x: x, y: y, s: str, size: size, fill: fill, mono: !!mono, bold: !!bold, end: !!anchorEnd })
 
     var s = `<?xml version="1.0" encoding="UTF-8"?>\n`
     s += `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`
@@ -150,9 +228,11 @@ function GC_buildSvg(v) {
     head.forEach((line, i) => {
         const bold = i === 0
         s += `<text x="${_GCX.padX}" y="${y}" style="${_gcxFont(_GCX.sans, bold ? 12 : 10.5, `fill:${bold ? C.head : C.muted};${bold ? "font-weight:bold;" : ""}`)}">${_gcxEsc(line)}</text>\n`
+        opText(_GCX.padX, y, line, bold ? 12 : 10.5, bold ? C.head : C.muted, false, bold)
         y += 15
     })
     s += `<line x1="${_GCX.padX}" y1="${headH - 6}" x2="${width - _GCX.padX}" y2="${headH - 6}" stroke="${C.rule}" stroke-width="1"/>\n`
+    opLine(_GCX.padX, headH - 6, width - _GCX.padX, headH - 6, C.rule, 1)
 
     // ---- sequence
     // Feature panels are drawn first as runs of identical colour, so a 500 bp
@@ -169,6 +249,7 @@ function GC_buildSvg(v) {
         // line number, right-aligned against the sequence
         seqSvg += `<text x="${x0 - 8}" y="${baseY}" text-anchor="end" ` +
                   `style="${_gcxFont(_GCX.face, _GCX.fontPx - 1, `fill:${C.muted};`)}">${start + 1}</text>\n`
+        opText(x0 - 8, baseY, String(start + 1), _GCX.fontPx - 1, C.muted, true, false, true)
 
         var runStart = -1, runColor = null
         for (var i = start; i <= end; i++) {
@@ -179,6 +260,7 @@ function GC_buildSvg(v) {
                     const rx = x0 + _gcxCol(runStart - start) * _GCX.advance - 0.4
                     const rw = (_gcxCol(i - 1 - start) - _gcxCol(runStart - start) + 1) * _GCX.advance + 0.8
                     seqSvg += `<rect x="${rx.toFixed(2)}" y="${(rowY + 1.5).toFixed(2)}" width="${rw.toFixed(2)}" height="${_GCX.lineH - 3}" fill="${runColor}"/>\n`
+                    opRect(rx, rowY + 1.5, rw, _GCX.lineH - 3, runColor, null)
                 }
                 runStart = i; runColor = col
             }
@@ -195,35 +277,51 @@ function GC_buildSvg(v) {
             if (b.cutAfter) {
                 const cx = x0 + (_gcxCol(i - start) + 1) * _GCX.advance - _GCX.advance * 0.5 + _GCX.advance * 0.5
                 cutSvg += `<line x1="${cx.toFixed(2)}" y1="${(rowY + 1).toFixed(2)}" x2="${cx.toFixed(2)}" y2="${(rowY + _GCX.lineH - 1).toFixed(2)}" stroke="${C.cut}" stroke-width="1.6"/>\n`
+                opLine(cx, rowY + 1, cx, rowY + _GCX.lineH - 1, C.cut, 1.6)
             }
         }
         textSvg += `<text x="${xs.join(" ")}" y="${baseY}" xml:space="preserve" ` +
                    `style="${_gcxFont(_GCX.face, _GCX.fontPx, `fill:${C.text};`)}">${_gcxEsc(chars)}</text>\n`
+        // Recorded in ten-base groups: within a group the advance is uniform,
+        // so each group is one positioned string rather than sixty.
+        for (var g = 0; g * 10 < chars.length; g++) {
+            const piece = chars.slice(g * 10, g * 10 + 10)
+            if (piece) opText(Number(xs[g * 10]), baseY, piece, _GCX.fontPx, C.text, true)
+        }
     }
     s += seqSvg + textSvg + cutSvg
 
     // ---- legend
-    const legY = headH + seqH + 16
-    const items = [
-        ["spacer", C.spacer], ["PAM", C.pam],
-        ["exon (coding)", C.exonC], ["exon (UTR)", C.exonU],
-        ["intron / intergenic", "#ffffff"]
-    ]
-    var lx = _GCX.padX
-    for (const [label, col] of items) {
-        s += `<rect x="${lx}" y="${legY - 8}" width="10" height="10" fill="${col}" stroke="${C.rule}" stroke-width="0.8"/>\n`
-        s += `<text x="${lx + 14}" y="${legY}" style="${_gcxFont(_GCX.sans, 9.5, `fill:${C.muted};`)}">${_gcxEsc(label)}</text>\n`
-        lx += 14 + label.length * 5.1 + 16
+    var legY = headH + seqH + 18
+    for (const row of legendRows) {
+        var lx = _GCX.padX
+        for (const idx of row) {
+            const [label, col] = legendItems[idx]
+            if (col === null) {
+                // The cut site is a rule, not a filled patch.
+                s += `<line x1="${(lx + 5).toFixed(1)}" y1="${legY - 8}" x2="${(lx + 5).toFixed(1)}" y2="${legY + 2}" stroke="${C.cut}" stroke-width="1.6"/>\n`
+            } else {
+                s += `<rect x="${lx}" y="${legY - 8}" width="${LEG_SWATCH}" height="${LEG_SWATCH}" fill="${col}" stroke="${C.rule}" stroke-width="0.8"/>\n`
+            }
+            s += `<text x="${(lx + LEG_SWATCH + LEG_TEXT_GAP).toFixed(1)}" y="${legY}" style="${_gcxFont(_GCX.sans, LEG_FONT, `fill:${C.muted};`)}">${_gcxEsc(label)}</text>\n`
+            if (col === null) opLine(lx + 5, legY - 8, lx + 5, legY + 2, C.cut, 1.6)
+            else opRect(lx, legY - 8, LEG_SWATCH, LEG_SWATCH, col, C.rule)
+            opText(lx + LEG_SWATCH + LEG_TEXT_GAP, legY, label, LEG_FONT, C.muted, false)
+            lx += legendItemW[idx] + LEG_ITEM_GAP
+        }
+        legY += 15
     }
-    s += `<line x1="${lx + 2}" y1="${legY - 8}" x2="${lx + 2}" y2="${legY + 2}" stroke="${C.cut}" stroke-width="1.6"/>\n`
-    s += `<text x="${lx + 8}" y="${legY}" style="${_gcxFont(_GCX.sans, 9.5, `fill:${C.muted};`)}">cut site</text>\n`
 
     // ---- provenance, so a figure lifted out of context still says where it came from
-    s += `<text x="${_GCX.padX}" y="${height - _GCX.padY}" style="${_gcxFont(_GCX.sans, 9, `fill:${C.muted};`)}">` +
-         `${_gcxEsc(`Green Listed (greenlisted.cmm.se). Sequence and annotation from the UCSC Genome Browser API (${v.g.assembly}). Cut site assumes SpCas9, 3 nt from the PAM.`)}</text>\n`
+    var fy = height - _GCX.padY - (footLines.length - 1) * 12
+    for (const line of footLines) {
+        s += `<text x="${_GCX.padX}" y="${fy}" style="${_gcxFont(_GCX.sans, 9, `fill:${C.muted};`)}">${_gcxEsc(line)}</text>\n`
+        opText(_GCX.padX, fy, line, 9, C.muted, false)
+        fy += 12
+    }
 
     s += `</svg>\n`
-    return { svg: s, width: width, height: height }
+    return { svg: s, width: width, height: height, ops: ops }
 }
 
 // =============================================================================
@@ -267,11 +365,32 @@ function _gcxCanvasToTiff(canvas, dpi) {
         strip[j++] = Math.round(data[i + 1] * a + 255 * (1 - a))
         strip[j++] = Math.round(data[i + 2] * a + 255 * (1 - a))
     }
+    // PackBits per row, as the spec requires (runs never cross a row
+    // boundary). Falls back to storing the raw strip if the encoding somehow
+    // came out larger, which flat photographic content can do.
+    const rowBytes = w * 3
+    const encodedRows = []
+    var encodedLen = 0
+    for (var r = 0; r < h; r++) {
+        const row = _gcxPackBits(strip.subarray(r * rowBytes, (r + 1) * rowBytes))
+        encodedRows.push(row); encodedLen += row.length
+    }
+    const usePack = encodedLen < strip.length
+    const compression = usePack ? 32773 : 1
+    var body
+    if (usePack) {
+        body = new Uint8Array(encodedLen)
+        var bo = 0
+        for (const row of encodedRows) { body.set(row, bo); bo += row.length }
+    } else {
+        body = strip
+    }
+
     const nTags = 12
     const ifdSize = 2 + nTags * 12 + 4
     const extra = 8 + ifdSize
     const bpsOff = extra, xresOff = extra + 6, yresOff = extra + 14, stripOff = extra + 22
-    const buf = new ArrayBuffer(stripOff + strip.length)
+    const buf = new ArrayBuffer(stripOff + body.length)
     const dv = new DataView(buf)
     dv.setUint16(0, 0x4949, true); dv.setUint16(2, 42, true); dv.setUint32(4, 8, true)
     var p = 8
@@ -280,20 +399,141 @@ function _gcxCanvasToTiff(canvas, dpi) {
         dv.setUint16(p, id, true); dv.setUint16(p + 2, type, true)
         dv.setUint32(p + 4, count, true); dv.setUint32(p + 8, value, true); p += 12
     }
-    tag(256, 4, 1, w); tag(257, 4, 1, h); tag(258, 3, 3, bpsOff); tag(259, 3, 1, 1)
+    tag(256, 4, 1, w); tag(257, 4, 1, h); tag(258, 3, 3, bpsOff); tag(259, 3, 1, compression)
     tag(262, 3, 1, 2); tag(273, 4, 1, stripOff); tag(277, 3, 1, 3); tag(278, 4, 1, h)
-    tag(279, 4, 1, strip.length); tag(282, 5, 1, xresOff); tag(283, 5, 1, yresOff); tag(296, 3, 1, 2)
+    tag(279, 4, 1, body.length); tag(282, 5, 1, xresOff); tag(283, 5, 1, yresOff); tag(296, 3, 1, 2)
     dv.setUint32(p, 0, true)
     dv.setUint16(bpsOff, 8, true); dv.setUint16(bpsOff + 2, 8, true); dv.setUint16(bpsOff + 4, 8, true)
     const d = Math.round(dpi) || 300
     dv.setUint32(xresOff, d, true); dv.setUint32(xresOff + 4, 1, true)
     dv.setUint32(yresOff, d, true); dv.setUint32(yresOff + 4, 1, true)
-    new Uint8Array(buf).set(strip, stripOff)
+    new Uint8Array(buf).set(body, stripOff)
     return buf
 }
 
+// PackBits run-length encoding, as the TIFF spec defines it. This figure is
+// mostly flat white with runs of one colour, which is exactly what the scheme
+// is good at — an uncompressed export of a simple panel ran to 18 MB.
+function _gcxPackBits(src) {
+    const out = []
+    var i = 0
+    const n = src.length
+    while (i < n) {
+        // A run of three or more identical bytes is worth encoding as a run.
+        var runEnd = i
+        while (runEnd + 1 < n && src[runEnd + 1] === src[i] && runEnd - i < 127) runEnd++
+        if (runEnd - i >= 2) {
+            out.push(257 - (runEnd - i + 1), src[i])
+            i = runEnd + 1
+            continue
+        }
+        // Otherwise copy literally until a run of three starts.
+        var lit = i
+        while (lit < n && lit - i < 128) {
+            if (lit + 2 < n && src[lit] === src[lit + 1] && src[lit] === src[lit + 2]) break
+            lit++
+        }
+        const count = lit - i
+        out.push(count - 1)
+        for (var k = 0; k < count; k++) out.push(src[i + k])
+        i = lit
+    }
+    return Uint8Array.from(out)
+}
+
+// A true vector PDF drawn from the display list. The figure uses only
+// rectangles, lines and text in a monospace and a sans face, and PDF has
+// Courier and Helvetica built in, so nothing has to be embedded and nothing
+// is rasterised: the file is a few tens of kilobytes and stays sharp at any
+// magnification, instead of a megabyte-plus picture of the same thing.
+function _gcxOpsToPdf(fig, widthCm) {
+    const ptW = (widthCm || 10) / 2.54 * 72
+    const scale = ptW / fig.width
+    const ptH = fig.height * scale
+    const hex = c => {
+        const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(c) || "")
+        if (!m) return [0, 0, 0]
+        return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255]
+    }
+    const f = n => (Math.round(n * 100) / 100).toString()
+    // Y grows downward in the figure and upward in PDF.
+    const Y = y => f((fig.height - y) * scale)
+    const X = x => f(x * scale)
+    // PDF string literals escape the delimiters and the escape itself; the
+    // base-14 fonts are single-byte, so anything outside Latin-1 is replaced
+    // rather than mangled.
+    const str = t => String(t)
+        .replace(/[\u2010-\u2015]/g, "-")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/\u00b7/g, "-")
+        .replace(/[\u2192]/g, "->")
+        .replace(/[^\x20-\x7e\xa0-\xff]/g, "?")
+        .replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
+
+    var c = ""
+    var lastFill = null
+    const setFill = col => {
+        const k = String(col)
+        if (k === lastFill) return
+        lastFill = k
+        const [r, g, b] = hex(col)
+        c += `${f(r)} ${f(g)} ${f(b)} rg\n`
+    }
+    for (const op of fig.ops) {
+        if (op.t === "rect") {
+            if (op.fill) {
+                setFill(op.fill)
+                c += `${X(op.x)} ${Y(op.y + op.h)} ${f(op.w * scale)} ${f(op.h * scale)} re f\n`
+            }
+            if (op.stroke) {
+                const [r, g, b] = hex(op.stroke)
+                c += `${f(r)} ${f(g)} ${f(b)} RG ${f(0.8 * scale)} w ${X(op.x)} ${Y(op.y + op.h)} ${f(op.w * scale)} ${f(op.h * scale)} re S\n`
+                lastFill = null
+            }
+        } else if (op.t === "line") {
+            const [r, g, b] = hex(op.stroke)
+            c += `${f(r)} ${f(g)} ${f(b)} RG ${f((op.w || 1) * scale)} w ${X(op.x1)} ${Y(op.y1)} m ${X(op.x2)} ${Y(op.y2)} l S\n`
+        } else if (op.t === "text") {
+            setFill(op.fill)
+            const font = op.mono ? "/F1" : (op.bold ? "/F3" : "/F2")
+            const size = op.size * scale
+            // Courier and Helvetica advance 0.6 and ~0.55 em; only the
+            // right-aligned line numbers need the width back, and they are
+            // monospace, so 0.6 em is exact for them.
+            const x = op.end ? (op.x * scale - op.s.length * size * 0.6) : op.x * scale
+            c += `BT ${font} ${f(size)} Tf ${f(x)} ${Y(op.y)} Td (${str(op.s)}) Tj ET\n`
+        }
+    }
+
+    const enc = new TextEncoder()
+    const parts = [], offsets = []
+    var len = 0
+    const push = t => { const b = (typeof t === "string") ? enc.encode(t) : t; parts.push(b); len += b.length }
+    const content = enc.encode(c)
+    push("%PDF-1.4\n")
+    offsets.push(len); push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+    offsets.push(len); push("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+    offsets.push(len); push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(ptW)} ${f(ptH)}] /Resources << /Font << /F1 6 0 R /F2 7 0 R /F3 8 0 R >> >> /Contents 5 0 R >>\nendobj\n`)
+    offsets.push(len); push("4 0 obj\n<< >>\nendobj\n")
+    offsets.push(len); push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n`); push(content); push("\nendstream\nendobj\n")
+    offsets.push(len); push("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>\nendobj\n")
+    offsets.push(len); push("7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n")
+    offsets.push(len); push("8 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n")
+    const xrefStart = len
+    var xref = `xref\n0 ${offsets.length + 1}\n0000000000 65535 f \n`
+    for (const off of offsets) xref += String(off).padStart(10, "0") + " 00000 n \n"
+    push(xref)
+    push(`trailer\n<< /Size ${offsets.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`)
+    const out = new Uint8Array(len)
+    var o = 0
+    for (const pt of parts) { out.set(pt, o); o += pt.length }
+    return out.buffer
+}
+
 // Single-page PDF holding the figure as a JPEG, page sized in points so it
-// imports at the requested width. Ported from Correlate.
+// imports at the requested width. Kept as the fallback if the vector writer
+// ever throws. Ported from Correlate.
 function _gcxCanvasToPdf(canvas, widthCm, heightCm) {
     const tmp = document.createElement("canvas")
     tmp.width = canvas.width; tmp.height = canvas.height
@@ -432,7 +672,7 @@ async function _gcxCanvasToPptx(canvas, widthCm, heightCm, svgStr) {
 function _gcxPrefs() {
     var stored = null
     try { stored = JSON.parse(localStorage.getItem(_GCX_STORE) || "null") } catch (e) { stored = null }
-    return Object.assign({ format: "png", widthCm: 20, dpi: 300 }, stored || {})
+    return Object.assign({ format: "pdf", widthCm: 18, dpi: 300 }, stored || {})
 }
 
 function _gcxSavePrefs(p) {
@@ -474,12 +714,17 @@ function GC_xUpdate() {
     const dpi = parseInt(document.getElementById("gcxDpi").value, 10) || 300
     // SVG has no resolution to choose; PowerPoint places a vector picture.
     const wrap = document.getElementById("gcxDpiWrap")
-    wrap.style.visibility = (fmt === "svg") ? "hidden" : "visible"
+    const spec0 = _GCX_FORMATS.find(f => f.id === fmt)
+    wrap.style.visibility = (spec0 && spec0.vector) ? "hidden" : "visible"
     const h = w * (_GC.xRatio || 1)
     const px = Math.round(w / 2.54 * dpi)
     const note = document.getElementById("gcxSize")
-    note.textContent = (fmt === "svg")
-        ? `${w} × ${h.toFixed(1)} cm, vector.`
+    const spec = _GCX_FORMATS.find(f => f.id === fmt)
+    // Vector formats have no pixel count and stay small however big the
+    // figure is printed, which is worth saying next to a resolution box that
+    // otherwise looks like it applies to everything.
+    note.textContent = (spec && spec.vector)
+        ? `${w} × ${h.toFixed(1)} cm, vector — sharp at any size, and a small file.`
         : `${w} × ${h.toFixed(1)} cm at ${dpi} dpi — ${px.toLocaleString("en-US")} × ${Math.round(px * (_GC.xRatio || 1)).toLocaleString("en-US")} pixels.`
 }
 
@@ -514,17 +759,32 @@ async function GC_xRun() {
     try {
         if (fmt === "svg") {
             _gcxSave(new Blob([fig.svg], { type: "image/svg+xml;charset=utf-8" }), `${base}.svg`)
+        } else if (fmt === "pdf") {
+            // Drawn, not photographed: no raster is produced for a PDF at all.
+            var pdfBuf
+            try {
+                pdfBuf = _gcxOpsToPdf(fig, widthCm)
+            } catch (e) {
+                console.warn("Vector PDF failed, falling back to a raster page:", e)
+                const c = await _gcxRasterise(fig.svg, fig.width, fig.height, (widthCm / 2.54 * dpi) / fig.width)
+                pdfBuf = _gcxCanvasToPdf(c, widthCm, heightCm)
+            }
+            _gcxSave(new Blob([pdfBuf], { type: "application/pdf" }), `${base}.pdf`)
         } else {
             // Scale so the raster prints at widthCm at the chosen density.
+            // PowerPoint makes its own, smaller, fallback below.
             const scale = (widthCm / 2.54 * dpi) / fig.width
-            const canvas = await _gcxRasterise(fig.svg, fig.width, fig.height, scale)
+            const canvas = (fmt === "pptx") ? null : await _gcxRasterise(fig.svg, fig.width, fig.height, scale)
             if (fmt === "tiff") {
                 _gcxSave(new Blob([_gcxCanvasToTiff(canvas, dpi)], { type: "image/tiff" }), `${base}.tiff`)
             } else if (fmt === "pdf") {
                 _gcxSave(new Blob([_gcxCanvasToPdf(canvas, widthCm, heightCm)], { type: "application/pdf" }), `${base}.pdf`)
             } else if (fmt === "pptx") {
-                _gcxSave(await _gcxCanvasToPptx(canvas, widthCm, heightCm, fig.svg),
-                         `${base}.pptx`)
+                // PowerPoint 2016 and later draw the embedded SVG, so the PNG
+                // beside it is only a fallback for much older versions. At
+                // print resolution it was most of the file for no benefit.
+                const fallback = await _gcxRasterise(fig.svg, fig.width, fig.height, 2)
+                _gcxSave(await _gcxCanvasToPptx(fallback, widthCm, heightCm, fig.svg), `${base}.pptx`)
             } else {
                 const durl = canvas.toDataURL("image/png")
                 if (!durl || durl.length < 100) throw new Error("The image is too large at this width and resolution.")
