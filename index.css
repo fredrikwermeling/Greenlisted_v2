@@ -1691,3 +1691,67 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
         grid-column: 1 / -1;
     }
 }
+
+/* Export for AI — the dialog that writes the .json for an assistant. */
+.gcaiNote {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin: 0 0 14px 0;
+}
+
+.gcaiLabel {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--green-800);
+    margin-top: 12px;
+}
+
+.gcaiOpt {
+    font-weight: 400;
+    color: var(--gray-500);
+}
+
+.gcaiHint {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    margin: 3px 0 5px 0;
+}
+
+.gcaiArea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--monoFont);
+    font-size: 0.75rem;
+    padding: 6px 8px;
+    border: 1px solid var(--gray-200);
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.gcaiDrop {
+    border-color: var(--green-500);
+    background: var(--green-50);
+}
+
+.gcaiStatus {
+    font-size: 0.78rem;
+    margin: 4px 0 0 0;
+    min-height: 1em;
+}
+
+.gcaiGood { color: var(--green-800); }
+
+.gcaiBad {
+    color: #92400e;
+    background: #fffbeb;
+    border-left: 3px solid #d97706;
+    padding: 5px 8px;
+    border-radius: 0 3px 3px 0;
+}
+
+.gcaiFoot {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin: 8px 0 0 0;
+}

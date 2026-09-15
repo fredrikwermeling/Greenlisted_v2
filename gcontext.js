@@ -122,6 +122,51 @@ const _GC_CHROM_ACC = {
     }
 }
 
+// The two ways people read a CRISPR edit want opposite things from the PCR,
+// and the difference is large enough that picking one should not mean editing
+// three boxes.
+//
+//   Sanger, for ICE or TIDE, reads one long trace across the cut. It needs the
+//   primers well clear of the edit so the trace has settled before it arrives,
+//   and a product long enough to carry plenty of sequence after it.
+//
+//   Amplicon NGS sequences a short product many times. On a 2x150 paired-end
+//   run the whole amplicon has to fit inside the reads, so it must be short
+//   and the cut has to sit near the middle; the clearance only needs to keep
+//   an indel off the primer itself.
+const _GC_PB_PRESETS = {
+    sanger: {
+        label: "Sanger — ICE / TIDE",
+        note: "One long read across the cut. Primers well clear of the edit, product 500 bp or more.",
+        values: { minDist: 150, productMin: 500, productMax: "" }
+    },
+    ngs: {
+        label: "Amplicon NGS",
+        note: "A short product read many times. Sized to fit inside a 2×150 paired-end read with the cut near the middle.",
+        values: { minDist: 50, productMin: 180, productMax: 280 }
+    }
+}
+
+// Which preset the current settings correspond to, or "custom" once any of the
+// three values has been changed by hand.
+function _gcPbActivePreset() {
+    const pb = _gcPbLoad()
+    for (const id in _GC_PB_PRESETS) {
+        const v = _GC_PB_PRESETS[id].values
+        if (String(pb.minDist) === String(v.minDist) &&
+            String(pb.productMin) === String(v.productMin) &&
+            String(pb.productMax) === String(v.productMax)) return id
+    }
+    return "custom"
+}
+
+function GC_pbPreset(id) {
+    const preset = _GC_PB_PRESETS[id]
+    if (!preset) return
+    for (const k in preset.values) GC_pbChange(k, preset.values[k])
+    if (_GC.current && _GC.current.site) _gcShow()
+}
+
 const _GC_PB_DBS = [
     { value: "PRIMERDB/genome_selected_species", label: "Genome of the selected organism (reference assembly)" },
     { value: "refseq_representative_genomes", label: "RefSeq representative genomes" },
@@ -817,6 +862,22 @@ function _gcShow() {
         `<label title="${tx ? "The sequence is written along the gene's own strand, so exons run in reading order. A guide on the opposite strand then appears as its reverse complement, with the PAM (CCN) ahead of the spacer." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to write along."}"${tx ? "" : ' class="gcDisabled"'}>` +
         `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene 5'&rarr;3'</label></span>` +
         `</div>` +
+        // How the edit will be read decides how long the PCR product should be,
+        // which is the setting people most often need to change and the one
+        // that was hidden inside the collapsed panel.
+        `<div class="gcCtrlRow">` +
+        `<span class="gcCtrlLabel" title="How you intend to read the edit. This sets the product size and how far the primers are kept from the cut; both are still editable under Primer-BLAST settings.">Primers for</span>` +
+        `<span class="gcOrient">` +
+        Object.keys(_GC_PB_PRESETS).map(id =>
+            `<label title="${_escapeHtml(_GC_PB_PRESETS[id].note)}">` +
+            `<input type="radio" name="gcPreset" value="${id}" ${_gcPbActivePreset() === id ? "checked" : ""} onchange="GC_pbPreset('${id}')"> ` +
+            `${_escapeHtml(_GC_PB_PRESETS[id].label)}</label>`).join("") +
+        (_gcPbActivePreset() === "custom"
+            ? `<label class="gcDisabled" title="Your own values, set under Primer-BLAST settings below."><input type="radio" name="gcPreset" checked disabled> custom</label>`
+            : "") +
+        `</span>` +
+        `<span class="gcHint">${_escapeHtml(_gcPbActivePreset() === "custom" ? "your own settings" : _GC_PB_PRESETS[_gcPbActivePreset()].note)}</span>` +
+        `</div>` +
         `</div>`
 
     // What the flank change did, and whether the result can still carry
@@ -847,6 +908,7 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
         `<button class="validate-btn" onclick="GC_openPrimerBlast()" title="Opens NCBI Primer-BLAST in a new tab with this sequence filled in and the primer windows set so both primers sit clear of the cut. Uses the settings below.">Open in Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
+        `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>`
 
     html += _gcSeqHtml(v)
