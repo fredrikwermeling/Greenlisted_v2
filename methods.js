@@ -82,6 +82,16 @@ function _methPlural(n, singular, plural) {
     return n === 1 ? singular : (plural || singular + "s")
 }
 
+// The library map is keyed on a lowercased symbol, so the display form is
+// read back off the first row rather than the key. Falls back to the key if
+// the column is missing, which only a malformed custom upload would do.
+function _methSymbolName(map, key) {
+    const row = map[key] && map[key][0]
+    const col = (typeof settings !== "undefined" && settings.symbolColumn) ? settings.symbolColumn - 1 : -1
+    const name = (row && col >= 0 && row[col]) ? String(row[col]).trim() : ""
+    return name || key
+}
+
 // Which tool the visible output belongs to. The output table is shared, so
 // the mode classes on <body> are what say whose results are on screen.
 function _methMode() {
@@ -128,23 +138,35 @@ function _methDesign() {
     if (added.nonTargeting > 0) ctrlShort.push(`${added.nonTargeting} non-targeting`)
     if (essential.length) ctrlShort.push(`${essential.length} essential-gene positive`)
 
+    // "3 sgRNAs per gene for 1 gene" is how a count reads when it was written
+    // for the many-gene case. A single-gene design names the gene instead,
+    // which is both shorter and more informative.
+    const oneGene = geneSymbols.length === 1
+    const geneName = oneGene ? _methSymbolName(map, geneSymbols[0]) : null
+    const selection = oneGene
+        ? `${geneGuides} ${_methPlural(geneGuides, "sgRNA")} targeting ${geneName}`
+        : `${perGeneText} ${_methPlural(perGene, "sgRNA")} per gene for ` +
+          `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")}`
+
     var short = `sgRNAs were designed using the Green Listed software ` +
                 `(${_METH_APP.url}; ${_METH_APP.short}), selecting ` +
-                `${perGeneText} ${_methPlural(perGene, "sgRNA")} per gene for ` +
-                `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")} from the ` +
-                `${libName} library${libCite}`
+                `${selection} from the ${libName} library${libCite}`
+    // The total is worth stating when it is not already the number just
+    // given — with controls, or when it was only implied by "n per gene".
+    const totalStated = oneGene && !ctrlShort.length
     short += ctrlShort.length
         ? `, together with ${_methList(ctrlShort)} control sgRNAs (${totalGuides} sgRNAs in total).`
-        : ` (${totalGuides} sgRNAs in total).`
+        : (totalStated ? "." : ` (${totalGuides} sgRNAs in total).`)
 
     // ---- full version --------------------------------------------------
     const sentences = []
     sentences.push(
         `A custom sgRNA library was designed using Green Listed v2.0 ` +
         `(${_METH_APP.url}; ${_METH_APP.short}). Guides targeting ` +
-        `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")} were selected from the ` +
-        `${libName} library${libCite}, giving ${geneGuides} ${_methPlural(geneGuides, "sgRNA")} ` +
-        `(${perGeneText} per gene).`
+        (oneGene ? geneName : `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")}`) +
+        ` were selected from the ${libName} library${libCite}, giving ` +
+        `${geneGuides} ${_methPlural(geneGuides, "sgRNA")}` +
+        (oneGene ? "." : ` (${perGeneText} per gene).`)
     )
 
     // Symbol matching. Worth stating because it changes which guides end up
