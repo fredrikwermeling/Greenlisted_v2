@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=2.6">
+    <link rel="stylesheet" media="all" href="index.css?v=2.7">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -120,6 +120,17 @@
                     <button class="upset-close-btn" onclick="GC_close()">&times;</button>
                 </div>
                 <div id="gcBody" class="upset-modal-body"></div>
+            </div>
+        </div>
+
+        <!-- Export the genomic-context figure as an image. -->
+        <div id="gcxModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box" style="max-width:520px;">
+                <div class="upset-modal-header">
+                    <h3>Export image</h3>
+                    <button class="upset-close-btn" onclick="GC_xClose()">&times;</button>
+                </div>
+                <div id="gcxBody" class="upset-modal-body"></div>
             </div>
         </div>
 
@@ -548,20 +559,21 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=2.6"></script>
-    <script type="text/javascript" src="settings.js?v=2.6"></script>
-    <script type="text/javascript" src="grnaService.js?v=2.6"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=2.6"></script>
-    <script type="text/javascript" src="validate.js?v=2.6"></script>
-    <script type="text/javascript" src="upset.js?v=2.6"></script>
-    <script type="text/javascript" src="cnService.js?v=2.6"></script>
-    <script type="text/javascript" src="index.js?v=2.6"></script>
-    <script type="text/javascript" src="fileHandler.js?v=2.6"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=2.6"></script>
-    <script type="text/javascript" src="helpPopout.js?v=2.6"></script>
-    <script type="text/javascript" src="methods.js?v=2.6"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=2.6"></script>
-    <script type="text/javascript" src="gcontext.js?v=2.6"></script>
+    <script type="text/javascript" src="library.js?v=2.7"></script>
+    <script type="text/javascript" src="settings.js?v=2.7"></script>
+    <script type="text/javascript" src="grnaService.js?v=2.7"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=2.7"></script>
+    <script type="text/javascript" src="validate.js?v=2.7"></script>
+    <script type="text/javascript" src="upset.js?v=2.7"></script>
+    <script type="text/javascript" src="cnService.js?v=2.7"></script>
+    <script type="text/javascript" src="index.js?v=2.7"></script>
+    <script type="text/javascript" src="fileHandler.js?v=2.7"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=2.7"></script>
+    <script type="text/javascript" src="helpPopout.js?v=2.7"></script>
+    <script type="text/javascript" src="methods.js?v=2.7"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=2.7"></script>
+    <script type="text/javascript" src="gcontext.js?v=2.7"></script>
+    <script type="text/javascript" src="gcexport.js?v=2.7"></script>
 
 </body>
 

@@ -51,7 +51,7 @@ const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
 // an older version is dropped rather than merged, so a new default is not
 // silently overridden by the previous default sitting in localStorage.
-const _GC_PB_VERSION = 3
+const _GC_PB_VERSION = 4
 
 var _GC = {
     locus: new Map(),     // genome|symbol|spacer -> locate result
@@ -80,12 +80,23 @@ var _GC = {
 // settings are entered once.
 const _GC_PB_DEFAULTS = {
     minDist: 150,
-    productMin: 500, productMax: 1000,
+    productMin: 500, productMax: "",
+    tmMin: "", tmOpt: "", tmMax: "", tmDiff: "",
+    sizeMin: "", sizeOpt: "", sizeMax: "",
+    gcMin: "", gcMax: "",
+    numReturn: "",
+    db: "PRIMERDB/genome_selected_species"
+}
+
+// What Primer-BLAST itself uses when a field is left empty, read off its form.
+// Shown as placeholder text so the panel does not look as though this tool
+// picked the numbers, and so an empty box is obviously "their default".
+const _GC_PB_STOCK = {
+    productMin: 70, productMax: 1000,
     tmMin: 57, tmOpt: 60, tmMax: 63, tmDiff: 3,
     sizeMin: 15, sizeOpt: 20, sizeMax: 25,
-    gcMin: "", gcMax: "",
-    numReturn: 10,
-    db: "PRIMERDB/genome_selected_species"
+    gcMin: 20, gcMax: 80,
+    numReturn: 10
 }
 
 const _GC_PB_DBS = [
@@ -448,7 +459,7 @@ function GC_open(symbol, spacer, guideId) {
     const clean = _gcCleanSpacer(spacer)
     _GC.current = {
         symbol: symbol, spacer: clean, guideId: guideId || symbol,
-        species: _gcSpecies(), flank: _GC_FLANK_DEFAULT, orientation: "guide",
+        species: _gcSpecies(), flank: _GC_FLANK_DEFAULT, pendingFlank: null, orientation: "guide",
         locus: null, site: null, tx: null, bases: null, windowStart: null
     }
     document.getElementById("gcModal").className = "fazeIn upset-modal-overlay"
@@ -478,19 +489,69 @@ function GC_setSpecies(species) {
     _gcRun()
 }
 
-function GC_setFlank(value) {
+// Typing only stages a value; nothing is fetched until it is applied. Keeps
+// the field free while the user edits, so a half-typed "8" on the way to 800
+// is not treated as a number.
+function GC_flankTyped(value) {
     if (!_GC.current) return
     const raw = parseInt(value, 10)
-    var f = isNaN(raw) ? _GC_FLANK_DEFAULT : raw
-    f = Math.max(_GC_FLANK_MIN, Math.min(_GC_FLANK_MAX, f))
-    // Silently clamping looks like the field ignored the typed value, so say
-    // what happened and leave the message up until the next change.
-    _GC.current.flankNotice = (!isNaN(raw) && raw !== f)
+    _GC.current.pendingFlank = isNaN(raw) ? null : raw
+    _gcSyncApplyButton()
+}
+
+function GC_nudgeFlank(delta) {
+    if (!_GC.current) return
+    const cur = _GC.current
+    const from = (cur.pendingFlank == null) ? cur.flank : cur.pendingFlank
+    // Step to the next multiple of 50 so the value stays on round numbers
+    // however it was typed.
+    const step = Math.abs(delta)
+    const next = delta > 0
+        ? (Math.floor(from / step) + 1) * step
+        : (Math.ceil(from / step) - 1) * step
+    cur.pendingFlank = Math.max(_GC_FLANK_MIN, Math.min(_GC_FLANK_MAX, next))
+    const box = document.getElementById("gcFlank")
+    if (box) box.value = cur.pendingFlank
+    _gcSyncApplyButton()
+}
+
+// The button label carries the staged value, so it is clear what pressing it
+// will fetch and that nothing has happened yet.
+function _gcSyncApplyButton() {
+    const cur = _GC.current
+    if (!cur) return
+    const btn = document.querySelector("#gcBody .gcApply")
+    if (!btn) return
+    const pending = (cur.pendingFlank == null) ? cur.flank : cur.pendingFlank
+    const clamped = Math.max(_GC_FLANK_MIN, Math.min(_GC_FLANK_MAX, pending))
+    const dirty = clamped !== cur.flank
+    btn.disabled = !dirty
+    btn.classList.toggle("gcApplyOn", dirty)
+    btn.textContent = dirty ? `Show ${clamped} bp` : "Showing"
+    for (const b of document.querySelectorAll("#gcBody .gcStep")) {
+        b.disabled = (b.textContent === "+") ? clamped >= _GC_FLANK_MAX : clamped <= _GC_FLANK_MIN
+    }
+}
+
+function GC_applyFlank() {
+    if (!_GC.current) return
+    const cur = _GC.current
+    const raw = (cur.pendingFlank == null) ? cur.flank : cur.pendingFlank
+    const f = Math.max(_GC_FLANK_MIN, Math.min(_GC_FLANK_MAX, raw))
+    cur.flankNotice = (raw !== f)
         ? `${raw.toLocaleString("en-US")} bp is outside the permitted ${_GC_FLANK_MIN}–${_GC_FLANK_MAX.toLocaleString("en-US")} bp range — using ${f.toLocaleString("en-US")} bp.`
         : null
-    if (f === _GC.current.flank) { if (_GC.current.site) _gcShow(); return }
-    _GC.current.flank = f
-    if (_GC.current.site) _gcRender()
+    cur.pendingFlank = null
+    if (f === cur.flank) { if (cur.site) _gcShow(); return }
+    cur.flank = f
+    if (cur.site) _gcRender()
+}
+
+// Kept for anything that sets the flank directly rather than through the box.
+function GC_setFlank(value) {
+    if (!_GC.current) return
+    GC_flankTyped(value)
+    GC_applyFlank()
 }
 
 function GC_setOrientation(o) {
@@ -666,15 +727,35 @@ function _gcShow() {
     // changes, so the choice is named by the strand each one shows. The help
     // sits on each label rather than on the pair, or hovering either one
     // explains the other.
-    html += `<div class="gcRow gcControls">` +
-        `<label title="How much genomic sequence to fetch on each side of the spacer. The PAM is counted inside this, not added to it. 500 bp suits a sequencing amplicon; go longer for a bigger product or to read through long deletions. Permitted range ${_GC_FLANK_MIN}–${_GC_FLANK_MAX} bp.">Flank ` +
-        `<input type="number" id="gcFlank" min="${_GC_FLANK_MIN}" max="${_GC_FLANK_MAX}" step="50" value="${cur.flank}" onchange="GC_setFlank(this.value)"> bp each side</label>` +
-        `<span class="gcHint">(${_GC_FLANK_MIN}–${_GC_FLANK_MAX} bp)</span>` +
-        `<span class="gcOrient">Strand shown: ` +
-        `<label title="The strand the sgRNA matches. The spacer reads 5' to 3' at the same positions every time, with the PAM straight after it. Use this when you are working from the guide.">` +
-        `<input type="radio" name="gcOrient" value="guide" ${cur.orientation === "guide" ? "checked" : ""} onchange="GC_setOrientation('guide')"> sgRNA strand</label> ` +
-        `<label title="${tx ? "The strand the transcript is on, so exons are numbered in reading order. When the guide is on the opposite strand the spacer appears as its reverse complement, with the PAM (CCN) before it." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to show."}">` +
-        `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene strand</label></span>` +
+    // Each control on its own row with a fixed-width caption, so the labels
+    // and the fields line up instead of running together across one line.
+    //
+    // The flank is typed against a Show button rather than applied on change:
+    // every change refetches from UCSC, so stepping 500 to 800 through the
+    // keyboard would have fired three requests on the way.
+    const pending = (cur.pendingFlank == null) ? cur.flank : cur.pendingFlank
+    const dirty = pending !== cur.flank
+    html += `<div class="gcControls">` +
+        `<div class="gcCtrlRow">` +
+        `<span class="gcCtrlLabel" title="How much genomic sequence to fetch on each side of the spacer. The PAM is counted inside this, not added to it. 500 bp suits a sequencing amplicon; go longer for a bigger product or to read through long deletions.">Flanking sequence</span>` +
+        `<span class="gcStepper">` +
+        `<button type="button" class="gcStep" onclick="GC_nudgeFlank(-50)" title="50 bp shorter"${pending <= _GC_FLANK_MIN ? " disabled" : ""}>&minus;</button>` +
+        `<input type="number" id="gcFlank" min="${_GC_FLANK_MIN}" max="${_GC_FLANK_MAX}" step="50" value="${pending}" oninput="GC_flankTyped(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();GC_applyFlank()}">` +
+        `<button type="button" class="gcStep" onclick="GC_nudgeFlank(50)" title="50 bp longer"${pending >= _GC_FLANK_MAX ? " disabled" : ""}>+</button>` +
+        `</span>` +
+        `<span class="gcUnit">bp each side</span>` +
+        `<span class="gcHint">${_GC_FLANK_MIN}–${_GC_FLANK_MAX}</span>` +
+        `<button type="button" class="validate-btn gcApply${dirty ? " gcApplyOn" : ""}" onclick="GC_applyFlank()"${dirty ? "" : " disabled"}>` +
+        `${dirty ? `Show ${pending} bp` : "Showing"}</button>` +
+        `</div>` +
+        `<div class="gcCtrlRow">` +
+        `<span class="gcCtrlLabel" title="Which of the two DNA strands the sequence below is written out as. Both contain the same information; they differ in which one reads left to right.">Read sequence as</span>` +
+        `<span class="gcOrient">` +
+        `<label title="The sequence is written along the strand the sgRNA matches, so the spacer reads 5' to 3' exactly as you ordered it, with the PAM straight after. Positions of the spacer and PAM are then the same for every guide.">` +
+        `<input type="radio" name="gcOrient" value="guide" ${cur.orientation === "guide" ? "checked" : ""} onchange="GC_setOrientation('guide')"> sgRNA 5'&rarr;3'</label>` +
+        `<label title="${tx ? "The sequence is written along the gene's own strand, so exons run in reading order. A guide on the opposite strand then appears as its reverse complement, with the PAM (CCN) ahead of the spacer." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to write along."}"${tx ? "" : ' class="gcDisabled"'}>` +
+        `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene 5'&rarr;3'</label></span>` +
+        `</div>` +
         `</div>`
 
     // What the flank change did, and whether the result can still carry
@@ -704,6 +785,7 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the colouring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
         `<button class="validate-btn" onclick="GC_openPrimerBlast()" title="Opens NCBI Primer-BLAST in a new tab with this sequence filled in and the primer windows set so both primers sit clear of the cut. Uses the settings below.">Open in Primer-BLAST</button>` +
+        `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `</div>`
 
     html += _gcSeqHtml(v)
@@ -992,8 +1074,12 @@ function GC_pbReset() {
 function _gcPbSettingsHtml(v) {
     const pb = _gcPbLoad()
     const changed = Object.keys(_GC_PB_DEFAULTS).some(k => String(pb[k]) !== String(_GC_PB_DEFAULTS[k]))
-    const num = (key, label, title, step) =>
-        `<label title="${_escapeHtml(title)}">${label} <input type="number" step="${step || 1}" value="${_escapeHtml(pb[key])}" onchange="GC_pbChange('${key}', this.value)"></label>`
+    const num = (key, label, title, step) => {
+        const stock = _GC_PB_STOCK[key]
+        const ph = stock == null ? "" : ` placeholder="${stock}"`
+        const tip = stock == null ? title : `${title} Leave blank for Primer-BLAST's own default of ${stock}.`
+        return `<label title="${_escapeHtml(tip)}">${label} <input type="number" step="${step || 1}"${ph} value="${_escapeHtml(pb[key])}" onchange="GC_pbChange('${key}', this.value)"></label>`
+    }
     // The windows are computed from the flank, so they are shown rather than
     // typed — otherwise the panel would state a range the link no longer uses.
     const w = _gcPrimerWindows(v)
@@ -1004,7 +1090,10 @@ function _gcPbSettingsHtml(v) {
           `Changing the flank moves both.</span>`
     return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
         `<summary>Primer-BLAST settings${changed ? " (customised)" : ""}</summary>` +
-        `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) for the specificity check against its genome. The defaults give an amplicon of 500 bp or more with the cut at least 150 bp from either primer, which meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Remembered in this browser, so enter your usual values once. Blank fields leave Primer-BLAST's own default in place.</p>` +
+        `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) for the specificity check against its genome. ` +
+        `Only two things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp, and the primer windows, worked out from the cut. ` +
+        `Every other box is blank, which means Primer-BLAST's documented default — shown in grey inside the box — and nothing for it is sent. ` +
+        `That meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Anything you type here is remembered in this browser.</p>` +
         `<div class="gcPbGrid">` +
         num("minDist", "Keep primers clear of the cut", "Neither primer may sit closer than this to the cut site, so an indel cannot land under a primer and the trace has settled before the edit. ICE asks for 150 bp or more; TIDE prefers the cut about 200 bp into the read and needs at least 100 bp before it for alignment. The primer windows are worked out from this and the flank, so they follow whatever flank you choose.", 10) + `<span class="gcUnit">bp each side</span>` +
         windowLine +

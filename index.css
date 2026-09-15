@@ -1215,17 +1215,116 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     overflow-wrap: anywhere;
 }
 
-.gcControls label,
-.gcOrient label {
-    font-size: 0.85rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+/* One row per control, with a fixed caption column so the fields start at the
+   same x. Previously everything sat on one flex line and the labels ran into
+   each other. */
+.gcControls {
+    margin: 10px 0;
 }
 
-.gcControls input[type="number"] {
-    width: 70px;
-    padding: 3px 6px;
+.gcCtrlRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 0.85rem;
+}
+
+.gcCtrlLabel {
+    flex: 0 0 auto;
+    width: 130px;
+    color: var(--gray-600);
+    border-bottom: 1px dotted #9ca3af;
+    cursor: help;
+}
+
+.gcOrient {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.gcOrient label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.gcOrient label.gcDisabled {
+    color: var(--gray-500);
+    cursor: not-allowed;
+}
+
+/* Minus / value / plus as one control. */
+.gcStepper {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--gray-200);
+    border-radius: 4px;
+    overflow: hidden;
+    background: white;
+}
+
+.gcStep {
+    border: none;
+    background: var(--green-50);
+    color: var(--green-800);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0 11px;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+.gcStep:hover:not(:disabled) {
+    background: var(--green-100);
+    filter: none;
+}
+
+.gcStep:disabled {
+    color: var(--gray-200);
+    background: #fafafa;
+    cursor: default;
+}
+
+.gcStepper input[type="number"] {
+    width: 68px;
+    border: none;
+    border-left: 1px solid var(--gray-200);
+    border-right: 1px solid var(--gray-200);
+    text-align: center;
+    padding: 4px 2px;
+    font-size: 0.85rem;
+    -moz-appearance: textfield;
+}
+
+.gcStepper input::-webkit-outer-spin-button,
+.gcStepper input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Nothing is fetched until this is pressed, so it has to look pressable only
+   when there is actually a change waiting. */
+.gcApply {
+    font-size: 12px;
+    padding: 5px 11px;
+}
+
+.gcApply:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.gcApplyOn {
+    background: var(--mainColor);
+    color: white;
+    border-color: var(--mainColor);
 }
 
 .gcActions .validate-btn {
@@ -1490,5 +1589,92 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
         flex-wrap: wrap;
         justify-content: center;
         row-gap: 10px;
+    }
+}
+
+
+/* Export-image dialog for the genomic-context figure. */
+.gcxNote {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin: 0 0 12px 0;
+}
+
+.gcxFormats {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.gcxFmt {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 11px;
+    border: 1px solid var(--gray-200);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.gcxFmt:hover {
+    background: var(--green-50);
+    border-color: var(--green-300);
+}
+
+.gcxFmtName {
+    font-weight: 700;
+    color: var(--green-800);
+    font-size: 0.9rem;
+}
+
+.gcxFmtNote {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+}
+
+.gcxRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin: 10px 0;
+    font-size: 0.85rem;
+}
+
+.gcxCenter {
+    justify-content: center;
+    gap: 10px;
+}
+
+.gcxRow label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gcxRow input[type="number"] {
+    width: 70px;
+    padding: 3px 6px;
+}
+
+.gcxSize {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    margin: 4px 0 12px 0;
+    min-height: 1.2em;
+}
+
+@media only screen and (max-width: 600px) {
+    .gcCtrlLabel {
+        width: 100%;
+    }
+
+    .gcxFmt {
+        grid-template-columns: auto 1fr;
+    }
+
+    .gcxFmtNote {
+        grid-column: 1 / -1;
     }
 }
