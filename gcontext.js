@@ -99,6 +99,29 @@ const _GC_PB_STOCK = {
     numReturn: 10
 }
 
+// RefSeq accession for each chromosome, from the NCBI assembly reports for
+// GRCh38.p14 and GRCm39. Needed to tell Primer-BLAST up front which genomic
+// locus the pasted template is, which is what stops it interrupting with a
+// "select your intended target" page before it will design anything.
+const _GC_CHROM_ACC = {
+    hg38: {
+        chr1:"NC_000001.11", chr2:"NC_000002.12", chr3:"NC_000003.12", chr4:"NC_000004.12",
+        chr5:"NC_000005.10", chr6:"NC_000006.12", chr7:"NC_000007.14", chr8:"NC_000008.11",
+        chr9:"NC_000009.12", chr10:"NC_000010.11", chr11:"NC_000011.10", chr12:"NC_000012.12",
+        chr13:"NC_000013.11", chr14:"NC_000014.9", chr15:"NC_000015.10", chr16:"NC_000016.10",
+        chr17:"NC_000017.11", chr18:"NC_000018.10", chr19:"NC_000019.10", chr20:"NC_000020.11",
+        chr21:"NC_000021.9", chr22:"NC_000022.11", chrX:"NC_000023.11", chrY:"NC_000024.10"
+    },
+    mm39: {
+        chr1:"NC_000067.7", chr2:"NC_000068.8", chr3:"NC_000069.7", chr4:"NC_000070.7",
+        chr5:"NC_000071.7", chr6:"NC_000072.7", chr7:"NC_000073.7", chr8:"NC_000074.7",
+        chr9:"NC_000075.7", chr10:"NC_000076.7", chr11:"NC_000077.7", chr12:"NC_000078.7",
+        chr13:"NC_000079.7", chr14:"NC_000080.7", chr15:"NC_000081.7", chr16:"NC_000082.7",
+        chr17:"NC_000083.7", chr18:"NC_000084.7", chr19:"NC_000085.7", chrX:"NC_000086.8",
+        chrY:"NC_000087.8"
+    }
+}
+
 const _GC_PB_DBS = [
     { value: "PRIMERDB/genome_selected_species", label: "Genome of the selected organism (reference assembly)" },
     { value: "refseq_representative_genomes", label: "RefSeq representative genomes" },
@@ -583,14 +606,20 @@ function _gcMessage(html) {
     document.getElementById("gcBody").innerHTML = html
 }
 
-function _gcStatus(text) {
-    _gcMessage(`<p class="gcStatus">${_escapeHtml(text)}</p>`)
+function _gcStatus(text, detail) {
+    _gcMessage(`<p class="gcStatus">${_escapeHtml(text)}</p>` +
+        (detail ? `<p class="gcSource">${_escapeHtml(detail)}</p>` : ""))
 }
+
+// One place to name the service, so every progress line says the same thing.
+const _GC_SOURCE = "UCSC Genome Browser REST API (api.genome.ucsc.edu)"
+
 
 async function _gcRun() {
     const cur = _GC.current
     const g = _GC_GENOMES[cur.species]
-    _gcStatus(`Locating ${cur.spacer} in ${cur.symbol} (${g.assembly})…`)
+    _gcStatus(`Searching for ${cur.spacer} in ${cur.symbol}…`,
+              `Querying the ${_GC_SOURCE} for the ${cur.symbol} locus in ${g.assembly}.`)
     var locus
     try {
         locus = await _gcLocate(cur.species, cur.symbol, cur.spacer)
@@ -650,7 +679,8 @@ async function _gcRender() {
     const windowStart = Math.max(0, site.spacerStart - cur.flank)
     const windowEnd = site.spacerStart + L + cur.flank
 
-    _gcStatus(`Fetching ${site.chrom}:${(windowStart + 1).toLocaleString()}-${windowEnd.toLocaleString()} and its exons…`)
+    _gcStatus(`Loading ${(windowEnd - windowStart).toLocaleString("en-US")} bp of sequence and its exons…`,
+              `From the ${_GC_SOURCE}: ${g.assembly} ${site.chrom}:${(windowStart + 1).toLocaleString("en-US")}-${windowEnd.toLocaleString("en-US")}, plus the overlapping RefSeq transcript.`)
     var dna, txList
     try {
         dna = await _gcSequence(g.genome, site.chrom, windowStart, windowEnd)
@@ -1028,9 +1058,23 @@ function GC_openPrimerBlast() {
     p.set("ORGANISM", v.g.organism)
     p.set("PRIMER_SPECIFICITY_DATABASE", pb.db)
     p.set("SEARCH_SPECIFIC_PRIMER", "on")
+
+    // Name the locus this template came from. Without it Primer-BLAST finds
+    // the template's own position in the genome, cannot tell it from an
+    // off-target, and stops at a page asking which hits are intended before
+    // designing anything. The coordinates are the plus strand of the window
+    // and are 0-based inclusive, which is the form NCBI itself emits; a
+    // reverse-complemented template is still matched at the same place, so
+    // this is correct for guides on either strand.
+    const acc = (_GC_CHROM_ACC[v.g.genome] || {})[v.site.chrom]
+    if (acc) p.set("USER_SEQLOC", `ref|${acc}|?${v.cur.windowStart}?${v.cur.windowStart + v.n - 1}`)
+
     const num = (key, val) => { if (val !== "" && val != null && !isNaN(Number(val))) p.set(key, String(val)) }
     num("PRIMER_PRODUCT_MIN", pb.productMin)
-    num("PRIMER_PRODUCT_MAX", pb.productMax)
+    // Left blank this becomes 1000, which is shorter than the template and
+    // silently bars any pair spanning the whole window. Default it to the
+    // window instead, so the full sequence is usable.
+    num("PRIMER_PRODUCT_MAX", (pb.productMax === "" || pb.productMax == null) ? v.n : pb.productMax)
     num("PRIMER_NUM_RETURN", pb.numReturn)
     num("PRIMER_MIN_TM", pb.tmMin)
     num("PRIMER_OPT_TM", pb.tmOpt)
@@ -1075,7 +1119,9 @@ function _gcPbSettingsHtml(v) {
     const pb = _gcPbLoad()
     const changed = Object.keys(_GC_PB_DEFAULTS).some(k => String(pb[k]) !== String(_GC_PB_DEFAULTS[k]))
     const num = (key, label, title, step) => {
-        const stock = _GC_PB_STOCK[key]
+        // The product ceiling defaults to this window rather than to
+        // Primer-BLAST's 1000, so the placeholder has to say so.
+        const stock = (key === "productMax") ? v.n : _GC_PB_STOCK[key]
         const ph = stock == null ? "" : ` placeholder="${stock}"`
         const tip = stock == null ? title : `${title} Leave blank for Primer-BLAST's own default of ${stock}.`
         return `<label title="${_escapeHtml(tip)}">${label} <input type="number" step="${step || 1}"${ph} value="${_escapeHtml(pb[key])}" onchange="GC_pbChange('${key}', this.value)"></label>`
@@ -1090,9 +1136,9 @@ function _gcPbSettingsHtml(v) {
           `Changing the flank moves both.</span>`
     return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
         `<summary>Primer-BLAST settings${changed ? " (customised)" : ""}</summary>` +
-        `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) for the specificity check against its genome. ` +
-        `Only two things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp, and the primer windows, worked out from the cut. ` +
-        `Every other box is blank, which means Primer-BLAST's documented default — shown in grey inside the box — and nothing for it is sent. ` +
+        `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) and this window's genomic position, so it checks specificity against the genome and goes straight to designing rather than first asking you which hit was the intended target. ` +
+        `Three things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp; the maximum, set to the length of this window instead of 1000 so a pair may span all of it; and the primer windows, worked out from the cut. ` +
+        `Every other box is left blank on purpose — Primer-BLAST fills those with its own documented defaults, shown in grey inside each box. ` +
         `That meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Anything you type here is remembered in this browser.</p>` +
         `<div class="gcPbGrid">` +
         num("minDist", "Keep primers clear of the cut", "Neither primer may sit closer than this to the cut site, so an indel cannot land under a primer and the trace has settled before the edit. ICE asks for 150 bp or more; TIDE prefers the cut about 200 bp into the read and needs at least 100 bp before it for alignment. The primer windows are worked out from this and the flank, so they follow whatever flank you choose.", 10) + `<span class="gcUnit">bp each side</span>` +

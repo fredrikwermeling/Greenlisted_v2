@@ -1169,6 +1169,14 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-style: italic;
 }
 
+/* Where the data is coming from, shown while it loads. The footer credits
+   UCSC too, but that only appears once the panel has drawn. */
+.gcSource {
+    margin: 4px 0 0 0;
+    font-size: 0.78rem;
+    color: var(--gray-500);
+}
+
 .gcError {
     padding: 8px 12px;
     background: #fef2f2;
