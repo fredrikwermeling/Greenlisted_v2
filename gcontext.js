@@ -46,7 +46,15 @@ const _GC_FLANK_DEFAULT = 500
 const _GC_FLANK_MIN = 100
 const _GC_FLANK_MAX = 2000
 const _GC_MIN_GAP_MS = 1000        // UCSC asks for at most one request per second
-const _GC_PB_URL = "https://www.ncbi.nlm.nih.gov/tools/primer-blast/index.cgi"
+// Primer-BLAST's own form POSTs to primertool.cgi; index.cgi only renders the
+// form. Posting straight to the tool matters for two reasons: the form page
+// silently drops USER_SEQLOC, which is the parameter that stops the run
+// halting on a "which of these hits did you mean" page, and a GET URL is
+// capped near 8 kB, which a long flank would exceed.
+const _GC_PB_URL = "https://www.ncbi.nlm.nih.gov/tools/primer-blast/primertool.cgi"
+// The page that renders the form, for looking at the settings rather than
+// running them.
+const _GC_PB_FORM_URL = "https://www.ncbi.nlm.nih.gov/tools/primer-blast/index.cgi"
 const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
 // an older version is dropped rather than merged, so a new default is not
@@ -142,8 +150,8 @@ const _GC_PB_PRESETS = {
     },
     ngs: {
         label: "Amplicon NGS",
-        note: "A short product read many times. Sized to fit inside a 2×150 paired-end read with the cut near the middle.",
-        values: { minDist: 50, productMin: 180, productMax: 280 }
+        note: "Sized to be the longest a 2×150 paired-end read can still merge across, so large deletions are not lost.",
+        values: { minDist: 50, productMin: 220, productMax: 280 }
     }
 }
 
@@ -866,7 +874,7 @@ function _gcShow() {
         // which is the setting people most often need to change and the one
         // that was hidden inside the collapsed panel.
         `<div class="gcCtrlRow">` +
-        `<span class="gcCtrlLabel" title="How you intend to read the edit. This sets the product size and how far the primers are kept from the cut; both are still editable under Primer-BLAST settings.">Primers for</span>` +
+        `<span class="gcCtrlLabel" title="How you intend to read the edit. This sets the product size and how far the primers are kept from the cut; both are still editable under Primer-BLAST settings.\n\nFor amplicon NGS the product is not made as short as possible on purpose. A deletion that reaches a primer site destroys the amplicon and that allele simply disappears from the data, so the longest product the reads can still merge across is the safer choice. 280 bp is the ceiling for a 2×150 paired-end run, which needs the two reads to overlap; on a 2×250 run you can raise it to about 450.">Primers for</span>` +
         `<span class="gcOrient">` +
         Object.keys(_GC_PB_PRESETS).map(id =>
             `<label title="${_escapeHtml(_GC_PB_PRESETS[id].note)}">` +
@@ -906,10 +914,14 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_copyFasta()" title="Plain text: flanks in lower case, spacer and PAM in upper case, positions in the header. Paste into Primer-BLAST, Primer3 or any editor.">Copy FASTA</button>` +
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the colouring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
-        `<button class="validate-btn" onclick="GC_openPrimerBlast()" title="Opens NCBI Primer-BLAST in a new tab with this sequence filled in and the primer windows set so both primers sit clear of the cut. Uses the settings below.">Open in Primer-BLAST</button>` +
+        `<button class="validate-btn" onclick="GC_openPrimerBlast()" title="Runs NCBI Primer-BLAST in a new tab on this sequence, with the primer windows set so both primers sit clear of the cut and the genomic position declared so it does not stop to ask which hit you meant. The search starts straight away; it takes a few minutes. Uses the settings below.">Run Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
-        `</div>`
+        `</div>` +
+        `<p class="gcAlt">Run Primer-BLAST starts the search straight away. To see the settings first, ` +
+        `<a href="javascript:void(0)" onclick="GC_openPrimerBlastForm()" ` +
+        `title="Opens Primer-BLAST's own form with every one of these settings filled in, so you can read what was asked for, change it, and submit it yourself. Going this way it will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">open its form with these settings filled in</a> ` +
+        `instead. That way it pauses once to ask which genome hit you meant &mdash; tick your gene and submit.</p>`
 
     html += _gcSeqHtml(v)
 
@@ -1128,8 +1140,11 @@ function _gcFlankFor(v, minDist, room) {
 
 // The sequence goes in as plain bases; Primer-BLAST reads GET parameters for
 // every field set here (checked against the live form).
-function GC_openPrimerBlast() {
-    if (!_gcReady()) return
+// Everything Primer-BLAST is told, built once so the two routes below cannot
+// drift apart. Returns null, having explained itself, when the window cannot
+// hold primers.
+function _gcPrimerBlastParams() {
+    if (!_gcReady()) return null
     const v = _gcView()
     const pb = _gcPbLoad()
     const w = _gcPrimerWindows(v)
@@ -1140,7 +1155,7 @@ function GC_openPrimerBlast() {
         alert(`A ${v.n} bp sequence leaves too little room for primers when ${w.minDist} bp is kept clear on each side of the cut ` +
               `(${Math.max(0, w.fwdRoom)} bp before it, ${Math.max(0, w.revRoom)} bp after).\n\n` +
               `Raise the flank to about ${need} bp each side, or reduce the clearance.`)
-        return
+        return null
     }
     const p = new URLSearchParams()
     p.set("INPUT_SEQUENCE", v.seq)
@@ -1178,7 +1193,53 @@ function GC_openPrimerBlast() {
     num("PRIMER_MAX_SIZE", pb.sizeMax)
     num("PRIMER_MIN_GC", pb.gcMin)
     num("PRIMER_MAX_GC", pb.gcMax)
-    window.open(`${_GC_PB_URL}?${p.toString()}`, "_blank", "noopener")
+    return p
+}
+
+// Straight to the search. Posted rather than linked, because the form page
+// drops the target declaration and the run would then stop to ask.
+function GC_openPrimerBlast() {
+    const p = _gcPrimerBlastParams()
+    if (p) _gcPostToPrimerBlast(p)
+}
+
+// The same settings, but shown on Primer-BLAST's own form rather than run, so
+// what the app asked for can be read, changed, and learned from. This route
+// necessarily meets the "which of these hits did you mean" step, because the
+// form page is exactly what discards the answer to it — so say so rather than
+// let it come as a surprise.
+function GC_openPrimerBlastForm() {
+    const p = _gcPrimerBlastParams()
+    if (!p) return
+    window.open(`${_GC_PB_FORM_URL}?${p.toString()}`, "_blank", "noopener")
+}
+
+// Submit as a real form POST, the way Primer-BLAST's own page does. A link
+// cannot carry the target declaration through — index.cgi renders the form
+// without it, so pressing Get Primers there loses it and the run stops to ask
+// which genome hit was intended.
+function _gcPostToPrimerBlast(params) {
+    try {
+        const f = document.createElement("form")
+        f.method = "POST"
+        f.action = _GC_PB_URL
+        f.target = "_blank"
+        f.enctype = "multipart/form-data"
+        f.style.display = "none"
+        params.forEach((value, key) => {
+            const i = document.createElement("input")
+            i.type = "hidden"; i.name = key; i.value = value
+            f.appendChild(i)
+        })
+        document.body.appendChild(f)
+        f.submit()
+        setTimeout(() => f.remove(), 1000)
+    } catch (e) {
+        // Falling back to a link loses the target declaration, so the run will
+        // stop and ask; better than not opening at all.
+        console.warn("Primer-BLAST POST failed, falling back to a link:", e)
+        window.open(`${_GC_PB_URL}?${params.toString()}`, "_blank", "noopener")
+    }
 }
 
 // -----------------------------------------------------------------------------

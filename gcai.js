@@ -50,7 +50,17 @@ const _GCAI_COLS = {
 // Parsing Primer-BLAST's CSV
 // =============================================================================
 
-function _gcaiSplitCsvLine(line) {
+// Primer-BLAST offers the same table as Text, CSV and Tabular, and people
+// also select the table on the page and copy it. Comma and tab both turn up,
+// so the separator is taken from whichever the header actually uses rather
+// than assumed.
+function _gcaiSniffDelimiter(headerLine) {
+    const commas = (headerLine.match(/,/g) || []).length
+    const tabs = (headerLine.match(/\t/g) || []).length
+    return tabs > commas ? "\t" : ","
+}
+
+function _gcaiSplitLine(line, delim) {
     const out = []
     var cur = "", q = false
     for (var i = 0; i < line.length; i++) {
@@ -60,11 +70,58 @@ function _gcaiSplitCsvLine(line) {
             else if (c === '"') q = false
             else cur += c
         } else if (c === '"') q = true
-        else if (c === ",") { out.push(cur); cur = "" }
+        else if (c === delim) { out.push(cur); cur = "" }
         else cur += c
     }
     out.push(cur)
     return out
+}
+
+// The "Text" download, and the table as it reads on the results page, are laid
+// out as a block per pair rather than a row. Parsed separately.
+//
+//   Primer pair 1
+//           Sequence (5'->3')  Template strand  Length  Start  Stop  Tm  GC% ...
+//   Forward primer  GCTAAAGG...  Plus  20  347  366  60.03  60.00  2.00  0.00
+//   Reverse primer  AAACATGC...  Minus 20  1006 987  60.25  55.00  4.00  3.00
+//   Product length  660
+function _gcaiParseBlockFormat(text) {
+    const lines = text.split(/\r?\n/)
+    const pairs = []
+    var cur = null
+    const cells = l => l.trim().split(/\t+|\s{2,}/).map(x => x.trim()).filter(x => x.length)
+    const num = v => { const n = Number(String(v).trim()); return isFinite(n) ? n : null }
+    const side = c => ({
+        sequence: c[1].toUpperCase(), strand: c[2] || null,
+        length: num(c[3]), a: num(c[4]), b: num(c[5]),
+        tm: num(c[6]), gcPercent: num(c[7]),
+        selfComplementarity: num(c[8]), self3Complementarity: num(c[9])
+    })
+    for (const raw of lines) {
+        const l = raw.trim()
+        if (/^primer pair\s*\d+/i.test(l)) {
+            if (cur && cur.forward && cur.reverse) pairs.push(cur)
+            cur = { pair: num((l.match(/(\d+)/) || [])[1]) }
+            continue
+        }
+        if (!cur) continue
+        const c = cells(raw)
+        if (/^forward primer/i.test(l) && c.length >= 6 && /^[ACGTacgt]+$/.test(c[1])) {
+            const s = side(c)
+            cur.forward = { sequence: s.sequence, length: s.length, start: s.a, end: s.b,
+                            tm: s.tm, gcPercent: s.gcPercent,
+                            selfComplementarity: s.selfComplementarity, self3Complementarity: s.self3Complementarity }
+        } else if (/^reverse primer/i.test(l) && c.length >= 6 && /^[ACGTacgt]+$/.test(c[1])) {
+            const s = side(c)
+            cur.reverse = { sequence: s.sequence, length: s.length, fivePrimeEnd: s.a, threePrimeEnd: s.b,
+                            tm: s.tm, gcPercent: s.gcPercent,
+                            selfComplementarity: s.selfComplementarity, self3Complementarity: s.self3Complementarity }
+        } else if (/^product length/i.test(l)) {
+            cur.productLength = num(c[1])
+        }
+    }
+    if (cur && cur.forward && cur.reverse) pairs.push(cur)
+    return pairs.filter(p => p.forward && p.reverse).map((p, i) => Object.assign({ pair: p.pair || i + 1 }, p))
 }
 
 // Returns { pairs, error }. Tolerates the byte-order mark Primer-BLAST writes,
@@ -72,10 +129,19 @@ function _gcaiSplitCsvLine(line) {
 function GC_aiParsePrimerCsv(text) {
     const clean = String(text || "").replace(/^﻿/, "").trim()
     if (!clean) return { pairs: [], error: null }
+
+    // The block layout has no column header, so try it first when the text
+    // looks like it.
+    if (/^\s*primer pair\s*\d+/im.test(clean) && /forward primer/i.test(clean)) {
+        const blocks = _gcaiParseBlockFormat(clean)
+        if (blocks.length) return { pairs: blocks, error: null }
+    }
+
     const lines = clean.split(/\r?\n/).filter(l => l.trim().length)
     if (lines.length < 2) return { pairs: [], error: "That looks like a header with no primer rows under it." }
 
-    const header = _gcaiSplitCsvLine(lines[0]).map(h => h.trim())
+    const delim = _gcaiSniffDelimiter(lines[0])
+    const header = _gcaiSplitLine(lines[0], delim).map(h => h.trim())
     const idx = {}
     for (const key in _GCAI_COLS) {
         const n = header.findIndex(h => _GCAI_COLS[key].test(h))
@@ -84,13 +150,13 @@ function GC_aiParsePrimerCsv(text) {
     const need = ["fSeq", "fStart", "fStop", "rSeq", "rStart", "rStop", "product"]
     const missing = need.filter(k => idx[k] == null)
     if (missing.length) {
-        return { pairs: [], error: "This does not look like a Primer-BLAST CSV — no forward/reverse primer columns found. Use the CSV link under \"Download primer pairs\" on the Primer-BLAST results page." }
+        return { pairs: [], error: "No forward and reverse primer columns could be found in that. Any of Primer-BLAST's three downloads works — Text, CSV or Tabular — and so does selecting the table on the results page and copying it." }
     }
 
     const num = v => { const n = Number(String(v).trim()); return isFinite(n) ? n : null }
     const pairs = []
     for (var i = 1; i < lines.length; i++) {
-        const c = _gcaiSplitCsvLine(lines[i])
+        const c = _gcaiSplitLine(lines[i], delim)
         const fSeq = (c[idx.fSeq] || "").trim().toUpperCase()
         const rSeq = (c[idx.rSeq] || "").trim().toUpperCase()
         if (!/^[ACGT]+$/.test(fSeq) || !/^[ACGT]+$/.test(rSeq)) continue
@@ -326,8 +392,9 @@ function GC_aiExport() {
         `distance from the cut. Attach it to an assistant and ask which pair to order.</p>` +
 
         `<label class="gcaiLabel" for="gcaiCsv">Primer-BLAST results <span class="gcaiOpt">(optional)</span></label>` +
-        `<p class="gcaiHint">On the Primer-BLAST results page, under <i>Download primer pairs</i>, click <b>CSV</b>, then paste the file here ` +
-        `or drop it on this box. Without it the file still describes the locus, but carries no primer pairs to choose between.</p>` +
+        `<p class="gcaiHint">On the Primer-BLAST results page, either select the primer table and copy it, or use any of the links under ` +
+        `<i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and <b>Tabular</b> all work &mdash; then paste it here or drop the ` +
+        `file on this box. Without it the file still describes the locus, but carries no primer pairs to choose between.</p>` +
         `<textarea id="gcaiCsv" class="gcaiArea" rows="5" placeholder="Primer pair #,Forward primer Sequence (5'->3'),..." ` +
         `oninput="GC_aiCheckCsv()"></textarea>` +
         `<p class="gcaiStatus" id="gcaiCsvStatus"></p>` +

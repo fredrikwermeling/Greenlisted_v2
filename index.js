@@ -182,7 +182,7 @@ function toggleValidateMode(species) {
         document.body.classList.remove("validate-mode")
         humanBtn.classList.remove("validate-btn-active")
         mouseBtn.classList.remove("validate-btn-active")
-        _setSectionTitle("symbolsTitle", "Symbols")
+        _setSectionTitle("symbolsTitle", "Symbols (one or more)")
         _setSectionTitle("inputPlateTitle", "2. Input symbols")
         // Reload default settings to restore a clean design-mode state
         init()
@@ -2045,7 +2045,7 @@ function _cnExitMode() {
     document.body.classList.remove("cn-mode")
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    _setSectionTitle("symbolsTitle", "Symbols")
+    _setSectionTitle("symbolsTitle", "Symbols (one or more)")
     _setSectionTitle("inputPlateTitle", "2. Input symbols")
     init()
 }

@@ -43,7 +43,18 @@
 <body onload="init()">
     <header>
         <span class="centerContent">
-            <img src="logo v2.png" alt="Green Listed -a CRISPR Screen Tool">
+            <!-- The wordmark is live text rather than part of the image, so the
+                 strapline can be set in two lines and still scale. Only the
+                 leaves remain a picture. -->
+            <a class="brand" href="index.html" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
+                <span class="brandText">
+                    <span class="brandName">Green&nbsp;Listed<span class="brandVer">v2.0</span></span>
+                    <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a
+                        <span class="brandTagStack"><span>sgRNA design</span><span>CRISPR screen</span></span>
+                        tool</span>
+                </span>
+                <img class="brandLeaves" src="leaves.png" alt="">
+            </a>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
                 <a target="_blank" rel="noopener noreferrer"
@@ -290,7 +301,7 @@ Each symbol is looked up in the selected library. Anything that finds no match i
             <div class="plateContent">
 
                 <div class="smallPlate">
-                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Symbols</span><span class="infoDot" title="How your typed symbols are matched to the library.
+                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Symbols (one or more)</span><span class="infoDot" title="How your typed symbols are matched to the library.
 
 Only direct matches: the symbol must appear exactly as the library spells it.
 

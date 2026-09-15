@@ -115,9 +115,7 @@ header {
     justify-content: center;
 }
 
-/* The logo is 779px wide. Without this it keeps that width on a phone and is
-   cropped by the viewport — which is why it appears only when the handset is
-   turned landscape. */
+/* Any image in the header stays inside the viewport on a phone. */
 header img {
     max-width: 100%;
     height: auto;
@@ -1754,4 +1752,94 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-size: 0.75rem;
     color: var(--gray-500);
     margin: 8px 0 0 0;
+}
+
+/* Wordmark. This was one flat PNG; the strapline is now live text so it can be
+   set in two stacked lines and still scale with the page. Only the leaves are
+   still a picture. The colour is sampled from the original artwork. */
+.brand {
+    --brandGreen: #83aa3d;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.06em;
+    margin-bottom: 0.18em;
+    font-size: clamp(26px, 6.2vw, 58px);   /* everything below is in em of this */
+    line-height: 1;
+    text-decoration: none;
+    color: var(--brandGreen);
+}
+
+.brand:hover { filter: none; }
+
+.brandText {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.brandName {
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+}
+
+/* The version rides above the cap line, as it did in the artwork. */
+.brandVer {
+    font-size: 0.3em;
+    font-weight: 600;
+    vertical-align: super;
+    margin-left: 0.15em;
+    letter-spacing: 0;
+}
+
+/* "- a  [sgRNA design / CRISPR screen]  tool": the two things the app does sit
+   stacked at half size between the words that frame them, so the line stays
+   one line and reads as one phrase. */
+.brandTag {
+    display: flex;
+    align-items: center;
+    gap: 0.2em;
+    font-size: 0.52em;
+    font-weight: 400;
+    white-space: nowrap;
+    margin-top: 0.1em;
+    padding-left: 0.08em;
+}
+
+.brandTagStack {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.12;
+    font-size: 0.62em;
+    text-align: left;
+}
+
+/* Sized and nudged to sit as it did in the original artwork, where the leaves
+   stood a little taller than the two lines of text and tucked against the
+   final "d". */
+.brandLeaves {
+    height: 2.05em;
+    width: auto;
+    margin-left: -0.04em;
+    margin-top: -0.06em;
+}
+
+@media only screen and (max-width: 600px) {
+    /* At phone width the stacked pair is the first thing to become unreadable,
+       so the strapline drops to a single line under the name. */
+    .brand { font-size: clamp(24px, 9vw, 40px); }
+    .brandTag { font-size: 0.46em; }
+}
+
+/* The quieter of the two Primer-BLAST routes: a sentence under the buttons
+   rather than a seventh button competing with them. */
+.gcAlt {
+    margin: -2px 0 10px 0;
+    font-size: 0.78rem;
+    color: var(--gray-600);
+}
+
+.gcAlt a {
+    color: var(--green-800);
 }
