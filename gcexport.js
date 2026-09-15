@@ -672,7 +672,10 @@ async function _gcxCanvasToPptx(canvas, widthCm, heightCm, svgStr) {
 function _gcxPrefs() {
     var stored = null
     try { stored = JSON.parse(localStorage.getItem(_GCX_STORE) || "null") } catch (e) { stored = null }
-    return Object.assign({ format: "pdf", widthCm: 18, dpi: 300 }, stored || {})
+    // 10 cm suits a single journal column and a lab-book page, and still sets
+    // the sequence at about 6.5 pt, which is the size sequence figures are
+    // normally printed at. Wider is for a poster or a full-width panel.
+    return Object.assign({ format: "pdf", widthCm: 10, dpi: 300 }, stored || {})
 }
 
 function _gcxSavePrefs(p) {
@@ -701,6 +704,7 @@ function GC_exportImage() {
         `<button class="validate-btn" onclick="GC_xClose()">Cancel</button></div>`
     document.getElementById("gcxModal").className = "fazeIn upset-modal-overlay"
     _GC.xRatio = ratio
+    _GC.xFigW = fig.width
     GC_xUpdate()
 }
 
@@ -723,9 +727,19 @@ function GC_xUpdate() {
     // Vector formats have no pixel count and stay small however big the
     // figure is printed, which is worth saying next to a resolution box that
     // otherwise looks like it applies to everything.
-    note.textContent = (spec && spec.vector)
+    const size = (spec && spec.vector)
         ? `${w} × ${h.toFixed(1)} cm, vector — sharp at any size, and a small file.`
         : `${w} × ${h.toFixed(1)} cm at ${dpi} dpi — ${px.toLocaleString("en-US")} × ${Math.round(px * (_GC.xRatio || 1)).toLocaleString("en-US")} pixels.`
+    // The figure's own geometry is fixed, so the width chosen here is what
+    // decides how big the sequence prints.
+    const pt = _GC.xFigW ? (_GCX.fontPx * ((w / 2.54 * 72) / _GC.xFigW)) : null
+    var typeNote = ""
+    if (pt) {
+        typeNote = ` Sequence set at ${pt.toFixed(1)} pt`
+        typeNote += (pt < 5) ? " — too small to read; widen the figure." : (pt < 6 ? " — small." : ".")
+    }
+    note.textContent = size + typeNote
+    note.className = (pt && pt < 5) ? "gcxSize gcxSizeWarn" : "gcxSize"
 }
 
 function _gcxSave(blob, filename) {

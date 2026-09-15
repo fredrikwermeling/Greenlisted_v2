@@ -1665,6 +1665,11 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     min-height: 1.2em;
 }
 
+.gcxSizeWarn {
+    color: #92400e;
+    font-weight: 600;
+}
+
 @media only screen and (max-width: 600px) {
     .gcCtrlLabel {
         width: 100%;
