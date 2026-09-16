@@ -14,7 +14,8 @@ settings = {
 
     "partialMatches": null,
 
-    "rankingTop": null,
+    // Not a user setting. Set from the selected library, and read only to put
+    // each gene's guides in the library's own preferred order.
     "rankingOrder": null,
 
     "outputName": null,
@@ -31,8 +32,8 @@ settings = {
     "synonyms": null
 }
 
-function SET_settingsSetAll(searchSymbols, partialMatches, trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName, enableSynonyms, defaultSynonym) {
-    SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName)
+function SET_settingsSetAll(searchSymbols, partialMatches, trimBefore, trimAfter, adapterBefore, adapterAfter, outputName, enableSynonyms, defaultSynonym) {
+    SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, outputName)
     SET_settingsSetLibrary(searchSymbols, partialMatches, enableSynonyms)
     settings["synonymName"] = defaultSynonym
 }
@@ -43,14 +44,11 @@ function SET_settingsSetLibrary(searchSymbols, partialMatches, enableSynonyms) {
     settings["enableSynonyms"] = enableSynonyms
 }
 
-function SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName) {
+function SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, outputName) {
     settings["trimBefore"] = trimBefore
     settings["trimAfter"] = trimAfter
     settings["adapterBefore"] = adapterBefore
     settings["adapterAfter"] = adapterAfter
-
-    settings["rankingTop"] = rankingTop
-    settings["rankingOrder"] = rankingOrder
     settings["outputName"] = outputName
 }
 
@@ -66,10 +64,15 @@ function SET_settingsSetControls(c) {
     settings["essentialCount"] = c.essentialCount
 }
 
+// rankingColumn is no longer a user setting. It survives because the built-in
+// libraries declare which of their columns carries the on-target score, and
+// the guides for each gene are still listed best first, so that _1 is the
+// library's own first pick. An uploaded library passes 0: nothing declares
+// what its columns mean, so its rows are left in the order they arrived.
 function SET_settingsSetIndexes(RNAColumn, symbolColumn, rankingColumn) {
     settings["RNAColumn"] = RNAColumn
     settings["symbolColumn"] = symbolColumn
-    settings["rankingColumn"] = rankingColumn
+    settings["rankingColumn"] = rankingColumn == null ? 0 : rankingColumn
 }
 
 
@@ -77,7 +80,11 @@ function SET_settingsToStr() {
     const date = new Date()
     var text = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
     for (const setting in settings) {
-        if (["synonyms", "usedSynonyms"].includes(setting)) {
+        // rankingOrder and rankingColumn come from the selected library, not
+        // from anything the user set, and listing them here read as though a
+        // ranking control were still hiding somewhere. What they do — guides
+        // listed best first — is stated in the methods text instead.
+        if (["synonyms", "usedSynonyms", "rankingOrder", "rankingColumn"].includes(setting)) {
             continue
         }
         text = text + ` ${setting} = ${settings[setting]}\n`

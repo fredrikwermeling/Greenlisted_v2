@@ -148,10 +148,6 @@ async function insertData(data) {
     document.getElementById("adapterBefore").value = data.adaptorBefore;
     document.getElementById("adapterAfter").value = data.adaptorAfter;
 
-    document.getElementById("numberToRank").value = data.rankingTop
-    document.getElementById("numberToRank").defaultValue = ""
-
-
     document.getElementById("searchSymbols").value = data.searchSymbols.join("\n")
     document.getElementById("outputFileName").value = data.outputName
     document.getElementById("outputFileName").defaultValue = ""
@@ -205,7 +201,7 @@ async function insertData(data) {
     })
     synonymDropdown.value = data.defaultSynonyms ? data.defaultSynonyms : synonymNames[0]
     // store the settings in an object
-    SET_settingsSetAll(data.searchSymbols, data.partialMatches, data.trimBefore, data.trimAfter, data.adaptorBefore, data.adaptorAfter, data.rankingTop, rankingOrder, data.outputName, data.enableSynonyms, data.defaultSynonyms)
+    SET_settingsSetAll(data.searchSymbols, data.partialMatches, data.trimBefore, data.trimAfter, data.adaptorBefore, data.adaptorAfter, data.outputName, data.enableSynonyms, data.defaultSynonyms)
 
     //uppdates wich synonym list to use
     changeSynonyms()
@@ -1147,8 +1143,7 @@ async function changeLibrary() {
     const customLibrarie = document.getElementById("User Upload")
     await _displayLibraryCitation("")
 
-    // Ranking order and Trim only apply to an uploaded library: the built-in
-    // ones already declare which direction their score ranks and ship a
+    // Trim only applies to an uploaded library: the built-in ones ship a
     // uniform guide length. Revealed by the .custom-only rule in index.css.
     document.body.classList.toggle("custom-library", libraryName == "custom")
     // A different species needs a different index; fetching it now means the
@@ -1175,6 +1170,11 @@ async function changeLibrary() {
             if (typeof LIB_loadBorrowedControls === "function") await LIB_loadBorrowedControls()
             await _displayLibraryCitation(SER_getLibraryCitation())
             SET_settingsSetIndexes(librarySettings.RNAColumn, librarySettings.symbolColumn, librarySettings.RankColumn)
+            // Which way the library's score runs. This used to be a dropdown
+            // the user could contradict; the built-in libraries have always
+            // declared it themselves, so it comes straight from the library
+            // now. 0 means a higher score is better, 1 means a lower one is.
+            settings.rankingOrder = librarySettings.defaultRangingOrder == 1 ? "ascending" : "descending"
 
             const synonymNames = await SER_getSynonymNames()
             if (synonymNames.length != 0) {
@@ -1183,14 +1183,6 @@ async function changeLibrary() {
                     document.getElementById("synonymSelect").value = librarySettings.synonymName
                 }
             }
-            //console.log(librarySettings.defaultRangingOrder)
-            if (librarySettings.defaultRangingOrder == 0) {
-                document.getElementById("rankingOrder").value = "descending"
-            }
-            if (librarySettings.defaultRangingOrder == 1) {
-                document.getElementById("rankingOrder").value = "ascending"
-            }
-
             // update the settings based on the values in the UI
             changeSettings()
         }
@@ -1234,9 +1226,8 @@ function changeLibraryColumn() {
     //User input fields only called when adding a custom library
     const symbolColumn = document.getElementById("GeneSymbolIndex").value
     const RNAColumn = document.getElementById("gRNAIndex").value
-    const rankingIndex = document.getElementById("rankingIndex").value
 
-    SET_settingsSetIndexes(RNAColumn, symbolColumn, rankingIndex)
+    SET_settingsSetIndexes(RNAColumn, symbolColumn, 0)
     updateCustomlibrary()
 }
 
@@ -1285,16 +1276,13 @@ function changeSettings() {
     const adapterBefore = document.getElementById("adapterBefore").value
     const adapterAfter = document.getElementById("adapterAfter").value
 
-    const rankingTop = document.getElementById("numberToRank").value
     const outputName = document.getElementById("outputFileName").value
-
-    const rankingOrder = document.getElementById("rankingOrder").value
 
     const downloadName = document.getElementById("outputFileName").value
 
-    SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, rankingTop, rankingOrder, outputName, downloadName)
+    SET_settingsSetSettings(trimBefore, trimAfter, adapterBefore, adapterAfter, outputName, downloadName)
     // Must run after SET_settingsSetSettings — it sizes the suggested control
-    // counts from rankingTop, pre-fills the count boxes, and then syncs the
+    // counts from the design, pre-fills the count boxes, and then syncs the
     // control settings from whatever the boxes ended up holding.
     _updateControlsStatus()
     _statusUpdateSettings()
@@ -1332,13 +1320,8 @@ function _estimateDesign() {
         for (const g of LIB_essentialPanel(n)) if (_library.libraryMap[g]) found.add(g)
     }
     if (found.size === 0) return empty
-    // "Limit to top" caps how many guides each gene actually contributes.
-    const top = parseInt(settings.rankingTop, 10)
     var guides = 0
-    for (const g of found) {
-        const rows = _library.libraryMap[g].length
-        guides += (!isNaN(top) && top > 0) ? Math.min(rows, top) : rows
-    }
+    for (const g of found) guides += _library.libraryMap[g].length
     return { genes: found.size, guidesPerGene: guides / found.size }
 }
 

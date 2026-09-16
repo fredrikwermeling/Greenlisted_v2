@@ -41,18 +41,17 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         filteredLibraryMap[machingSymbols[i]] = [...library.libraryMap[machingSymbols[i]]]  //creates copy
     }
 
-    if ((settings.rankingColumn != 0) || (settings.rankingColumn == null)) {
+    // Guides for each gene are listed best first, so that _1 is the library's
+    // own first pick. The direction comes from the library, not from the user:
+    // a library that scores high-is-better sorts descending and one that ranks
+    // by pick order sorts ascending. An uploaded library declares no score
+    // column and is left in the order it arrived.
+    if (settings.rankingColumn > 0) {
         filteredLibraryMap = _sortOnScore(filteredLibraryMap, settings.rankingOrder, settings.rankingColumn)
     }
 
-    if (settings.rankingTop > 0) {
-        filteredLibraryMap = _getTopRankingElements(filteredLibraryMap, settings.rankingTop)
-    }
-
-    // Controls are spiked in after ranking and top-N slicing. They carry no
-    // on-target score to rank by, and "limit to top N" is meant to thin each
-    // gene's guides — applying it to a control block would silently cut a
-    // 900-guide control set down to N.
+    // Controls are spiked in after that. They carry no on-target score to
+    // order by.
     // The suggestion curve is driven by how many hypotheses are being tested
     // and how many guides back each one. At this point filteredLibraryMap
     // holds only genes; the control blocks are added below.
@@ -221,13 +220,6 @@ function _sortOnScore(libraryMap, rankingOrder, rankingColumn) {
         else {
             libraryMap[symbol].sort((a, b) => b[rankingColumn - 1] - a[rankingColumn - 1])
         }
-    }
-    return libraryMap
-}
-
-function _getTopRankingElements(libraryMap, n) {
-    for (let symbol in libraryMap) {
-        libraryMap[symbol] = libraryMap[symbol].slice(0, n)
     }
     return libraryMap
 }

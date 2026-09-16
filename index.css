@@ -1771,11 +1771,15 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3.2cqw;
-    /* 651 + 26 + 134 at full size. Explicit, not fit-content: inline-size
+    /* The original artwork left 24 px between the "0" and the first leaf at
+       779 px wide. The name is set larger now, and carrying that gap up with
+       it pushed the leaves away from the word they belong to, so it is held
+       near the drawn distance instead of scaled with the name. */
+    gap: 1.6cqw;
+    /* 651 + 13 + 134 at full size. Explicit, not fit-content: inline-size
        containment stops the element measuring its own contents, so
        fit-content would collapse to zero. */
-    width: 811px;
+    width: 798px;
     max-width: 100%;
     margin: 0 auto 0.2rem auto;
     container-type: inline-size;
@@ -1788,8 +1792,8 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    pixels too wide, and flex then took those pixels back out of the name. */
 .brandText {
     display: block;
-    flex: 0 0 80.3cqw;
-    width: 80.3cqw;
+    flex: 0 0 81.6cqw;
+    width: 81.6cqw;
 }
 
 .brandWord {
@@ -1801,7 +1805,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .brandLeaves {
     display: block;
     flex: 0 0 auto;
-    width: 16.5cqw;
+    width: 16.8cqw;
     height: auto;
 }
 
@@ -1811,7 +1815,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .brandTag {
     display: block;
     margin: 0.9cqw 0 0 1.5cqw;
-    font-size: 4.1cqw;
+    font-size: 4.17cqw;
     font-weight: 400;
     line-height: 1;
     white-space: nowrap;

@@ -218,18 +218,13 @@ function _methDesign() {
         sentences.push(`${notFound.length} submitted ${_methPlural(notFound.length, "symbol")} had no match in this library and ${_methPlural(notFound.length, "was", "were")} excluded.`)
     }
 
-    // Ranking. Only meaningful when the library carries a score column and
-    // the user asked for a per-gene limit.
-    const top = parseInt(settings.rankingTop, 10)
+    // Guide order. Every guide the library holds for a gene is kept; the only
+    // thing to report is that they are listed best first, and by what.
     const rankCol = parseInt(settings.rankingColumn, 10)
-    if (!isNaN(top) && top > 0) {
+    if (!isNaN(rankCol) && rankCol > 0) {
         const headers = searchOutput.headers || []
-        const colName = (!isNaN(rankCol) && rankCol > 0 && headers[rankCol - 1])
-            ? headers[rankCol - 1].trim() : null
-        const order = settings.rankingOrder === "ascending" ? "ascending" : "descending"
-        sentences.push(colName
-            ? `For each gene, guides were ranked by ${colName} (${order}) and the top ${top} retained.`
-            : `The top ${top} ${_methPlural(top, "guide")} per gene, in library order, were retained.`)
+        const colName = headers[rankCol - 1] ? headers[rankCol - 1].trim() : null
+        if (colName) sentences.push(`All sgRNAs the library lists for each gene were retained, ordered by ${colName} so that the library's own first pick is numbered _1.`)
     }
 
     // Controls.
