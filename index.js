@@ -669,11 +669,11 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     // comparison in the number itself and does not have to be reinterpreted
     // for each cell line.
     //
-    // Two decimals below 3x, where the thresholds are and where 0.26 rounded
-    // to 0.3 would read as if it should not have been flagged; one above,
-    // where the second decimal is noise. The copies are still worked out in
-    // the Copy number per gene output.
-    const detail = `${v < 3 ? v.toFixed(2) : v.toFixed(1)}x`
+    // One decimal throughout. Two were kept below 3x so that a gene at 0.26
+    // would not read as 0.3 against a deep-deletion threshold of 0.3, but the
+    // word in front of the number already carries that, and the exact values
+    // are a column of the Copy number per gene output.
+    const detail = `${v.toFixed(1)}x`
     // What each of these means for a screen is said once, above the table, in
     // _cnColumnNote, rather than repeated on every row.
     if (v < 0.3)  return `DEEP DELETION, ${detail}`
@@ -710,11 +710,17 @@ var _headerHtml = {}
 function _cnColumnHeading(cl) {
     const name = _cnPlainName(cl)
     const doubled = cl.wgd === true
-    const ploidy = (cl.ploidy != null && !isNaN(cl.ploidy)) ? `${Number(cl.ploidy).toFixed(1)}n` : null
-    const inner = doubled ? "genome doubled" : (ploidy || "no doubling")
-    const plain = `Copy number (${name}, ${inner})`
-    _headerHtml[plain] = `Copy number<br><span class="cnHeadSub">(${_escapeHtml(name)}, ` +
-        `<span class="${doubled ? "cnHeadWgd" : ""}">${_escapeHtml(inner)}</span>)</span>`
+    // The unit, by example. "Copy number (A-375)" over a column of "1.4x" left
+    // the reader to work out 1.4 of what, and the likeliest guess — copies —
+    // is wrong. "1.0x = the A-375 average" says it in the heading, where it is
+    // read at the same moment as the number.
+    const base = `Copy number, 1.0x = the ${name} average`
+    const plain = base + (doubled ? ", genome doubled" : "")
+    // One flowing line rather than forced breaks: it wraps to the column and
+    // the doubling, which is the part that inverts how every number below is
+    // read, falls at the end where the colour carries it.
+    _headerHtml[plain] = `Copy number, <span class="cnHeadSub">1.0x = the ${_escapeHtml(name)} average` +
+        (doubled ? `, <span class="cnHeadWgd">genome doubled</span>` : "") + `</span>`
     return plain
 }
 
@@ -729,7 +735,8 @@ function _cnColumnNote(cl) {
     else if (cl.wgd === false) bits.push("no whole-genome doubling")
     const tail = bits.length ? ` is ${bits.join(", ")}` : " is the baseline"
     return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. Values are relative to that ` +
-           `baseline: 1.0x is the line's own average, 0.5x is half of it, 2.0x is double. A blank cell means no change. ` +
+           `baseline: 1.0x is the line's own average, 0.5x is half of it, 2.0x is double, rounded to one decimal. ` +
+           `A blank cell means no change. ` +
            `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out from the cutting alone, ` +
            `which reads as a hit that is not one. The Copy number per gene output carries the same values with the copies worked out.`
 }
