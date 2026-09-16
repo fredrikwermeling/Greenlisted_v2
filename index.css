@@ -1768,9 +1768,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     position: relative;
     display: block;
     /* Explicit, not fit-content: inline-size containment stops the element
-       measuring its own contents, so fit-content collapses to zero. This is
-       the artwork's natural width, shrinking on narrow screens. */
-    width: 779px;
+       measuring its own contents, so fit-content collapses to zero. The
+       artwork is 779px across; it is drawn 10% over that so the name reads at
+       the size it does on the printed version, and shrinks on narrow screens. */
+    width: 857px;
     max-width: 100%;
     margin: 0 auto 0.4rem auto;
     container-type: inline-size;
@@ -1778,7 +1779,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 .brandMark {
     display: block;
-    width: 779px;
+    width: 857px;
     max-width: 100%;
     height: auto;
 }
@@ -1796,10 +1797,14 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
        The original strapline's left edge sat at 146 of 779 and its baseline
        at 171 of 188, which is 17px up from the bottom, or 2.2% of the width. */
     left: 18.7cqw;
-    bottom: 2.2cqw;
-    /* 3.55% of the artwork's width sets this line to about 470px of the 481
-       available between its left edge and the leaves. */
-    font-size: 3.55cqw;
+    /* The name's letters stop 43% of the way down the artwork, and the rest of
+       that space was the old two-line strapline. One line does not need it, so
+       this sits 4.75% of the width up from the bottom, close under the name
+       rather than adrift below it. */
+    bottom: 4.75cqw;
+    /* 3.23% of the artwork's width. The name was enlarged and this line was
+       not, so it now reads as the subordinate line it is. */
+    font-size: 3.23cqw;
     font-weight: 400;
     line-height: 1;
     white-space: nowrap;
@@ -1810,7 +1815,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     /* The strapline is the long part, so it governs how small the whole
        wordmark has to go before it fits. */
     .brand { font-size: clamp(22px, 8.4vw, 40px); }
-    .brandTag { font-size: 0.33em; }
+    .brandTag { font-size: 0.30em; }
 }
 
 /* The quieter of the two Primer-BLAST routes: a sentence under the buttons
