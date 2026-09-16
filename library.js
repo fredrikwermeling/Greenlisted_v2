@@ -199,6 +199,16 @@ function LIB_isControlSymbol(symbol) {
     return _CONTROL_KINDS.some(k => k.symbols.includes(s))
 }
 
+// Which kind of control, or null for a real gene. The two kinds differ in a
+// way that matters downstream: a safe-targeting guide cuts a real place in
+// the genome and can be looked at there, a non-targeting one matches nothing
+// by design and has nowhere to look.
+function LIB_controlKind(symbol) {
+    const s = String(symbol || "").toLowerCase()
+    const kind = _CONTROL_KINDS.find(k => k.symbols.includes(s))
+    return kind ? kind.id : null
+}
+
 // What the currently selected library offers, per kind:
 //   { nonTargeting: {key, count} | null, safeTargeting: {key, count} | null }
 // Used by the UI to enable each option and report how many are available.

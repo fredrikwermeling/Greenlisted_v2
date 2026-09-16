@@ -179,11 +179,12 @@ function GC_rowExtraAdapter() {
         cell: cols => {
             const symbol = _gcUnquote(cols[0])
             const id = _gcUnquote(cols[1] || "")
-            if (!symbol || _gcIsControl(symbol)) return null
+            if (!symbol) return null
             const idx = parseInt(id.slice(id.lastIndexOf("_") + 1), 10) - 1
             const rows = map[symbol.toLowerCase()]
             const row = rows && rows[idx]
             const spacer = row && row[settings.RNAColumn - 1]
+            if (_gcIsControl(symbol)) return _gcControlExtra(symbol, spacer, id)
             return _gcButton(symbol, spacer, id)
         }
     }
@@ -197,10 +198,40 @@ function GC_rowExtraFull() {
         cell: cols => {
             const symbol = _gcUnquote(cols[settings.symbolColumn - 1])
             const spacer = cols[settings.RNAColumn - 1]
-            if (!symbol || _gcIsControl(symbol)) return null
+            if (!symbol) return null
+            if (_gcIsControl(symbol)) return _gcControlExtra(symbol, spacer, symbol)
             return _gcButton(symbol, spacer, symbol)
         }
     }
+}
+
+// UCSC's own BLAT page, with the guide already in the box.
+//
+// A control guide carries no gene symbol, and the Context panel finds a guide
+// by searching inside its gene, so there is nothing for it to search. Placing
+// one needs a genome-wide sequence search, and UCSC's is a web page rather
+// than an API call the browser is allowed to make. So this hands the search
+// over instead of pretending the app can do it.
+function _gcBlatButton(symbol, clean, species) {
+    const db = species === "mouse" ? "mm39" : "hg38"
+    const url = `https://genome.ucsc.edu/cgi-bin/hgBlat?db=${db}&type=DNA&userSeq=${clean}`
+    return `<a class="gcBtn gcBtnLink" href="${url}" target="_blank" rel="noopener noreferrer" ` +
+           `title="A control guide has no gene to search inside, so it cannot be placed here. This runs UCSC's BLAT on the spacer and shows where in ${db} it lands.">Find in genome</a>`
+}
+
+function _gcControlExtra(symbol, spacer, id) {
+    const clean = _gcCleanSpacer(spacer)
+    if (!clean) return null
+    const kind = (typeof LIB_controlKind === "function") ? LIB_controlKind(symbol) : null
+    // Which other libraries use the same control is a fair question and needs
+    // no genome at all, so it is offered for every kind of control.
+    const libs = (typeof LIBX_button === "function") ? LIBX_button(symbol, clean, id) : ""
+    // A non-targeting control is chosen for matching nothing, so sending it to
+    // BLAT would only ever confirm the absence. Offered only for the kind that
+    // does cut somewhere.
+    if (kind === "nonTargeting") return libs || null
+    const species = _gcSpecies()
+    return (species ? _gcBlatButton(symbol, clean, species) : "") + libs || null
 }
 
 function _gcButton(symbol, spacer, id) {

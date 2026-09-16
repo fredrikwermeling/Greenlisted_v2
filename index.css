@@ -2016,3 +2016,20 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-size: 0.78rem;
     color: var(--gray-500);
 }
+
+/* "Find in genome" leaves the app, so it is an anchor rather than a button,
+   and has to be dressed as one to sit level with Libraries beside it. */
+a.gcBtnLink {
+    display: inline-block;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* The result tables set every cell to nowrap, so a wide one cannot shrink to
+   fit and used to run off the right of the pane with the last column cut off
+   and no way to reach it. It scrolls sideways within the pane instead; the
+   page itself never does. */
+#validationTableDiv,
+#cnResultsDiv {
+    overflow-x: auto;
+}

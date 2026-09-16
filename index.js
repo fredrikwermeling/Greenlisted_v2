@@ -660,10 +660,26 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     if (v < 0.7)  return `one-copy loss (${detail})`
     if (v >= 2.0) return `gained (${detail})`
     if (v >= 1.3) return `slight gain (${detail})`
-    // The ordinary diploid case needs no name. The numbers say it, and naming
-    // it as well put a label on every single row, which buried the few rows
-    // that were actually saying something.
-    return detail
+    // A gene sitting at the line's own ploidy has nothing to report. Saying
+    // so anyway filled the column on every row, and in a doubled line it read
+    // as a finding: A-375 is near-tetraploid, so an unremarkable gene came out
+    // as "~4 copies" on every line of the file. The ploidy belongs in the
+    // heading, once, and the column is left for departures from it.
+    return ""
+}
+
+// The heading over that column. It carries the baseline the numbers are read
+// against, so a cell saying "~5 copies" is read as a gain over four rather
+// than as a gain over two.
+function _cnColumnHeading(cl) {
+    const bits = []
+    if (cl.ploidy != null && !isNaN(cl.ploidy)) bits.push(`${Number(cl.ploidy).toFixed(1)}n`)
+    if (cl.wgd === true) bits.push("genome doubled")
+    else if (cl.wgd === false) bits.push("no doubling")
+    const tail = bits.length ? ` (${bits.join(", ")})` : ""
+    // "blank = no change" earns its place: without it an empty cell reads as
+    // missing data, which the column says outright when it means that.
+    return `Copy number in ${cl.name}${tail}, blank = no change`
 }
 
 function _createAdapterOutput(libraryMap, screeningCellLine) {
@@ -673,7 +689,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine) {
     const cl = screeningCellLine || null
     const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
-    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" + (cl ? `\tCopy-number warning (${cl.name})\n` : "\n")
+    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" + (cl ? `\t${_cnColumnHeading(cl)}\n` : "\n")
 
     for (var symbol of Object.keys(libraryMap)) {
         // One lookup per symbol rather than per guide — otherwise a large

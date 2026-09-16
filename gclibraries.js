@@ -173,8 +173,12 @@ function LIBX_columnFor(spacerOf) {
                        `no other ${species === "human" ? "human" : "mouse"} library</span>`
             }
             const names = hits.map(h => h.library).join(", ")
+            // Naming the species in the cell, not just in the tooltip: "2 of
+            // 7 libraries" reads as though it were counting every library the
+            // app knows, mouse ones included, which would make the comparison
+            // meaningless. The index is per species and only ever holds one.
             return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>` +
-                   `<span class="libxOf"> of ${total} ${total === 1 ? "library" : "libraries"}</span>`
+                   `<span class="libxOf"> of ${total} ${species} ${total === 1 ? "library" : "libraries"}</span>`
         }
     }
 }
