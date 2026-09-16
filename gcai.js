@@ -124,6 +124,71 @@ function _gcaiParseBlockFormat(text) {
     return pairs.filter(p => p.forward && p.reverse).map((p, i) => Object.assign({ pair: p.pair || i + 1 }, p))
 }
 
+// The "Text" download is a third shape again: not a row per pair and not a
+// row per primer, but one field per line, labelled.
+//
+//   Primer pair 1
+//   Forward primer Sequence (5'->3'):       CCGTCCATTGGCCTCACATA
+//   Forward primer Template strand:         Plus
+//   Forward primer Start:                   38
+//   ...
+//   Product length:                         667
+function _gcaiParseLabelFormat(text) {
+    const lines = text.split(/\r?\n/)
+    const pairs = []
+    var cur = null
+    const num = v => { const n = Number(String(v).trim()); return isFinite(n) ? n : null }
+    const flush = () => { if (cur) pairs.push(cur) }
+    for (const raw of lines) {
+        const l = raw.trim()
+        if (/^primer pair\s*\d+/i.test(l)) {
+            flush()
+            cur = { pair: num((l.match(/(\d+)/) || [])[1]), f: {}, r: {} }
+            continue
+        }
+        if (!cur) continue
+        const m = /^(forward|reverse)\s+primer\s+(.+?):\s*(.+)$/i.exec(l)
+        if (m) {
+            const t = m[1].toLowerCase() === "forward" ? cur.f : cur.r
+            const field = m[2].trim().toLowerCase()
+            const val = m[3].trim()
+            // "Self 3' complementarity" before "Self complementarity": the
+            // second is a prefix of nothing, but the first would fall through
+            // to it if the order were reversed.
+            if (/^sequence/.test(field)) t.sequence = val.toUpperCase()
+            else if (/^template strand/.test(field)) t.strand = val
+            else if (/^length/.test(field)) t.length = num(val)
+            else if (/^start/.test(field)) t.a = num(val)
+            else if (/^stop/.test(field)) t.b = num(val)
+            else if (/^tm/.test(field)) t.tm = num(val)
+            else if (/^gc/.test(field)) t.gcPercent = num(val)
+            else if (/^self 3/.test(field)) t.self3Complementarity = num(val)
+            else if (/^self complementarity/.test(field)) t.selfComplementarity = num(val)
+            continue
+        }
+        const pm = /^product length\s*:\s*(\d+)/i.exec(l)
+        if (pm) cur.productLength = num(pm[1])
+    }
+    flush()
+    return pairs.map((p, i) => ({
+        pair: p.pair || i + 1,
+        forward: {
+            sequence: p.f.sequence, length: p.f.length || (p.f.sequence || "").length,
+            start: p.f.a, end: p.f.b, tm: p.f.tm, gcPercent: p.f.gcPercent,
+            selfComplementarity: p.f.selfComplementarity, self3Complementarity: p.f.self3Complementarity
+        },
+        reverse: {
+            // As everywhere else: Start is the reverse primer's 5' end and the
+            // larger of the two, Stop its 3' end.
+            sequence: p.r.sequence, length: p.r.length || (p.r.sequence || "").length,
+            fivePrimeEnd: p.r.a, threePrimeEnd: p.r.b, tm: p.r.tm, gcPercent: p.r.gcPercent,
+            selfComplementarity: p.r.selfComplementarity, self3Complementarity: p.r.self3Complementarity
+        },
+        productLength: p.productLength
+    })).filter(p => /^[ACGT]+$/.test(p.forward.sequence || "") && /^[ACGT]+$/.test(p.reverse.sequence || "") &&
+                    p.forward.start != null && p.reverse.fivePrimeEnd != null)
+}
+
 // Returns { pairs, error }. Tolerates the byte-order mark Primer-BLAST writes,
 // its trailing comma on every row, and blank lines.
 function GC_aiParsePrimerCsv(text) {
@@ -135,13 +200,21 @@ function GC_aiParsePrimerCsv(text) {
     if (/^\s*primer pair\s*\d+/im.test(clean) && /forward primer/i.test(clean)) {
         const blocks = _gcaiParseBlockFormat(clean)
         if (blocks.length) return { pairs: blocks, error: null }
+        // Same opening line, different body: the Text download labels one
+        // field per line where the copied table puts a primer on each row.
+        const labelled = _gcaiParseLabelFormat(clean)
+        if (labelled.length) return { pairs: labelled, error: null }
     }
 
     const lines = clean.split(/\r?\n/).filter(l => l.trim().length)
     if (lines.length < 2) return { pairs: [], error: "That looks like a header with no primer rows under it." }
 
     const delim = _gcaiSniffDelimiter(lines[0])
-    const header = _gcaiSplitLine(lines[0], delim).map(h => h.trim())
+    // Underscores to spaces before matching. The Tabular download writes
+    // "Forward_primer_Self_complementarity" where the CSV writes it with
+    // spaces, which is the same column under a different spelling and was
+    // enough to make the whole file unreadable.
+    const header = _gcaiSplitLine(lines[0], delim).map(h => h.trim().replace(/_/g, " "))
     const idx = {}
     for (const key in _GCAI_COLS) {
         const n = header.findIndex(h => _GCAI_COLS[key].test(h))
@@ -663,12 +736,12 @@ function GC_aiCheckCsv() {
         // certainly too small.
         const spacerLen = v.spacerR.end - v.spacerR.start + 1
         const atLeast = Math.ceil((maxPos - spacerLen) / 2 / 50) * 50
-        out.innerHTML = `Read ${pairs.length} primer pairs, but they reach position ${maxPos} of a ${v.n} bp sequence, so they were not run ` +
+        out.innerHTML = `Read ${pairs.length} primer ${pairs.length === 1 ? "pair" : "pairs"}, but they reach position ${maxPos} of a ${v.n} bp sequence, so they were not run ` +
             `on this template. That needs a flank of at least ${atLeast} bp — set the flank to what you used, press Show, then export.`
         out.className = "gcaiStatus gcaiBad"
         return null
     }
-    out.textContent = `Read ${pairs.length} primer pairs, consistent with this ${v.n} bp template.`
+    out.textContent = `Read ${pairs.length} primer ${pairs.length === 1 ? "pair" : "pairs"}, consistent with this ${v.n} bp template.`
     out.className = "gcaiStatus gcaiGood"
     return pairs
 }
