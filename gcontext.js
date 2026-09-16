@@ -1024,8 +1024,8 @@ function _gcShow() {
     for (const w of warnings) html += `<p class="gcWarn">${_escapeHtml(w)}</p>`
 
     html += `<div class="gcRow gcActions">` +
-        `<button class="validate-btn" onclick="GC_copyFasta()" title="Plain text: flanks in lower case, spacer and PAM in upper case, positions in the header. Paste into Primer-BLAST, Primer3 or any editor.">Copy FASTA</button>` +
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the coloring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
+        `<button class="validate-btn" onclick="GC_downloadFasta()" title="A FASTA file: flanks in lower case, spacer and PAM in upper case, positions in the header. Opens in Primer3, an aligner or any sequence editor.">Download FASTA</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
         `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
@@ -1118,9 +1118,15 @@ function GC_fastaText() {
     return _gcFastaHeader(v) + "\n" + (v.seq.match(/.{1,60}/g) || []).join("\n") + "\n"
 }
 
-function GC_copyFasta() {
+// Written to a file rather than the clipboard. FASTA is something a tool
+// reads, not something anyone wants pasted into a message: the places it
+// goes — Primer3, an aligner, a sequence editor — all take a file, and the
+// two other formats that go to a file sit beside it now.
+function GC_downloadFasta() {
     if (!_gcReady()) return
-    _gcCopy(GC_fastaText(), null, "FASTA copied to the clipboard")
+    const cur = _GC.current
+    const name = `${String(cur.guideId).replace(/[^A-Za-z0-9_.-]/g, "_")} context.fasta`
+    _downloadBlob(new Blob([GC_fastaText()], { type: "text/plain;charset=utf-8" }), name)
 }
 
 // HTML with inline styles, since Word keeps those and drops classes.

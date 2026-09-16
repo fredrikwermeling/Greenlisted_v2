@@ -694,6 +694,29 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     return ""
 }
 
+// The label over the first output. "Output with adapters" describes what the
+// file held before there was a cell line to compare against; picking one adds
+// a column, and a label that does not mention it leaves that column to be
+// found by accident. Called whenever the cell-line box resolves.
+function _outLabelAdapter(match) {
+    const el = document.getElementById("outLabelAdapter")
+    if (!el) return
+    // The info dot is kept and put back on the name's own line. Rebuilding the
+    // cell around it is simpler than trying to edit one line of it in place.
+    const dot = el.querySelector(".infoDot")
+    const name = document.createElement("span")
+    name.innerHTML = `Output with<br>adapters`
+    el.innerHTML = ""
+    el.appendChild(name)
+    if (dot) name.appendChild(dot)
+    if (match) {
+        const add = document.createElement("span")
+        add.className = "outLabelAdd"
+        add.textContent = "+ copy number"
+        el.appendChild(add)
+    }
+}
+
 // Headings the on-screen table should draw as something richer than their own
 // plain text. The plain text is what goes into the downloaded file and is what
 // the lookup is keyed on; this only changes how the header cell is drawn.
@@ -2314,6 +2337,7 @@ function CN_handleScreeningCellLineInput() {
         // stripped form (DepMap uses "A-375" / "A375" — both are correct).
         const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
         const row = document.getElementById("cnAnnotationOutputRow")
+        _outLabelAdapter(match || null)
         if (match) {
             _cnState.screeningCellLines = [match]
             if (status) {
