@@ -310,7 +310,7 @@ Each symbol is looked up in the selected library. Anything that finds no match i
             <div class="plateContent">
 
                 <div class="smallPlate">
-                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Symbols (one or more)</span><span class="infoDot" title="How your typed symbols are matched to the library.
+                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Matching</span><span class="infoDot" title="How your typed symbols are matched to the library.
 
 Only direct matches: the symbol must appear exactly as the library spells it.
 
@@ -337,8 +337,7 @@ Use synonyms: resolves older or alternative names to the one the library uses, s
 
                             </label>
                         </form>
-                        <textarea id="searchSymbols" onchange="changeSymbols()">
-                    </textarea>
+                        <textarea id="searchSymbols" onchange="changeSymbols()" placeholder="TP53&#10;MDM2"></textarea>
                         <span class="symbolLinks design-only">
                             <a href="javascript:void(0)" onclick="loadTestSettings()">Load test data</a>
                             <a href="javascript:void(0)" onclick="SETS_openModal()">Curated lists&hellip;</a>

@@ -182,7 +182,7 @@ function toggleValidateMode(species) {
         document.body.classList.remove("validate-mode")
         humanBtn.classList.remove("validate-btn-active")
         mouseBtn.classList.remove("validate-btn-active")
-        _setSectionTitle("symbolsTitle", "Symbols (one or more)")
+        _setSectionTitle("symbolsTitle", "Matching")
         _setSectionTitle("inputPlateTitle", "2. Input symbols")
         // Reload default settings to restore a clean design-mode state
         init()
@@ -1620,8 +1620,7 @@ function _renderSetsList() {
                 <div class="gene-set-src">Source: ${_escapeHtml(s.source)}</div>
             </div>
             <span style="display:flex; gap:6px; align-items:center; white-space:nowrap;">
-                <button class="validate-btn" onclick="SETS_load(${i}, false)">Replace</button>
-                <button class="validate-btn" onclick="SETS_load(${i}, true)">Add</button>
+                <button class="validate-btn" onclick="SETS_load(${i})">Add</button>
             </span>
         </div>`).join("")
 }
@@ -1630,13 +1629,18 @@ function _renderSetsList() {
 // building a screen from two or three classes is the common case, and
 // retyping the first list to add a second would be tedious. Duplicates are
 // dropped, so adding an overlapping set is safe.
-function SETS_load(index, append) {
+// Adding is the only action: the box starts empty, so adding to an empty box
+// is what "replace" used to do, and adding to a filled one is the only other
+// thing anyone wanted. Duplicates are dropped either way.
+function SETS_load(index) {
     const set = _setsState.sets[index]
     if (!set) return
     const box = document.getElementById("searchSymbols")
-    const existing = append
-        ? box.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
-        : []
+    const existing = box.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+    // A list added to an empty box is still that list, so it can follow a
+    // change of library species. Added to a filled one it becomes a mixture
+    // that belongs to no set, and is not tracked.
+    const wasEmpty = existing.length === 0
     const seen = new Set(existing.map(s => s.toUpperCase()))
     const merged = existing.slice()
     for (const g of set.genes) {
@@ -1647,12 +1651,13 @@ function SETS_load(index, append) {
     box.value = merged.join("\n")
     // Remember a whole list so it can follow a library species change. An
     // appended list leaves a mixture that is nobody's set, so forget it.
-    _setsState.loaded = append ? null
-        : { key: set.key, species: _setsSpecies(), text: _setsSignature(box.value) }
+    _setsState.loaded = wasEmpty
+        ? { key: set.key, species: _setsSpecies(), text: _setsSignature(box.value) }
+        : null
     changeSymbols()
     SETS_closeModal()
     _setStatus("statusSearchSymbolsRows",
-        `${set.label}: ${set.genes.length} genes ${append ? "added" : "loaded"} (${merged.length} in the box)`)
+        `${set.label}: ${set.genes.length} genes added (${merged.length} in the box)`)
 }
 
 // "Reset app" in the tool strip — back to how the app opens, without a page
@@ -2086,7 +2091,7 @@ function _cnExitMode() {
     document.body.classList.remove("cn-mode")
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    _setSectionTitle("symbolsTitle", "Symbols (one or more)")
+    _setSectionTitle("symbolsTitle", "Matching")
     _setSectionTitle("inputPlateTitle", "2. Input symbols")
     init()
 }

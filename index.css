@@ -1903,3 +1903,25 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 #libxModal { z-index: 1100; }
+
+/* The two panel headers sit side by side, and one holds a dropdown while the
+   other holds a line of text, so they came out different heights and the
+   columns read as misaligned. Matching the minimum keeps their tops and the
+   content beneath them in step. */
+.smallTitle {
+    /* The library dropdown sets the tallest of these headers; the rest match
+       it so the three columns stay level. */
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-sizing: border-box;
+}
+
+/* The example genes shown until something is typed. Dimmer than real input so
+   it cannot be mistaken for a prefilled search. */
+#searchSymbols::placeholder {
+    color: var(--gray-200);
+    opacity: 1;
+}
