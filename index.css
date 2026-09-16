@@ -810,7 +810,10 @@ footer.plate {
     /* 8px, not 12: with six columns the wider padding cost 48 px of table
        width, which was most of what pushed the last column off the pane. */
     padding: 4px 8px;
-    text-align: left;
+    /* Centred. Several columns hold one short value under a much wider
+       heading, and left-aligning those left each value stranded against the
+       left edge of its column with a gap to the next. */
+    text-align: center;
     border-bottom: 1px solid var(--outlineColor);
     white-space: nowrap;
 }
@@ -2081,6 +2084,14 @@ a.gcBtnLink {
        room, which made every row tall to save a few pixels of width. */
     min-width: 11ch;
     max-width: 24ch;
+}
+
+/* A heading is read once and a column is read many times, so a heading can
+   afford to stack where a value cannot. Holding headings to 14 characters
+   breaks "Other human libraries" over two lines and hands the width it was
+   taking back to the columns that hold data. */
+.validationResultsTable th.wrapCell {
+    max-width: 14ch;
 }
 
 /* The copy-number line above a result table. It explains why most of that
