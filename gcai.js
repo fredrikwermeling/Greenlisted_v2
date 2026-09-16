@@ -189,6 +189,44 @@ function _gcaiParseLabelFormat(text) {
                     p.forward.start != null && p.reverse.fivePrimeEnd != null)
 }
 
+// Do these primers actually come from this sequence?
+//
+// Primer-BLAST positions mean nothing without the template they were run on,
+// and the template changes with the guide. Two exports for two different
+// guides in the same gene had the same results pasted into both, and the file
+// was written twice without complaint: the only check was that the positions
+// fell inside the template, and a position can fall inside a sequence it has
+// nothing to do with. Both files then went to an assistant, which recommended
+// a pair in each.
+//
+// So each primer is looked for where it says it is. The forward primer has to
+// be the template at its own coordinates, and the reverse primer the reverse
+// complement of the template at its own. Nothing else is as decisive: it fails
+// on a different guide, a different gene, a different flank and a stale
+// clipboard alike, and it cannot fail on results that genuinely belong here.
+function _gcaiRevComp(s) {
+    var out = ""
+    for (var i = s.length - 1; i >= 0; i--) {
+        const c = s[i]
+        out += c === "A" ? "T" : c === "T" ? "A" : c === "C" ? "G" : c === "G" ? "C" : "N"
+    }
+    return out
+}
+
+function _gcaiVerifyPairs(pairs, v) {
+    const seq = String(v.seq || "").toUpperCase()
+    const bad = []
+    for (const p of pairs) {
+        const f = p.forward, r = p.reverse
+        const atF = (f.start >= 1 && f.end <= seq.length) ? seq.slice(f.start - 1, f.end) : ""
+        const atR = (r.threePrimeEnd >= 1 && r.fivePrimeEnd <= seq.length)
+            ? _gcaiRevComp(seq.slice(r.threePrimeEnd - 1, r.fivePrimeEnd)) : ""
+        if (atF !== f.sequence) bad.push({ pair: p.pair, which: "forward", at: [f.start, f.end], expected: f.sequence, found: atF })
+        else if (atR !== r.sequence) bad.push({ pair: p.pair, which: "reverse", at: [r.threePrimeEnd, r.fivePrimeEnd], expected: r.sequence, found: atR })
+    }
+    return { ok: bad.length === 0, bad: bad, checked: pairs.length }
+}
+
 // Returns { pairs, error }. Tolerates the byte-order mark Primer-BLAST writes,
 // its trailing comma on every row, and blank lines.
 function GC_aiParsePrimerCsv(text) {
@@ -528,6 +566,12 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "request: if the candidates are crowded into one narrow stretch, or there are fewer of them than expected, the repeat section " +
             "usually says why, and that is worth telling them because it is a property of the locus rather than a mistake.\n\n" +
             _gcaiCaseNotes(v, tx, cur, csvWarning) +
+            (annotated
+                ? "THE PRIMERS BELONG TO THIS SEQUENCE. Green Listed checked every one of them against the template in this file before " +
+                  "writing it, and would not have written it otherwise, so you do not need to verify that yourself. If you ever receive " +
+                  "a file of this kind without that confirmation, do not recommend a pair: primer positions mean nothing against the " +
+                  "wrong sequence, and every number derived from them would be wrong in a way that looks entirely reasonable.\n\n"
+                : "") +
             "THROUGHOUT: numbers support the answer, they are not the answer. Give the two or three that matter, each with what it means. " +
             "If something important is missing, say what you would need and how they would get it, in terms of what they would click. " +
             "Do not pad the reply to cover every section of the file; say what bears on their situation and stop.",
@@ -609,6 +653,16 @@ function GC_aiBuild(pairs, question, csvWarning) {
         } : null,
 
         primerCandidates: annotated,
+        // Stated in the file, not only enforced in the dialog. A reader has no
+        // other way to tell a pair that belongs to this guide from one that
+        // belongs to another, because both look equally reasonable.
+        primerCandidatesBelongToThisSequence: annotated
+            ? "Checked. Every primer below was found in the sequence in this file, at the position given: the forward primer reading " +
+              "along it and the reverse primer as its reverse complement. Primer-BLAST positions are meaningless against any other " +
+              "sequence, and each guide has its own, so this is what rules out results pasted from a different guide or a different " +
+              "flank. Green Listed will not write this file if the check fails."
+            : null,
+
         primerCandidatesSource: annotated
             ? "NCBI Primer-BLAST, run against the " + v.g.organism + " reference genome with its specificity check on. Positions are " +
               "template coordinates; the cut-relative figures and the repeat check were added by Green Listed. Primer-BLAST returns only " +
@@ -741,7 +795,21 @@ function GC_aiCheckCsv() {
         out.className = "gcaiStatus gcaiBad"
         return null
     }
-    out.textContent = `Read ${pairs.length} primer ${pairs.length === 1 ? "pair" : "pairs"}, consistent with this ${v.n} bp template.`
+    // Positions inside the template are not enough: a position can fall inside
+    // a sequence the primers have nothing to do with. Check the bases.
+    const check = _gcaiVerifyPairs(pairs, v)
+    if (!check.ok) {
+        const b = check.bad[0]
+        out.innerHTML = `These primers are not from this sequence. Pair ${b.pair}'s ${b.which} primer should be ` +
+            `<b>${_escapeHtml(b.expected)}</b> at position ${b.at[0]}, but this template has ` +
+            `<b>${_escapeHtml(b.found || "nothing")}</b> there` +
+            (check.bad.length > 1 ? `, and ${check.bad.length - 1} other ${check.bad.length === 2 ? "primer is" : "primers are"} wrong too` : "") +
+            `. Primer-BLAST results belong to the one sequence they were run on, and every guide has its own. ` +
+            `Open this guide's own panel, press <i>Open in Primer-BLAST</i>, and use those results.`
+        out.className = "gcaiStatus gcaiBad"
+        return null
+    }
+    out.textContent = `Read ${pairs.length} primer ${pairs.length === 1 ? "pair" : "pairs"}, and every primer is where it says it is in this ${v.n} bp template.`
     out.className = "gcaiStatus gcaiGood"
     return pairs
 }
@@ -758,6 +826,12 @@ function GC_aiRun() {
         if (parsed.error) { document.getElementById("gcaiCsvStatus").textContent = parsed.error; return }
         pairs = parsed.pairs
         const v = _gcView()
+        // The same check the status line runs, enforced here too: the button
+        // must not write a file the box has already said is wrong. A file that
+        // pairs one guide's primers with another guide's cut site reads as
+        // entirely reasonable to whoever opens it, because every number in it
+        // is internally consistent and all of them are about the wrong thing.
+        if (!_gcaiVerifyPairs(pairs, v).ok) { GC_aiCheckCsv(); return }
         const maxPos = Math.max(...pairs.map(p => Math.max(p.forward.end, p.reverse.fivePrimeEnd)))
         if (maxPos > v.n) {
             warning = `These primer positions reach ${maxPos} in a ${v.n} bp template, so they were computed on a different sequence — ` +

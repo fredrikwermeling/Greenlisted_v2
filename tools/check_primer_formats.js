@@ -102,5 +102,47 @@ if (ref) {
     if (ref.reverse.fivePrimeEnd - ref.forward.start + 1 !== ref.productLength) { console.log("FAIL product length does not match the primer positions"); failed++ }
 } else { failed++ }
 
-console.log(failed ? `\n${failed} failure(s)` : "\nAll four Primer-BLAST formats read identically.")
+// ---------------------------------------------------------------------------
+// And the check that matters more than the parsing: do these primers come from
+// the sequence they are about to be attached to?
+//
+// Two exports for two different guides in the same gene once had the same
+// Primer-BLAST results pasted into both, and both files were written without
+// complaint. Positions inside the template were the only test, and a position
+// can fall inside a sequence the primers have nothing to do with.
+const { _gcaiVerifyPairs } = (new Function(src + "; return { _gcaiVerifyPairs };"))()
+
+const rc = s => s.split("").reverse().map(c => ({ A: "T", T: "A", C: "G", G: "C" }[c] || "N")).join("")
+// A template whose bases are known, with the sample pair planted in it.
+const template = (() => {
+    const filler = c => c.repeat(1)
+    let t = ""
+    const rnd = ["A", "C", "G", "T"]
+    for (let i = 0; i < 1020; i++) t += rnd[(i * 7 + (i >> 3)) % 4]
+    const f = "CCGTCCATTGGCCTCACATA", r = rc("GGGGGATGAACTCTCCAACC")
+    t = t.slice(0, 37) + f + t.slice(37 + f.length)
+    t = t.slice(0, 684) + r + t.slice(684 + r.length)
+    return t
+})()
+const v = { seq: template, n: template.length }
+const samplePairs = GC_aiParsePrimerCsv(TEXT).pairs
+
+const own = _gcaiVerifyPairs(samplePairs, v)
+if (!own.ok) { console.log("FAIL a pair that IS in the template was rejected: " + JSON.stringify(own.bad[0])); failed++ }
+else console.log("ok   primers from this template are accepted")
+
+// The same pairs against a different sequence, which is the real-world fault.
+const other = { seq: template.split("").reverse().join(""), n: template.length }
+const foreign = _gcaiVerifyPairs(samplePairs, other)
+if (foreign.ok) { console.log("FAIL primers from a different template were accepted"); failed++ }
+else console.log("ok   primers from a different template are rejected")
+
+// A reverse primer given the right coordinates but the wrong strand must fail:
+// this is the one that would otherwise look correct at a glance.
+const flipped = JSON.parse(JSON.stringify(samplePairs))
+flipped[0].reverse.sequence = rc(flipped[0].reverse.sequence)
+if (_gcaiVerifyPairs(flipped, v).ok) { console.log("FAIL a reverse primer on the wrong strand was accepted"); failed++ }
+else console.log("ok   a reverse primer on the wrong strand is rejected")
+
+console.log(failed ? `\n${failed} failure(s)` : "\nAll four formats read identically, and primers are checked against the template.")
 process.exit(failed ? 1 : 0)
