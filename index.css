@@ -1754,6 +1754,17 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     color: var(--gray-500);
 }
 
+/* The Primer-BLAST box used to be labelled "(optional)", which was true of
+   the export and misleading about the answer: without primer pairs there is
+   nothing for an assistant to choose between, and it cannot design any. */
+.gcaiNeed {
+    font-weight: 600;
+    font-size: 0.8em;
+    color: #b45309;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .gcaiHint {
     font-size: 0.78rem;
     color: var(--gray-600);
@@ -1783,6 +1794,17 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 .gcaiGood { color: var(--green-800); }
+
+/* Said while the box is still empty. Quieter than gcaiBad, which marks a
+   paste that will not work; this one marks a file that will work and be less
+   use than it could be. */
+.gcaiWarn {
+    color: var(--gray-600);
+    background: #fffbeb;
+    border-left: 3px solid #fcd34d;
+    padding: 5px 8px;
+    border-radius: 0 3px 3px 0;
+}
 
 .gcaiBad {
     color: #92400e;

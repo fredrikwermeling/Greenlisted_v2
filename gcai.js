@@ -596,13 +596,17 @@ function GC_aiExport() {
     try { q = localStorage.getItem(_GCAI_STORE) || "" } catch (e) { q = "" }
     document.getElementById("gcaiBody").innerHTML =
         `<p class="gcaiNote">Writes one <b>.json</b> holding this guide, where it sits in the genome, the sequence around it with the ` +
-        `spacer, PAM and cut site marked, and — if you paste them below — the primer pairs Primer-BLAST found, each re-expressed as its ` +
-        `distance from the cut. Attach it to an assistant and ask which pair to order.</p>` +
+        `spacer, PAM and cut site marked, and the primer pairs Primer-BLAST found, each re-expressed as its distance from the cut. ` +
+        `Attach it to an assistant and ask which pair to order.</p>` +
 
-        `<label class="gcaiLabel" for="gcaiCsv">Primer-BLAST results <span class="gcaiOpt">(optional)</span></label>` +
-        `<p class="gcaiHint">On the Primer-BLAST results page, either select the primer table and copy it, or use any of the links under ` +
-        `<i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and <b>Tabular</b> all work &mdash; then paste it here or drop the ` +
-        `file on this box. Without it the file still describes the locus, but carries no primer pairs to choose between.</p>` +
+        `<label class="gcaiLabel" for="gcaiCsv">Primer-BLAST results <span class="gcaiNeed">paste these in</span></label>` +
+        `<p class="gcaiHint"><b>Do this first.</b> Press <i>Open in Primer-BLAST</i>, run it, and on the results page either select the ` +
+        `primer table and copy it or use any of the links under <i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and ` +
+        `<b>Tabular</b> all work. Paste it here, or drop the file on this box.</p>` +
+        `<p class="gcaiHint">Without it there is nothing to choose between and no assistant can fill the gap: picking primers needs ` +
+        `melting temperatures computed under real salt conditions and a genome-wide search for where else each one would prime, and ` +
+        `neither can be done by reading a sequence. The file is still worth exporting without them &mdash; it will tell you where the ` +
+        `guide cuts and what that does to the protein &mdash; but it will not name a pair to order.</p>` +
         `<textarea id="gcaiCsv" class="gcaiArea" rows="5" placeholder="Primer pair #,Forward primer Sequence (5'->3'),..." ` +
         `oninput="GC_aiCheckCsv()"></textarea>` +
         `<p class="gcaiStatus" id="gcaiCsvStatus"></p>` +
@@ -610,7 +614,7 @@ function GC_aiExport() {
         `<label class="gcaiLabel" for="gcaiQ">What do you want to ask? <span class="gcaiOpt">(optional)</span></label>` +
         `<textarea id="gcaiQ" class="gcaiArea" rows="2" placeholder="Which primer pair should I order, and why?">${_escapeHtml(q)}</textarea>` +
 
-        `<div class="gcxRow gcxCenter"><button class="validate-btn" onclick="GC_aiRun()">Export .json</button>` +
+        `<div class="gcxRow gcxCenter"><button class="validate-btn" id="gcaiRunBtn" onclick="GC_aiRun()">Export .json</button>` +
         `<button class="validate-btn" onclick="GC_aiClose()">Cancel</button></div>` +
         `<p class="gcaiFoot">Template in this file: ${v.n.toLocaleString("en-US")} bp, cut between ${v.cutAfter} and ${v.cutAfter + 1}. ` +
         `Primer-BLAST results pasted in must come from this same sequence.</p>`
@@ -627,6 +631,9 @@ function GC_aiExport() {
         r.onload = () => { area.value = r.result; GC_aiCheckCsv() }
         r.readAsText(f)
     })
+    // Say what an empty box means before the export button is pressed, not
+    // after the file has been written and attached.
+    GC_aiCheckCsv()
 }
 
 function GC_aiClose() {
@@ -640,7 +647,11 @@ function GC_aiCheckCsv() {
     const el = document.getElementById("gcaiCsv")
     const out = document.getElementById("gcaiCsvStatus")
     const txt = el.value.trim()
-    if (!txt) { out.textContent = ""; out.className = "gcaiStatus"; return null }
+    if (!txt) {
+        out.textContent = "No primer pairs yet. Export now and the file describes the locus only."
+        out.className = "gcaiStatus gcaiWarn"
+        return null
+    }
     const { pairs, error } = GC_aiParsePrimerCsv(txt)
     if (error) { out.textContent = error; out.className = "gcaiStatus gcaiBad"; return null }
     const v = _gcView()
