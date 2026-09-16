@@ -1968,3 +1968,32 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     border: 0;
     border-top: 1px solid var(--gray-200);
 }
+
+/* Test-version banner. Shown on every deployment except the live host, so a
+   copy of the app can never quietly pass for the real one. Deliberately plain
+   and full width: it is a statement about the whole page, not a control. */
+#testBanner {
+    padding: 7px 14px;
+    background: #fef3c7;
+    border-bottom: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 0.85rem;
+    text-align: center;
+    line-height: 1.4;
+}
+
+#testBanner b {
+    color: #7c3a06;
+}
+
+#testBanner a {
+    color: #7c3a06;
+    font-weight: 600;
+}
+
+@media only screen and (max-width: 600px) {
+    #testBanner {
+        font-size: 0.78rem;
+        padding: 6px 10px;
+    }
+}

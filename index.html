@@ -41,6 +41,27 @@
 </head>
 
 <body onload="init()">
+    <!-- Test-version banner. Which deployment this is is decided at run time
+         from the address it was served from, so there is nothing to switch on
+         or off when the app is copied to the live host and nothing to forget.
+         It is hidden in the markup and only revealed below, so the live site
+         never flashes it. The test is inverted on purpose: only the known
+         production hosts are treated as live, so a copy served from anywhere
+         else — a new host, a colleague's machine, a local folder — says it is
+         a test rather than silently passing for the real thing. -->
+    <div id="testBanner" hidden>
+        <b>Test version.</b> Features here may be unfinished or change without notice.
+        The live app is at <a href="https://greenlisted.cmm.se/">greenlisted.cmm.se</a>.
+    </div>
+    <script>
+        (function () {
+            var LIVE = ["greenlisted.cmm.se", "www.greenlisted.cmm.se"];
+            if (LIVE.indexOf(location.hostname) === -1) {
+                document.getElementById("testBanner").hidden = false;
+                document.title = "Green Listed (test)";
+            }
+        })();
+    </script>
     <header>
         <span class="centerContent">
             <!-- The wordmark is live text rather than part of the image, so the
