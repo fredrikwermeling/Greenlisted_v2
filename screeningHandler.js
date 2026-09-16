@@ -132,7 +132,7 @@ function _randomSample(rows, n) {
 // Why a targeted library needs its own controls at all: in a genome-wide
 // screen the null comes from the 85-90% of genes with no phenotype, which
 // is why the built-in libraries all ship about 1000 controls regardless of
-// size (0.8-2.4% of their guides) — those are a normalisation anchor, not
+// size (0.8-2.4% of their guides) — those are a normalization anchor, not
 // the null. A focused library has no neutral majority to borrow from, since
 // its genes were chosen precisely for their expected effect, so the
 // controls have to define the null themselves.
@@ -140,7 +140,7 @@ function _randomSample(rows, n) {
 // Two things degrade as the control set shrinks. The null SD is estimated
 // from n controls, so the test follows a t distribution with n-1 df and its
 // critical value sits above the ideal z. And the control median is the
-// normalisation anchor, with SE 1.2533*sd/sqrt(n), which adds noise to
+// normalization anchor, with SE 1.2533*sd/sqrt(n), which adds noise to
 // every gene-vs-control comparison. Combining both gives the factor by
 // which a hit gets harder to call than with an unlimited control set. For
 // 3 guides/gene, Bonferroni over k genes:
@@ -150,7 +150,7 @@ function _randomSample(rows, n) {
 //     n=50     1.10    1.11    1.12    1.14
 //     n=100    1.05    1.05    1.06    1.07
 //
-// Screen size matters surprisingly little: the normalisation term does not
+// Screen size matters surprisingly little: the normalization term does not
 // depend on k at all, and the t-vs-z term grows only slowly.
 //
 // Guides per gene matters MORE, and in the direction people find backwards.

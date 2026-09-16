@@ -7,7 +7,7 @@
 // The division of labour this is built around:
 //
 //   Primer-BLAST does two things no language model can. It computes
-//   nearest-neighbour thermodynamics — melting temperature under real salt
+//   nearest-neighbor thermodynamics — melting temperature under real salt
 //   conditions, hairpins, self- and cross-dimers — and it BLASTs both primers
 //   against three gigabases of genome to find where else they would prime.
 //   Neither is something to take on trust from a model.

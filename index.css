@@ -205,7 +205,7 @@ button:disabled {
 }
 
 /* The one action that starts the run. Everything else on the page is a
-   setting or a download, so exactly one control carries the brand colour. */
+   setting or a download, so exactly one control carries the brand color. */
 .btn-primary {
     background: var(--green-600);
     color: white;
@@ -413,14 +413,14 @@ a:hover {
     line-height: 1.55;
     letter-spacing: 0.01em;
     overflow-wrap: anywhere;
-    /* Left-aligned: a wrapped sequence centred on the last line leaves a
+    /* Left-aligned: a wrapped sequence centered on the last line leaves a
        stranded fragment that reads as a separate string. */
     text-align: left;
     color: #6b7280;
 }
 
 
-/* The guide slot. Marked only by weight — colouring it read as a status,
+/* The guide slot. Marked only by weight — coloring it read as a status,
    as though something about that part of the oligo needed attention. */
 #ExampleSequance .seqSlot {
     /* Same reason as the table cells: `*` would otherwise put this span back
@@ -434,7 +434,7 @@ a:hover {
    in the box rather than cut off halfway. */
 /* The one line in a copy-number file that is specific to that file: which
    cell line it was built for, and whether that line is whole-genome doubled.
-   It sat fourth in a stack of identical grey paragraphs and was routinely
+   It sat fourth in a stack of identical gray paragraphs and was routinely
    missed, which matters because the ploidy changes how every value reads. */
 .runBanner {
     margin: 0 0 10px 0;
@@ -507,8 +507,8 @@ a:hover {
 }
 
 #startButtonText {
-    /* Inherit the button's own colour. This was a fixed CSS green, which read
-       as an accent on the old grey button but as a second, clashing green once
+    /* Inherit the button's own color. This was a fixed CSS green, which read
+       as an accent on the old gray button but as a second, clashing green once
        Run became the primary action. */
     color: inherit;
 }
@@ -732,7 +732,7 @@ body.validate-mode #validateButton {
 .cn-picker-row .cn-picker-meta { font-size: 0.75rem; color: #6b7280; }
 .cn-picker-row .cn-picker-cancer { font-size: 0.7rem; color: #9ca3af; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; min-width: 0; }
 
-/* CN results table — coloured tiers per cell */
+/* CN results table — colored tiers per cell */
 .cn-results-table {
     width: 100%;
     border-collapse: collapse;
@@ -962,7 +962,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 /* The two ways of filling the symbol box, set apart from each other and
-   centred under it — .justifyCenter has no justify-content, so they would
+   centered under it — .justifyCenter has no justify-content, so they would
    otherwise sit hard against the left edge. */
 .symbolLinks {
     display: flex;
@@ -1147,7 +1147,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 /* Genomic context — the per-guide "Context" button in the results table and
    the modal it opens. The sequence is a monospace block with the features as
-   background colours; the copy routes carry the same colours inline. */
+   background colors; the copy routes carry the same colors inline. */
 .gcCell {
     text-align: center;
 }
@@ -1404,7 +1404,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     background: #ede9fe;
 }
 
-/* A spacer or PAM base that is also in an exon keeps the feature colour;
+/* A spacer or PAM base that is also in an exon keeps the feature color;
    the exon shows on the bases around it. */
 .gcSpacer.gcExonC, .gcSpacer.gcExonU {
     background: #bbf7d0;
@@ -1756,7 +1756,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 /* Wordmark. This was one flat PNG; the strapline is now live text so it can be
    set in two stacked lines and still scale with the page. Only the leaves are
-   still a picture. The colour is sampled from the original artwork. */
+   still a picture. The color is sampled from the original artwork. */
 .brand {
     --brandGreen: #83aa3d;
     display: inline-flex;

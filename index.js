@@ -282,7 +282,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             // Comment rows are written by this app and may carry deliberate
             // markup; everything below is data and gets escaped.
             // The run banner is the only line specific to this file, so it is
-            // drawn as a callout instead of a fourth line of grey small print.
+            // drawn as a callout instead of a fourth line of gray small print.
             infoHtml += /^THIS RUN:/.test(displayText)
                 ? `<p class="runBanner">${displayText}</p>`
                 : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
@@ -634,12 +634,12 @@ function _createMAGeCKOutput(libraryMap) {
 // columns are (CN) and (~copies) for each selected cell line. Mirrors the
 // layout of the standalone CN-mode TSV so users with both files can join
 // them in Excel by gene symbol.
-// Four labelled comment rows that head every CN TSV — kept identical
+// Four labeled comment rows that head every CN TSV — kept identical
 // between the standalone CN-mode TSV and the screening-annotation TSV,
 // and in the same plain-text style as the full-matrix export. No HTML:
 // these files get downloaded and opened in Excel / R / pandas, where
 // tags and entities would sit in the data as literal characters.
-// _renderTsvAsTable already styles lines starting with '#' as small grey
+// _renderTsvAsTable already styles lines starting with '#' as small gray
 // paragraphs above the table, so the in-app preview stays readable
 // without any markup of its own.
 //
@@ -1732,7 +1732,7 @@ var _cnState = {
     isMode: false,            // are we currently in CN-lookup mode?
     selectedCellLines: [],    // working set for the CN-mode modal picker
     screeningCellLines: [],   // section-3 single-line annotation slot (array of 0 or 1)
-    fullCatalogue: [],        // populated from CN_listCellLines() once loaded
+    fullCatalog: [],        // populated from CN_listCellLines() once loaded
     results: null,            // { rows: [{gene, perLine: {id: {value, tier}}}], notFound: [genes] }
     tsvOutput: ""             // TSV of the results table for download
 }
@@ -1745,7 +1745,7 @@ async function CN_openModal() {
     }
     const modal = document.getElementById("cnModal")
     modal.className = "fazeIn upset-modal-overlay"
-    document.getElementById("cnPickerStatus").textContent = "Loading catalogue (cell-line metadata + CN matrix)…"
+    document.getElementById("cnPickerStatus").textContent = "Loading catalog (cell-line metadata + CN matrix)…"
     document.getElementById("cnPickerConfirmBtn").disabled = true
     _cnState.selectedCellLines = []
     _updateCnPickerSelectedCount()
@@ -1791,10 +1791,10 @@ async function CN_openModal() {
     }
     try {
         await CN_loadIfNeeded()
-        _cnState.fullCatalogue = CN_listCellLines()
+        _cnState.fullCatalog = CN_listCellLines()
         document.getElementById("cnPickerStatus").textContent =
-            `${_cnState.fullCatalogue.length} human cell lines available. Type to filter; click rows to (de)select.`
-        _renderCnPicker(_cnState.fullCatalogue)
+            `${_cnState.fullCatalog.length} human cell lines available. Type to filter; click rows to (de)select.`
+        _renderCnPicker(_cnState.fullCatalog)
         _renderCnPickerExamples()
     } catch (err) {
         document.getElementById("cnPickerStatus").textContent = "Failed to load: " + err.message
@@ -1890,7 +1890,7 @@ function _renderCnPickerExamples() {
 }
 
 function CN_loadExamples() {
-    const list = _cnState.fullCatalogue || []
+    const list = _cnState.fullCatalog || []
     // Union of every gene and every cell line mentioned across all
     // _CN_EXAMPLES — one click loads the full panel.
     const allLineNames = new Set(_CN_EXAMPLES.map(e => e.line))
@@ -1938,7 +1938,7 @@ function _renderCnPicker(list) {
 
 function CN_filterPicker() {
     const q = document.getElementById("cnPickerSearch").value.trim().toLowerCase()
-    if (!q) { _renderCnPicker(_cnState.fullCatalogue); return }
+    if (!q) { _renderCnPicker(_cnState.fullCatalog); return }
     // Word-prefix match per whitespace-separated token: the query must
     // align with the start of a word in the haystack. So "rectal" hits
     // "Rectal Adenocarcinoma" but not "Colorectal Adenocarcinoma"; "mel"
@@ -1955,7 +1955,7 @@ function CN_filterPicker() {
     // of 2+ alphanumerics so a stray "-" doesn't match everything.
     const squash = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "")
     const sq = squash(q)
-    const filtered = _cnState.fullCatalogue.filter(c => {
+    const filtered = _cnState.fullCatalog.filter(c => {
         const hay = [c.name, c.disease, c.subtype, c.lineage, c.id].join(" ")
         if (tokenRegexes.every(re => re.test(hay))) return true
         if (sq.length >= 2) {
@@ -1972,7 +1972,7 @@ function CN_togglePickerRow(id) {
     if (idx >= 0) {
         _cnState.selectedCellLines.splice(idx, 1)
     } else {
-        const entry = _cnState.fullCatalogue.find(c => c.id === id)
+        const entry = _cnState.fullCatalog.find(c => c.id === id)
         if (entry) _cnState.selectedCellLines.push(entry)
     }
     _updateCnPickerSelectedCount()
@@ -1996,7 +1996,7 @@ function CN_confirmSelection() {
 // Typeahead handler for the "Pick cell line (human; optional)" input in
 // section 3. Single cell line only. First keystroke triggers a lazy CN
 // matrix load + datalist population; subsequent input is matched against
-// the catalogue and the screening-annotation slot is updated when an
+// the catalog and the screening-annotation slot is updated when an
 // exact match is found.
 let _screeningDatalistPopulated = false
 function CN_handleScreeningCellLineInput() {
@@ -2010,7 +2010,7 @@ function CN_handleScreeningCellLineInput() {
         const status = document.getElementById("screeningCellLineStatus")
         const dl = document.getElementById("screeningCellLineList")
         if (!_screeningDatalistPopulated) {
-            if (status) status.textContent = "Loading cell-line catalogue…"
+            if (status) status.textContent = "Loading cell-line catalog…"
             await CN_loadIfNeeded()
             const list = CN_listCellLines()
             if (dl) {
@@ -2031,8 +2031,8 @@ function CN_handleScreeningCellLineInput() {
             if (status) status.textContent = ""
         }
         const val = inp.value.trim()
-        const list = _cnState.fullCatalogue && _cnState.fullCatalogue.length
-            ? _cnState.fullCatalogue : CN_listCellLines()
+        const list = _cnState.fullCatalog && _cnState.fullCatalog.length
+            ? _cnState.fullCatalog : CN_listCellLines()
         // Match the user's input against either the canonical name or the
         // stripped form (DepMap uses "A-375" / "A375" — both are correct).
         const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
@@ -2185,7 +2185,7 @@ function _cnBuildTsv(rows) {
 // for loading into R / pandas / Excel. Built straight off CN_matrixColumns so
 // the ~20k rows are produced without a per-gene lookup. Rows carry the gene's
 // chromosome / cytoband / coordinates and are ordered by genomic position, so
-// runs of co-amplified neighbours (e.g. a 1p34 block) land on adjacent rows.
+// runs of co-amplified neighbors (e.g. a 1p34 block) land on adjacent rows.
 function _cnBuildMatrixTsv() {
     const cellLines = _cnState.selectedCellLines
     if (!cellLines.length || typeof CN_matrixColumns !== "function") return ""
@@ -2230,8 +2230,8 @@ function _cnBuildMatrixTsv() {
         `# Green Listed — copy-number matrix. Source: DepMap OmicsCNGene dataset, 24Q4 release (human cell lines).`,
         `# Values are raw relative copy number (CN): 1.0 = the line's own genome-wide baseline (typical copy level), >= 3.0 = amplification, <= 0.5 = deletion. A blank cell means DepMap has no CN value for that gene in that line.`,
         haveLoc
-            ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
-            : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colours, use the on-screen table.`
+            ? `# Rows: all ${genes.length} genes, ordered by genomic position (GRCh38). Chromosome / Cytoband from Ensembl. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colors, use the on-screen table.`
+            : `# Rows: all ${genes.length} genes in the matrix. Columns: the selected cell line(s). For the rounded "~ N copies" estimate and tier colors, use the on-screen table.`
     ]
     const baseCols = haveLoc ? ["Gene", "Chromosome", "Cytoband"] : ["Gene"]
     const header = [...baseCols, ...cellLines.map(c => c.name)].join("\t")
@@ -2290,7 +2290,7 @@ function CN_showResults() {
         </div>`
 
     // Header note + table layout. Per-cell-line columns are fixed-width
-    // (90px) and headers are centred over the data cells, so 2 cell lines
+    // (90px) and headers are centered over the data cells, so 2 cell lines
     // doesn't blow the table out to full page width. Each result cell
     // shows the biological copy estimate ("≈ 3 copies") on the first
     // line and the raw relative-CN number on a small second line.
@@ -2359,7 +2359,7 @@ function CN_showResults() {
     // explains what the badge means.
     const wesNote = ""
     tableHtml += `<div style="font-size:0.8rem; color:#374151; margin-top:14px; padding:8px 12px; background:#f9fafb; border-left:3px solid var(--mainColor); border-radius:0 4px 4px 0; line-height:1.5;">
-        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene dataset</a> (24Q4 release). Copy number values are relative, normalised to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; <b>2</b> for a non-WGD line and <b>4</b> for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column is rounded to a whole number: <code>round(CN × 2)</code> for non-WGD lines and <code>round(CN × 4)</code> for WGD lines.</div>
+        <div style="margin-bottom:6px;"><b>Data:</b> Gene-level copy number from DepMap&rsquo;s <a href="https://depmap.org/portal/data_page/?tab=allData" target="_blank" rel="noopener">OmicsCNGene dataset</a> (24Q4 release). Copy number values are relative, normalized to each line&rsquo;s own genome-wide baseline: <b>CN = 1.0 represents the line&rsquo;s typical copy count</b> &mdash; <b>2</b> for a non-WGD line and <b>4</b> for a whole-genome-doubled line. The &ldquo;≈ N copies&rdquo; column is rounded to a whole number: <code>round(CN × 2)</code> for non-WGD lines and <code>round(CN × 4)</code> for WGD lines.</div>
         ${wgdNote}
         ${wesNote}
         <div style="margin-bottom:6px;"><b>Why the CN value can be non-integer.</b> Inside any single cell, a gene has a whole-number copy count (0, 1, 2, 3, &hellip;) &mdash; but a cell line is not a single cell. It&rsquo;s millions of cells that have drifted apart genetically over many generations. Sequencing reads the average across that population, so a CN value of, say, 1.1 or 0.7 typically means the cells are not all in the same state &mdash; some have gained or lost a copy and others haven&rsquo;t. The &ldquo;≈ N copies&rdquo; column rounds this to a single whole number for readability, but the underlying CN value preserves the nuance, so a line at CN 0.6 is more genetically mixed for that gene than a line at CN 1.0 even though both might round to the same copy count. For CRISPR knockout this matters: a mixed line can need more cuts in some cells than others to fully lose the gene.</div>
@@ -2381,7 +2381,7 @@ function CN_showResults() {
 // it renders cleanly into Illustrator / Inkscape / Keynote without any
 // browser-specific styling artefacts. Layout is computed pixel-precise:
 // gene column on the left, one cell-line column per selected line, each
-// cell shows tier-coloured background + "≈ N copies" + tier · CN x.x.
+// cell shows tier-colored background + "≈ N copies" + tier · CN x.x.
 function _cnBuildResultsSvg() {
     if (!_cnState.results) return ""
     const cellLines = _cnState.selectedCellLines
@@ -2411,7 +2411,7 @@ function _cnBuildResultsSvg() {
         // positioned just after. Long names (PE/CA-PJ34 (clone C12),
         // Ishikawa (Heraklio) 02 ER-) push that estimate past the column
         // edge, so the pill is clamped to stay inside its own column —
-        // otherwise it lands on the neighbouring header, or off-canvas
+        // otherwise it lands on the neighboring header, or off-canvas
         // entirely when a single line is selected, silently dropping the
         // WGD marker from the exported figure.
         const nameStr = `${sex} ${cl.name}`

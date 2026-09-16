@@ -188,7 +188,7 @@ function CN_genomeStats(cellLineId) {
     }
 }
 
-// Returns the cell-line catalogue sorted alphabetically by display name,
+// Returns the cell-line catalog sorted alphabetically by display name,
 // each entry annotated with sex + primary disease + subtype + WGD + ploidy.
 function CN_listCellLines() {
     if (!_CN_STATE.metadata) return []

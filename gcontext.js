@@ -54,7 +54,7 @@ const _GC_MIN_GAP_MS = 1000        // UCSC asks for at most one request per seco
 // The form page. Submitting straight to the engine behind it (primertool.cgi)
 // was tried and abandoned: a direct submission carries only the parameters we
 // send, and the ones that bound the BLAST are among those the form supplies
-// but a link cannot. Runs launched that way analysed 2,000,000 hits against
+// but a link cannot. Runs launched that way analyzed 2,000,000 hits against
 // the form's 50,000 and searched 50,000 target sequences against its 100, and
 // took ten minutes or more where the form takes about two. Sending the full
 // field set did not fix it either. So the form is the only route.
@@ -908,7 +908,7 @@ function _gcShow() {
 
     html += `<div class="gcRow gcActions">` +
         `<button class="validate-btn" onclick="GC_copyFasta()" title="Plain text: flanks in lower case, spacer and PAM in upper case, positions in the header. Paste into Primer-BLAST, Primer3 or any editor.">Copy FASTA</button>` +
-        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the colouring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
+        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the coloring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
         `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
@@ -1243,10 +1243,10 @@ function _gcPbSettingsHtml(v) {
           `<b>${w.fwdStart}–${w.fwdEnd}</b>, reverse in <b>${w.revStart}–${w.revEnd}</b> of ${v.n} bp. ` +
           `Changing the flank moves both.</span>`
     return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
-        `<summary>Primer-BLAST settings${changed ? " (customised)" : ""}</summary>` +
+        `<summary>Primer-BLAST settings${changed ? " (customized)" : ""}</summary>` +
         `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) and this window's genomic position, so it checks specificity against the genome and goes straight to designing rather than first asking you which hit was the intended target. ` +
         `Three things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp; the maximum, set to the length of this window instead of 1000 so a pair may span all of it; and the primer windows, worked out from the cut. ` +
-        `Every other box is left blank on purpose — Primer-BLAST fills those with its own documented defaults, shown in grey inside each box. ` +
+        `Every other box is left blank on purpose — Primer-BLAST fills those with its own documented defaults, shown in gray inside each box. ` +
         `That meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Anything you type here is remembered in this browser.</p>` +
         `<div class="gcPbGrid">` +
         num("minDist", "Keep primers clear of the cut", "Neither primer may sit closer than this to the cut site, so an indel cannot land under a primer and the trace has settled before the edit. ICE asks for 150 bp or more; TIDE prefers the cut about 200 bp into the read and needs at least 100 bp before it for alignment. The primer windows are worked out from this and the flank, so they follow whatever flank you choose.", 10) + `<span class="gcUnit">bp each side</span>` +

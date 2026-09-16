@@ -19,7 +19,7 @@
 // workbook export, so PowerPoint needs no new dependency.
 //
 
-// Vector first: this figure is text and flat colour, so the drawn formats are
+// Vector first: this figure is text and flat color, so the drawn formats are
 // both sharper and a fraction of the size of a picture of the same thing.
 const _GCX_FORMATS = [
     { id: "pdf", label: "PDF", note: "Vector single page at the exact width — sharp at any zoom, a few kilobytes", vector: true },
@@ -34,7 +34,7 @@ const _GCX_STORE = "greenlisted.contextExport"
 
 // Layout constants for the drawn figure. The base advance is what makes the
 // grid line up: every glyph in a monospace face occupies the same width, so
-// a base at column i sits at x0 + i * ADVANCE and the coloured panel behind
+// a base at column i sits at x0 + i * ADVANCE and the colored panel behind
 // it can be drawn as a plain rectangle.
 const _GCX = {
     fontPx: 11,
@@ -66,7 +66,7 @@ const _GCX = {
 
 // The width of one character in the export face. Every glyph in a monospace
 // font has the same advance, so one measurement fixes the whole grid: the
-// per-character x positions, the coloured panels behind them, and the page
+// per-character x positions, the colored panels behind them, and the page
 // width. Measured once and cached; falls back to a ratio of the font size if
 // the canvas is unavailable.
 var _gcxAdvanceCache = null
@@ -133,7 +133,7 @@ function _gcxEsc(s) {
 }
 
 // Where base `i` of a line sits, in advances from the start of the row. The
-// grouping gap every ten bases is part of the coordinate, so the coloured
+// grouping gap every ten bases is part of the coordinate, so the colored
 // panels and the glyphs cannot drift apart.
 function _gcxCol(i) {
     return i + Math.floor(i / 10) * _GCX.groupGap
@@ -235,7 +235,7 @@ function GC_buildSvg(v) {
     opLine(_GCX.padX, headH - 6, width - _GCX.padX, headH - 6, C.rule, 1)
 
     // ---- sequence
-    // Feature panels are drawn first as runs of identical colour, so a 500 bp
+    // Feature panels are drawn first as runs of identical color, so a 500 bp
     // exon is one rectangle rather than 500, then the glyphs go on top.
     const bg = b => b.spacer ? C.spacer : b.pam ? C.pam : b.exon ? (b.coding ? C.exonC : C.exonU) : null
     var seqSvg = "", textSvg = "", cutSvg = ""
@@ -412,7 +412,7 @@ function _gcxCanvasToTiff(canvas, dpi) {
 }
 
 // PackBits run-length encoding, as the TIFF spec defines it. This figure is
-// mostly flat white with runs of one colour, which is exactly what the scheme
+// mostly flat white with runs of one color, which is exactly what the scheme
 // is good at — an uncompressed export of a simple panel ran to 18 MB.
 function _gcxPackBits(src) {
     const out = []
