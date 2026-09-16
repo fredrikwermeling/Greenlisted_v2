@@ -218,6 +218,11 @@ function GC_buildSvg(v) {
     const opLine = (x1, y1, x2, y2, stroke, width) => ops.push({ t: "line", x1: x1, y1: y1, x2: x2, y2: y2, stroke: stroke, w: width })
     const opText = (x, y, str, size, fill, mono, bold, anchorEnd) =>
         ops.push({ t: "text", x: x, y: y, s: str, size: size, fill: fill, mono: !!mono, bold: !!bold, end: !!anchorEnd })
+    // A row of sequence, with the x of every base. Kept apart from plain text
+    // because the vector writer has to place each base itself rather than let
+    // the font's own advance do it; see _gcxOpsToPdf.
+    const opSeq = (xs, y, str, size, fill) =>
+        ops.push({ t: "seq", xs: xs, y: y, s: str, size: size, fill: fill })
 
     var s = `<?xml version="1.0" encoding="UTF-8"?>\n`
     s += `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`
@@ -282,12 +287,14 @@ function GC_buildSvg(v) {
         }
         textSvg += `<text x="${xs.join(" ")}" y="${baseY}" xml:space="preserve" ` +
                    `style="${_gcxFont(_GCX.face, _GCX.fontPx, `fill:${C.text};`)}">${_gcxEsc(chars)}</text>\n`
-        // Recorded in ten-base groups: within a group the advance is uniform,
-        // so each group is one positioned string rather than sixty.
-        for (var g = 0; g * 10 < chars.length; g++) {
-            const piece = chars.slice(g * 10, g * 10 + 10)
-            if (piece) opText(Number(xs[g * 10]), baseY, piece, _GCX.fontPx, C.text, true)
-        }
+        // Recorded with the x of every base, not in ten-base groups. A group
+        // drawn as one string is laid out by the font's own advance from the
+        // first character on, so the row only lands on the grid as long as
+        // that advance matches the one the panels behind it were drawn with.
+        // Where it does not — a viewer substituting for Courier, a face
+        // measured at a different size — the bases drift out from under their
+        // own highlights and the ten-base gaps close up.
+        if (chars) opSeq(xs.map(Number), baseY, chars, _GCX.fontPx, C.text)
     }
     s += seqSvg + textSvg + cutSvg
 
@@ -355,7 +362,7 @@ function _gcxRasterise(svgStr, width, height, scale) {
 
 // Baseline uncompressed RGB TIFF with the export density in the resolution
 // tags. Ported from Correlate so both apps emit the same kind of file.
-function _gcxCanvasToTiff(canvas, dpi) {
+function _gcxCanvasToTiff(canvas, dpi, deflated) {
     const w = canvas.width, h = canvas.height
     const data = canvas.getContext("2d").getImageData(0, 0, w, h).data
     const strip = new Uint8Array(w * h * 3)
@@ -365,25 +372,35 @@ function _gcxCanvasToTiff(canvas, dpi) {
         strip[j++] = Math.round(data[i + 1] * a + 255 * (1 - a))
         strip[j++] = Math.round(data[i + 2] * a + 255 * (1 - a))
     }
-    // PackBits per row, as the spec requires (runs never cross a row
-    // boundary). Falls back to storing the raw strip if the encoding somehow
-    // came out larger, which flat photographic content can do.
-    const rowBytes = w * 3
-    const encodedRows = []
-    var encodedLen = 0
-    for (var r = 0; r < h; r++) {
-        const row = _gcxPackBits(strip.subarray(r * rowBytes, (r + 1) * rowBytes))
-        encodedRows.push(row); encodedLen += row.length
-    }
-    const usePack = encodedLen < strip.length
-    const compression = usePack ? 32773 : 1
-    var body
-    if (usePack) {
-        body = new Uint8Array(encodedLen)
-        var bo = 0
-        for (const row of encodedRows) { body.set(row, bo); bo += row.length }
+    // Deflate where the browser can do it, PackBits where it cannot.
+    //
+    // PackBits only ever finds runs of identical bytes, and a page of small
+    // antialiased text has almost none: it got this figure to 30% of raw
+    // where PNG managed 8%, so a 20 cm export ran past 4 MB. Deflate sees the
+    // repetition across rows as well and brings the same figure to 4%, which
+    // is a smaller file than the PNG of it. Compression 8 is Adobe Deflate,
+    // a zlib stream, which is exactly what CompressionStream("deflate")
+    // produces, and every TIFF reader in ordinary use accepts it.
+    var body = null, compression = 1
+    if (deflated) {
+        body = deflated
+        compression = 8
     } else {
-        body = strip
+        const rowBytes = w * 3
+        const encodedRows = []
+        var encodedLen = 0
+        for (var r = 0; r < h; r++) {
+            const row = _gcxPackBits(strip.subarray(r * rowBytes, (r + 1) * rowBytes))
+            encodedRows.push(row); encodedLen += row.length
+        }
+        if (encodedLen < strip.length) {
+            body = new Uint8Array(encodedLen)
+            var bo = 0
+            for (const row of encodedRows) { body.set(row, bo); bo += row.length }
+            compression = 32773
+        } else {
+            body = strip
+        }
     }
 
     const nTags = 12
@@ -409,6 +426,29 @@ function _gcxCanvasToTiff(canvas, dpi) {
     dv.setUint32(yresOff, d, true); dv.setUint32(yresOff + 4, 1, true)
     new Uint8Array(buf).set(body, stripOff)
     return buf
+}
+
+// The canvas as flat RGB, deflated, or null where the browser has no
+// CompressionStream. Composited onto white first, the same way the TIFF
+// writer does it, so the two see identical bytes.
+async function _gcxDeflateRgb(canvas) {
+    if (typeof CompressionStream === "undefined") return null
+    try {
+        const w = canvas.width, h = canvas.height
+        const data = canvas.getContext("2d").getImageData(0, 0, w, h).data
+        const rgb = new Uint8Array(w * h * 3)
+        for (var i = 0, j = 0; i < data.length; i += 4) {
+            const a = data[i + 3] / 255
+            rgb[j++] = Math.round(data[i] * a + 255 * (1 - a))
+            rgb[j++] = Math.round(data[i + 1] * a + 255 * (1 - a))
+            rgb[j++] = Math.round(data[i + 2] * a + 255 * (1 - a))
+        }
+        const stream = new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"))
+        return new Uint8Array(await new Response(stream).arrayBuffer())
+    } catch (e) {
+        console.warn("Deflate unavailable; the TIFF falls back to PackBits.", e)
+        return null
+    }
 }
 
 // PackBits run-length encoding, as the TIFF spec defines it. This figure is
@@ -503,6 +543,21 @@ function _gcxOpsToPdf(fig, widthCm) {
             // monospace, so 0.6 em is exact for them.
             const x = op.end ? (op.x * scale - op.s.length * size * 0.6) : op.x * scale
             c += `BT ${font} ${f(size)} Tf ${f(x)} ${Y(op.y)} Td (${str(op.s)}) Tj ET\n`
+        } else if (op.t === "seq") {
+            // Every base placed by its own text matrix. Td moves relative to
+            // where the last glyph left off, which means the font decides the
+            // spacing; Tm sets the position outright, so a base lands under
+            // its own highlight whatever face the reader ends up using and
+            // the ten-base gaps stay open. It costs about thirty bytes a base
+            // and buys a row that cannot drift.
+            setFill(op.fill)
+            const size = op.size * scale
+            c += `BT /F1 ${f(size)} Tf\n`
+            const y = Y(op.y)
+            for (var ci = 0; ci < op.s.length; ci++) {
+                c += `1 0 0 1 ${X(op.xs[ci])} ${y} Tm (${str(op.s[ci])}) Tj\n`
+            }
+            c += "ET\n"
         }
     }
 
@@ -624,8 +679,13 @@ async function _gcxCanvasToPptx(canvas, widthCm, heightCm, svgStr) {
     const EMU = 360000
     const cx = 12192000, cy = 6858000
     const figW = (widthCm || 10) * EMU, figH = (heightCm || 10) * EMU
-    const scale = Math.min((cx * 0.88) / figW, (cy * 0.88) / figH)
-    const picW = Math.round(figW * scale), picH = Math.round(figH * scale)
+    // Placed at the size that was asked for, and only shrunk if it would not
+    // fit the slide at all. It used to be scaled to fill 88% of the slide in
+    // both directions, which meant the width in the dialog decided nothing:
+    // every figure came out the same size on the slide, about 17 cm across,
+    // whatever number was typed.
+    const shrink = Math.min(1, (cx * 0.94) / figW, (cy * 0.94) / figH)
+    const picW = Math.round(figW * shrink), picH = Math.round(figH * shrink)
     const offX = Math.round((cx - picW) / 2), offY = Math.round((cy - picH) / 2)
     const pngB64 = canvas.toDataURL("image/png").split(",")[1]
     const useSvg = !!svgStr
@@ -758,7 +818,10 @@ function _gcxStamp() {
 
 async function GC_xRun() {
     const fmt = (document.querySelector('input[name="gcxFmt"]:checked') || {}).value || "png"
-    const widthCm = Math.max(5, Math.min(60, parseFloat(document.getElementById("gcxW").value) || 20))
+    // 10 on a blank or unreadable box, matching the default in _gcxPrefs. It
+    // used to fall back to 20, so emptying the field silently doubled the
+    // figure rather than returning it to the default.
+    const widthCm = Math.max(5, Math.min(60, parseFloat(document.getElementById("gcxW").value) || 10))
     const dpi = parseInt(document.getElementById("gcxDpi").value, 10) || 300
     _gcxSavePrefs({ format: fmt, widthCm: widthCm, dpi: dpi })
 
@@ -790,7 +853,7 @@ async function GC_xRun() {
             const scale = (widthCm / 2.54 * dpi) / fig.width
             const canvas = (fmt === "pptx") ? null : await _gcxRasterise(fig.svg, fig.width, fig.height, scale)
             if (fmt === "tiff") {
-                _gcxSave(new Blob([_gcxCanvasToTiff(canvas, dpi)], { type: "image/tiff" }), `${base}.tiff`)
+                _gcxSave(new Blob([_gcxCanvasToTiff(canvas, dpi, await _gcxDeflateRgb(canvas))], { type: "image/tiff" }), `${base}.tiff`)
             } else if (fmt === "pdf") {
                 _gcxSave(new Blob([_gcxCanvasToPdf(canvas, widthCm, heightCm)], { type: "application/pdf" }), `${base}.pdf`)
             } else if (fmt === "pptx") {
