@@ -866,7 +866,16 @@ function _gcShow() {
             ? `<label class="gcDisabled" title="Your own values, set under Primer-BLAST settings below."><input type="radio" name="gcPreset" checked disabled> custom</label>`
             : "") +
         `</span>` +
-        `<span class="gcHint">${_escapeHtml(_gcPbActivePreset() === "custom" ? "your own settings" : _GC_PB_PRESETS[_gcPbActivePreset()].note)}</span>` +
+        `<span class="infoDot" onclick="INFO_showModal('infoPrimerReadouts.html','Sanger or amplicon NGS')" ` +
+        `title="What each choice sets and why, with links to ICE, TIDE and CRISPResso2. Click to read.">i</span>` +
+        `</div>` +
+        // The selected option's own numbers, on their own line, where they
+        // cannot be mistaken for a caption to whichever radio sits last.
+        `<div class="gcCtrlRow gcPresetNote">` +
+        `<span class="gcCtrlLabel"></span>` +
+        `<span class="gcHint">${_escapeHtml(_gcPbActivePreset() === "custom"
+            ? "Your own settings, below."
+            : _GC_PB_PRESETS[_gcPbActivePreset()].note)}</span>` +
         `</div>` +
         `</div>`
 

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading an edit - Green Listed</title>
+    <link rel="stylesheet" media="all" href="index.css">
+</head>
+<header></header>
+
+<body>
+    <p style="padding: 10px;"><a href="index.html">&larr; Back to Green Listed</a></p>
+    <div class="plate">
+        <h1 class="plateTitle">Sanger or amplicon NGS</h1>
+        <div class="plateContent">
+
+            <style>
+                .roBlock { margin: 0 0 20px 0; padding: 12px 16px; border-left: 3px solid #10b981; background: #f9fafb; border-radius: 0 4px 4px 0; }
+                .roBlock > h3 { font-size: 1.05rem; font-weight: 600; color: #065f46; margin: 0 0 8px 0; }
+                .roBlock p { margin: 0 0 8px 0; }
+                .roNums { width: 100%; border-collapse: collapse; margin: 8px 0 0 0; font-size: 0.9rem; }
+                .roNums th, .roNums td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid #e5e7eb; }
+                .roNums th { color: #6b7280; font-weight: 600; }
+                .roWhy { font-size: 0.9rem; color: #4b5563; }
+            </style>
+
+            <p>Both methods amplify the edited site and read it, and they want opposite things from the
+                PCR. The <em>Primers for</em> choice sets the product size and how far the primers are kept
+                from the cut; every number stays editable under <em>Primer-BLAST settings</em>.</p>
+
+            <div class="roBlock">
+                <h3>Sanger &mdash; ICE / TIDE</h3>
+                <p>One long Sanger trace is read across the cut, and the mixture of insertions and
+                    deletions is inferred from where the trace starts to disagree with an unedited control.</p>
+                <table class="roNums">
+                    <tr><th>Product</th><td>500&nbsp;bp or more</td></tr>
+                    <tr><th>Primers kept clear of the cut</th><td>150&nbsp;bp each side</td></tr>
+                </table>
+                <p class="roWhy" style="margin-top:10px;">The first 20 to 50 bases of a Sanger read are
+                    unreliable, so the sequencing primer has to sit well back from the edit or the trace is
+                    still settling when it arrives. There also has to be plenty of clean sequence after the
+                    cut, because that is what carries the indel signal.</p>
+            </div>
+
+            <div class="roBlock">
+                <h3>Amplicon NGS</h3>
+                <p>A short product is sequenced many times, and the indels are counted directly from the
+                    reads.</p>
+                <table class="roNums">
+                    <tr><th>Product</th><td>220&ndash;280&nbsp;bp</td></tr>
+                    <tr><th>Primers kept clear of the cut</th><td>50&nbsp;bp each side</td></tr>
+                </table>
+                <p class="roWhy" style="margin-top:10px;">The ceiling is set by the read length, not by a
+                    wish for a short product. On a 2&times;150 paired-end run the two reads have to overlap
+                    before they can be merged, which caps the amplicon near 280&nbsp;bp; on a 2&times;250 run
+                    you can raise it to about 450.</p>
+                <p class="roWhy"><b>Shorter is not better.</b> A deletion that reaches a primer site
+                    destroys the amplicon, and that allele then vanishes from the data rather than being
+                    counted as edited, which biases the result toward looking unedited. So the product
+                    should be the longest the reads can still merge across, not the shortest that works.</p>
+            </div>
+
+            <h3 style="color:#065f46;">The two Sanger tools</h3>
+            <p><b>ICE</b> (Inference of CRISPR Edits) and <b>TIDE</b> (Tracking of Indels by Decomposition)
+                do the same job by different arithmetic. Both take one trace from the edited sample and one
+                from an unedited control.</p>
+            <ul>
+                <li><a target="_blank" rel="noopener noreferrer" href="https://ice.editco.bio/">ICE &mdash;
+                    run it online</a> (formerly Synthego ICE), and the
+                    <a target="_blank" rel="noopener noreferrer" href="https://github.com/synthego-open/ice">source
+                    code</a> if you would rather run it yourself. Asks for a product of 400&ndash;800&nbsp;bp
+                    with the primers at least 150&nbsp;bp from the cut.</li>
+                <li><a target="_blank" rel="noopener noreferrer" href="https://tide.nki.nl/">TIDE &mdash; run it
+                    online</a>, and <a target="_blank" rel="noopener noreferrer"
+                    href="https://doi.org/10.1093/nar/gku936">Brinkman <em>et al.</em>, Nucleic Acids Research
+                    2014</a>, which describes the method. Asks for 500&ndash;1500&nbsp;bp with the cut about
+                    200&nbsp;bp into the read, and needs at least 100&nbsp;bp of clean sequence before it.</li>
+            </ul>
+            <p>The Sanger setting here satisfies both at once, which is why it is a single choice rather
+                than one per tool.</p>
+
+            <h3 style="color:#065f46;">For amplicon NGS</h3>
+            <p><a target="_blank" rel="noopener noreferrer" href="https://crispresso.pinellolab.partners.org/">CRISPResso2</a>
+                is the usual analysis, and its
+                <a target="_blank" rel="noopener noreferrer" href="https://doi.org/10.1038/s41587-019-0032-3">paper</a>
+                describes what it does with the reads. It quantifies indels in a window around the cut and
+                ignores the outermost 15&nbsp;bp of the amplicon, so the cut must sit well inside the
+                product &mdash; which the 50&nbsp;bp clearance here already ensures.</p>
+
+        </div>
+    </div>
+</body>
+
+</html>

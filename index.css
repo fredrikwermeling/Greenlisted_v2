@@ -1775,7 +1775,9 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
+    /* Right-aligned so the strapline ends against the leaves instead of
+       leaving a gap, which is how the original artwork read. */
+    align-items: flex-end;
 }
 
 .brandName {
@@ -1804,7 +1806,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-weight: 400;
     white-space: nowrap;
     margin-top: 0.1em;
-    padding-left: 0.08em;
+    padding-right: 0.1em;
 }
 
 .brandTagStack {
@@ -1843,3 +1845,25 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .gcAlt a {
     color: var(--green-800);
 }
+
+
+/* The selected preset's numbers, indented under the choice they describe. */
+.gcPresetNote {
+    margin-top: -4px;
+}
+
+/* The info dot beside a control row opens a document, so it is a click target
+   rather than only a hover. */
+.gcCtrlRow .infoDot {
+    cursor: pointer;
+}
+
+/* Dialogs that open from inside the genomic-context panel have to draw above
+   it. They share one overlay class, so without this the winner is whichever
+   sits later in the document, which put the info box behind the panel that
+   opened it. */
+#gcModal { z-index: 1000; }
+#gcxModal,
+#gcaiModal,
+#infoModal,
+#downloadModal { z-index: 1100; }
