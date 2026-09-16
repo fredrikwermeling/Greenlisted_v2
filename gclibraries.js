@@ -184,7 +184,7 @@ function LIBX_columnFor(spacerOf) {
     // the library being designed from was inside the seven or outside it, and
     // the answer changed nothing.
     return {
-        header: `Other ${species} libraries`,
+        header: `Found in other ${species} libraries`,
         cell: cols => {
             const spacer = spacerOf(cols)
             if (!spacer) return ""
@@ -205,9 +205,9 @@ function LIBX_noticeHtml() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species)) return ""
     if (_libxState.loading) {
-        return `<p class="libxOffer" id="libxNotice">Loading the ${species} sgRNA index in the background — the <b>Other libraries</b> column fills in when it arrives.</p>`
+        return `<p class="libxOffer" id="libxNotice">Loading the ${species} sgRNA index in the background — the <b>Found in other libraries</b> column fills in when it arrives.</p>`
     }
-    return `<p class="libxOffer" id="libxNotice">The <b>Other libraries</b> column needs the ${species} sgRNA index. ` +
+    return `<p class="libxOffer" id="libxNotice">The <b>Found in other libraries</b> column needs the ${species} sgRNA index. ` +
            `<a href="javascript:void(0)" onclick="LIBX_loadAndRefresh()">Load it now</a> — about 35 MB, once per session.</p>`
 }
 

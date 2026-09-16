@@ -19,7 +19,7 @@
 // file is built on demand.
 const _DL_OUTPUTS = {
     adapter: {
-        label: "Output with adapters",
+        label: "Oligos to order",
         formats: [
             { ext: ".csv", note: "For MAGeCK and other analysis tools", anchor: "adapterDownload" },
             { ext: ".xlsx", note: "Excel workbook — keeps gene symbols intact", run: () => XLS_download("adapter") }

@@ -168,7 +168,7 @@ const _GC_PB_DBS = [
 // Entry points from the results table
 // =============================================================================
 
-// Extra column for the "Output with adapters" view. The rows carry the symbol
+// Extra column for the "Oligos to order" view. The rows carry the symbol
 // and the guide's index; the raw spacer is read back out of the run's
 // library map, since the sequence in the row already has adapters on it.
 function GC_rowExtraAdapter() {

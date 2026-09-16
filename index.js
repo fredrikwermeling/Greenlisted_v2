@@ -641,7 +641,7 @@ async function runScreening() {
     document.getElementById("outputTable").style.display = "flex"
     document.getElementById("outputTable").classList.remove("statusFadeOut")
     document.getElementById("outputTable").classList.add("statusFadeIn")
-    // Default the preview to "Output with adapters" once the run
+    // Default the preview to "Oligos to order" once the run
     // completes — saves the user a click for the most-used output.
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
 }
@@ -694,10 +694,13 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     return ""
 }
 
-// The label over the first output. "Output with adapters" describes what the
-// file held before there was a cell line to compare against; picking one adds
-// a column, and a label that does not mention it leaves that column to be
-// found by accident. Called whenever the cell-line box resolves.
+// The label over the first output. It was "Output with adapters", which named
+// the one thing the file does to the sequences and nothing about what else it
+// carries — and the adapters are optional, so on a run without them the name
+// described a step that had not happened. "Oligos to order" says what the file
+// is for. The third line is added when a screening cell line is picked, since
+// that adds a column and a label that does not mention it leaves the column to
+// be found by accident. Called whenever the cell-line box resolves.
 function _outLabelAdapter(match) {
     const el = document.getElementById("outLabelAdapter")
     if (!el) return
@@ -705,7 +708,7 @@ function _outLabelAdapter(match) {
     // cell around it is simpler than trying to edit one line of it in place.
     const dot = el.querySelector(".infoDot")
     const name = document.createElement("span")
-    name.innerHTML = `Output with<br>adapters`
+    name.innerHTML = `Oligos to<br>order`
     el.innerHTML = ""
     el.appendChild(name)
     if (dot) name.appendChild(dot)
