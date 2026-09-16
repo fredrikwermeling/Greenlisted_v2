@@ -263,10 +263,11 @@ async function runValidation() {
     document.getElementById("outputTable").classList.add("statusFadeIn")
 }
 
-// `rowExtra`, when given, appends one column: { header, cell(cols) } where
-// cell returns HTML for the row or null for an empty cell. The adapter and
-// full views use it for the per-guide "Context" button.
+// `rowExtra` appends columns after the data: one { header, cell(cols) }, or an
+// array of them, where cell returns HTML for that row. The adapter and full
+// views use it for the per-guide buttons and the cross-library count.
 function _renderTsvAsTable(tsv, delimiter, rowExtra) {
+    const extras = !rowExtra ? [] : (Array.isArray(rowExtra) ? rowExtra.filter(Boolean) : [rowExtra])
     if (!delimiter) delimiter = "\t"
     const lines = tsv.trim().split("\n").filter(l => l.length > 0)
     if (lines.length === 0) return "<p>No data</p>"
@@ -310,7 +311,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     for (const h of headers) {
         html += `<th>${_escapeHtml(h)}</th>`
     }
-    if (rowExtra) html += `<th>${_escapeHtml(rowExtra.header)}</th>`
+    for (const x of extras) html += `<th>${_escapeHtml(x.header)}</th>`
     html += '</tr></thead><tbody>'
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
@@ -319,7 +320,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             const safe = _escapeHtml(cols[j])
             html += `<td>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
         }
-        if (rowExtra) html += `<td class="gcCell">${rowExtra.cell(cols) || ""}</td>`
+        for (const x of extras) html += `<td class="gcCell">${x.cell(cols) || ""}</td>`
         html += '</tr>'
     }
     html += '</tbody></table>'
@@ -433,7 +434,8 @@ function _showOutputPane(paneId) {
 }
 
 function _showTableOutput(text, delimiter, rowExtra) {
-    _showOutputPane("validationTableDiv").innerHTML = _renderTsvAsTable(text, delimiter, rowExtra)
+    const notice = (rowExtra && typeof LIBX_noticeHtml === "function") ? LIBX_noticeHtml() : ""
+    _showOutputPane("validationTableDiv").innerHTML = notice + _renderTsvAsTable(text, delimiter, rowExtra)
 }
 
 function showValidationOutput() {
@@ -844,7 +846,46 @@ function _showTextareaOutput(text) {
 
 function showAdapterOutput() {
     _setActiveShow("adapter")
-    _showTableOutput(outputTexts.textOutputAdapter, undefined, (typeof GC_rowExtraAdapter === "function") ? GC_rowExtraAdapter() : null)
+    _showTableOutput(outputTexts.textOutputAdapter, undefined, _guideRowExtras("adapter"))
+}
+
+// The per-guide buttons and the cross-library count, for whichever of the two
+// guide views is being drawn. Kept in one place so the two stay identical.
+function _guideRowExtras(which) {
+    const extras = []
+    const ctx = (which === "adapter")
+        ? (typeof GC_rowExtraAdapter === "function" ? GC_rowExtraAdapter() : null)
+        : (typeof GC_rowExtraFull === "function" ? GC_rowExtraFull() : null)
+    if (ctx) extras.push(ctx)
+    if (typeof LIBX_columnFor === "function") {
+        const spacerOf = (which === "adapter") ? _adapterSpacerOf() : _fullSpacerOf()
+        if (spacerOf) {
+            const col = LIBX_columnFor(spacerOf)
+            if (col) extras.push(col)
+        }
+    }
+    return extras
+}
+
+// The clean spacer for a row of the adapter view. The sequence in the row has
+// adapters on it, so it is read back out of the run's library map instead.
+function _adapterSpacerOf() {
+    if (typeof searchOutput === "undefined" || !searchOutput || !searchOutput.filteredLibraryMap) return null
+    const map = searchOutput.filteredLibraryMap
+    return cols => {
+        const symbol = String(cols[0] || "").replace(/^'/, "").trim()
+        const id = String(cols[1] || "").replace(/^'/, "").trim()
+        const idx = parseInt(id.slice(id.lastIndexOf("_") + 1), 10) - 1
+        const rows = map[symbol.toLowerCase()]
+        const row = rows && rows[idx]
+        return row ? String(row[settings.RNAColumn - 1] || "").trim().toUpperCase() : null
+    }
+}
+
+// The full view's rows are the library rows themselves.
+function _fullSpacerOf() {
+    if (typeof settings === "undefined" || !settings.RNAColumn) return null
+    return cols => String(cols[settings.RNAColumn - 1] || "").trim().toUpperCase()
 }
 
 function showMAGeCKOutput() {
@@ -858,7 +899,7 @@ function showMAGeCKOutput() {
 
 function showFullOutput() {
     _setActiveShow("full")
-    _showTableOutput(outputTexts.textOutputFull, undefined, (typeof GC_rowExtraFull === "function") ? GC_rowExtraFull() : null)
+    _showTableOutput(outputTexts.textOutputFull, undefined, _guideRowExtras("full"))
 }
 
 function showNotFoundOutput() {

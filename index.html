@@ -49,9 +49,7 @@
             <a class="brand" href="index.html" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
                     <span class="brandName">Green&nbsp;Listed<span class="brandVer">v2.0</span></span>
-                    <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a
-                        <span class="brandTagStack"><span>sgRNA design</span><span>CRISPR screen</span></span>
-                        tool</span>
+                    <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
                 <img class="brandLeaves" src="leaves.png" alt="">
             </a>
@@ -131,6 +129,17 @@
                     <button class="upset-close-btn" onclick="GC_close()">&times;</button>
                 </div>
                 <div id="gcBody" class="upset-modal-body"></div>
+            </div>
+        </div>
+
+        <!-- Which other libraries of the same species pick a given guide. -->
+        <div id="libxModal" class="fazeOut upset-modal-overlay">
+            <div class="upset-modal-box" style="max-width:620px;">
+                <div class="upset-modal-header">
+                    <h3 id="libxTitle">Other libraries</h3>
+                    <button class="upset-close-btn" onclick="LIBX_close()">&times;</button>
+                </div>
+                <div id="libxBody" class="upset-modal-body"></div>
             </div>
         </div>
 
@@ -597,6 +606,7 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script type="text/javascript" src="gcontext.js?v=2.9"></script>
     <script type="text/javascript" src="gcexport.js?v=2.9"></script>
     <script type="text/javascript" src="gcai.js?v=2.9"></script>
+    <script type="text/javascript" src="gclibraries.js?v=2.9"></script>
 
 </body>
 

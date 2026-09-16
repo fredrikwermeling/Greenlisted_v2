@@ -205,9 +205,14 @@ function GC_rowExtraFull() {
 function _gcButton(symbol, spacer, id) {
     const clean = _gcCleanSpacer(spacer)
     if (!clean) return null
-    return `<button class="gcBtn" data-symbol="${_escapeHtml(symbol)}" data-spacer="${clean}" ` +
+    const context = `<button class="gcBtn" data-symbol="${_escapeHtml(symbol)}" data-spacer="${clean}" ` +
            `data-id="${_escapeHtml(id)}" onclick="GC_openFromButton(this)" ` +
            `title="Fetch the genomic sequence around this guide from UCSC, with the spacer, PAM, cut site and exons marked. For designing PCR primers to check the edit by sequencing.">Context</button>`
+    // Which other libraries pick the same guide, from the index the Validate
+    // tool searches. Sits beside Context because both answer "is this the
+    // guide I should order?".
+    const libs = (typeof LIBX_button === "function") ? LIBX_button(symbol, clean, id) : ""
+    return context + libs
 }
 
 function GC_openFromButton(btn) {

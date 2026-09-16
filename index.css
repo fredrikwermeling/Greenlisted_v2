@@ -1795,26 +1795,15 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     letter-spacing: 0;
 }
 
-/* "- a  [sgRNA design / CRISPR screen]  tool": the two things the app does sit
-   stacked at half size between the words that frame them, so the line stays
-   one line and reads as one phrase. */
+/* "- a sgRNA design/CRISPR screen tool" on one line. Set smaller than the name
+   so the whole phrase still fits under it rather than running past the
+   leaves. */
 .brandTag {
-    display: flex;
-    align-items: center;
-    gap: 0.2em;
-    font-size: 0.52em;
+    font-size: 0.355em;
     font-weight: 400;
     white-space: nowrap;
-    margin-top: 0.1em;
-    padding-right: 0.1em;
-}
-
-.brandTagStack {
-    display: inline-flex;
-    flex-direction: column;
-    line-height: 1.12;
-    font-size: 0.62em;
-    text-align: left;
+    margin-top: 0.3em;
+    padding-right: 0.12em;
 }
 
 /* Sized and nudged to sit as it did in the original artwork, where the leaves
@@ -1828,10 +1817,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 @media only screen and (max-width: 600px) {
-    /* At phone width the stacked pair is the first thing to become unreadable,
-       so the strapline drops to a single line under the name. */
-    .brand { font-size: clamp(24px, 9vw, 40px); }
-    .brandTag { font-size: 0.46em; }
+    /* The strapline is the long part, so it governs how small the whole
+       wordmark has to go before it fits. */
+    .brand { font-size: clamp(22px, 8.4vw, 40px); }
+    .brandTag { font-size: 0.33em; }
 }
 
 /* The quieter of the two Primer-BLAST routes: a sentence under the buttons
@@ -1867,3 +1856,50 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 #gcaiModal,
 #infoModal,
 #downloadModal { z-index: 1100; }
+
+/* "Other libraries": how many same-species libraries also picked this guide. */
+.libxBtn {
+    margin-left: 5px;
+}
+
+.libxCount {
+    font-weight: 700;
+    color: var(--green-800);
+}
+
+.libxOf {
+    color: var(--gray-500);
+    font-size: 0.85em;
+}
+
+.libxNone {
+    color: var(--gray-500);
+}
+
+.libxDim {
+    color: var(--gray-200);
+}
+
+/* Shown above the table until the index has been fetched, since the column
+   cannot say anything before then. */
+.libxOffer {
+    margin: 0 0 8px 0;
+    padding: 7px 11px;
+    background: var(--green-50);
+    border-left: 3px solid var(--green-500);
+    border-radius: 0 4px 4px 0;
+    font-size: 0.82rem;
+    color: var(--gray-600);
+}
+
+.libxOffer a {
+    color: var(--green-800);
+    font-weight: 600;
+}
+
+.libxMsg {
+    font-size: 0.88rem;
+    margin: 0 0 12px 0;
+}
+
+#libxModal { z-index: 1100; }
