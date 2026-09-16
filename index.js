@@ -378,7 +378,8 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     // after it off the right of the pane.
     const _wrappable = t => /\s/.test(String(t).trim())
     for (const h of headers) {
-        html += `<th${_wrappable(h) ? ' class="wrapCell"' : ""}>${_escapeHtml(h)}</th>`
+        const rich = _headerHtml[h.trim()]
+        html += `<th${_wrappable(h) ? ' class="wrapCell"' : ""}>${rich || _escapeHtml(h)}</th>`
     }
     for (const x of extras) html += `<th${_wrappable(x.header) ? ' class="wrapCell"' : ""}>${_escapeHtml(x.header)}</th>`
     html += '</tr></thead><tbody>'
@@ -693,11 +694,28 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     return ""
 }
 
+// Headings the on-screen table should draw as something richer than their own
+// plain text. The plain text is what goes into the downloaded file and is what
+// the lookup is keyed on; this only changes how the header cell is drawn.
+var _headerHtml = {}
+
 // The heading over that column. Short, because a table column is a bad place
 // for a sentence: at this width the full explanation stacked five lines deep
 // and made the header row taller than eight rows of data.
+//
+// It does name the ploidy, though. Every copy number under it is read against
+// that baseline, and in a doubled line the baseline is four copies rather than
+// two, which inverts what an ordinary-looking number means. That half is set
+// in red, because it is the part a reader has to carry into the column.
 function _cnColumnHeading(cl) {
-    return `Copy number (${_cnPlainName(cl)})`
+    const name = _cnPlainName(cl)
+    const doubled = cl.wgd === true
+    const ploidy = (cl.ploidy != null && !isNaN(cl.ploidy)) ? `${Number(cl.ploidy).toFixed(1)}n` : null
+    const inner = doubled ? "genome doubled" : (ploidy || "no doubling")
+    const plain = `Copy number (${name}, ${inner})`
+    _headerHtml[plain] = `Copy number<br><span class="cnHeadSub">(${_escapeHtml(name)}, ` +
+        `<span class="${doubled ? "cnHeadWgd" : ""}">${_escapeHtml(inner)}</span>)</span>`
+    return plain
 }
 
 // The sentence the heading used to carry, put above the table where there is

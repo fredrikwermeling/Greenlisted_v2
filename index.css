@@ -2164,3 +2164,22 @@ a.gcBtnLink {
 #libxBody {
     overflow-x: auto;
 }
+
+/* The second line of the copy-number heading: which cell line the numbers are
+   read against, and whether its genome is doubled. */
+.cnHeadSub {
+    /* The reset at the top of this file sets a font on every element via `*`,
+       which beats inheritance, so a span inside a monospace cell comes out in
+       the sans face unless it says otherwise. */
+    font-family: var(--monoFont);
+    font-weight: 400;
+}
+
+/* Whole-genome doubling in red. It is not a warning about the cell line, it
+   is a warning about the column: where the genome is doubled the baseline is
+   four copies rather than two, so a gene reported at four copies is ordinary
+   and one at two has lost half its copies. Read without that, every number
+   below means the opposite of what it appears to. */
+.cnHeadWgd {
+    color: #b91c1c;
+}
