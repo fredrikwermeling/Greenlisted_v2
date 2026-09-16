@@ -221,7 +221,7 @@ async function runValidation() {
 
         const rawInput = document.getElementById("searchSymbols").value
         const sequences = [...new Set(
-            rawInput.split("\n")
+            SYM_split(rawInput)
                 .map(s => s.trim().toUpperCase())
                 .filter(s => s.length > 0)
         )]
@@ -1118,7 +1118,7 @@ async function changeSynonyms() {
 function changeSymbols() {
     if (typeof _setsUsedRender === "function") _setsUsedRender()
     if (_validateState.isValidateMode) {
-        const lines = document.getElementById("searchSymbols").value.split("\n").filter(s => s.trim().length > 0)
+        const lines = SYM_split(document.getElementById("searchSymbols").value)
         _setStatus("statusSearchSymbolsRows", `${lines.length} sequence(s) entered`)
         return
     }
@@ -1126,7 +1126,7 @@ function changeSymbols() {
     const partialMatches = document.getElementById("partialMatches").checked
     const enableSynonyms = document.getElementById("enableSynonyms").checked
     //sets everything to lower case and clears any extra spaces
-    const searchSymbols = [...new Set(document.getElementById("searchSymbols").value.split("\n").filter(item => { return item.trim() }).map(symbol => symbol.trim().toLowerCase()))]
+    const searchSymbols = [...new Set(SYM_split(document.getElementById("searchSymbols").value).map(symbol => symbol.toLowerCase()))]
 
     SET_settingsSetLibrary(searchSymbols, partialMatches, enableSynonyms)
     _updateControlsStatus()   // the suggested control count tracks the symbol list
@@ -1422,6 +1422,18 @@ async function _displaySymbolsNotFound(synonymMap) {
 
 /* ------------------ STATUS ----------------- */
 
+// Symbols and sgRNA sequences can be pasted in whatever shape they arrive:
+// one per line, comma separated out of a spreadsheet, semicolons, tabs or
+// plain spaces, in any mixture. Splitting on those is safe because no gene
+// symbol in any built-in library contains one — the only punctuation they
+// carry is - | . and _, which are left intact.
+function SYM_split(text) {
+    return String(text == null ? "" : text)
+        .split(/[\s,;]+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+}
+
 function _statusUpdateSymbols() {
     const synonymMap = SER_getSynonymMap(settings.searchSymbols)
     _displaySymbolsNotFound(synonymMap)
@@ -1435,9 +1447,8 @@ function _statusUpdateSymbols() {
     // and MGI convention. Matching is case-insensitive, so the case here is
     // presentation only.
     const seen = new Set()
-    const tidied = document.getElementById("searchSymbols").value.split("\n")
-        .map(s => s.trim())
-        .filter(s => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()))
+    const tidied = SYM_split(document.getElementById("searchSymbols").value)
+        .filter(s => !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()))
     _setStatus("searchSymbols", tidied.join("\n"), false)
 
     document.getElementById("fileContentContainer").style.display = "none"
@@ -2152,9 +2163,7 @@ async function CN_runLookup() {
 
     try {
         const raw = document.getElementById("searchSymbols").value
-        const genes = [...new Set(
-            raw.split(/[\s,;\n\r\t]+/).map(s => s.trim()).filter(Boolean)
-        )]
+        const genes = [...new Set(SYM_split(raw))]
         if (genes.length === 0) {
             _setStatus("statusSearch", "Error: Please enter at least one gene symbol")
             _toggleLigtBox(); statusText.classList.remove("pulse"); return
