@@ -2008,3 +2008,11 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 #searchSymbols {
     box-sizing: border-box;
 }
+
+/* Said only when a non-base was typed into an adapter and dropped, so it has
+   to read as an explanation rather than an error the user must clear. */
+.adapterNote {
+    margin: 4px 0 0 0;
+    font-size: 0.78rem;
+    color: var(--gray-500);
+}

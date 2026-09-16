@@ -1224,6 +1224,42 @@ function changeLibraryColumn() {
     updateCustomlibrary()
 }
 
+// An adapter is DNA that will be synthesized, so anything that is not a base
+// cannot be part of one. Rather than accepting the typo and failing at the
+// oligo supplier, the box refuses it as it is typed: everything outside ACGT
+// is dropped and the rest is upper-cased, with a line saying what went.
+//
+// Done on input rather than on change so the box never holds something it
+// will not keep, and the caret is put back where the user was typing instead
+// of jumping to the end, which is what rewriting .value does by default.
+function ADAPT_clean(el) {
+    const before = el.value
+    const caret = el.selectionStart
+    const clean = before.replace(/[^ACGTacgt]/g, "").toUpperCase()
+    if (clean !== before) {
+        const removedBeforeCaret = before.slice(0, caret).replace(/[ACGTacgt]/g, "").length
+        el.value = clean
+        const at = Math.max(0, caret - removedBeforeCaret)
+        try { el.setSelectionRange(at, at) } catch (e) { /* not all inputs support it */ }
+        const dropped = [...new Set(before.replace(/[ACGTacgt]/g, "").split(""))]
+            .filter(c => c.trim() !== "")
+        _adapterNote(dropped.length
+            ? `An adapter is DNA, so ${dropped.map(c => `"${c}"`).join(", ")} ` +
+              `${dropped.length === 1 ? "was" : "were"} dropped. Only A, C, G and T are kept.`
+            : "")
+    } else {
+        _adapterNote("")
+    }
+    changeSettings()
+}
+
+function _adapterNote(text) {
+    const el = document.getElementById("adapterNote")
+    if (!el) return
+    el.textContent = text
+    el.hidden = !text
+}
+
 function changeSettings() {
 
     const trimBefore = document.getElementById("trimBefore").value
@@ -1477,6 +1513,11 @@ function _updateExampleText() {
         `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
 }
 
+// The last matching pass, so a status line written by something else — the
+// curated-list adder, say — can say how many of what it added actually exist
+// in the library instead of only how many it put in the box.
+var _lastSymbolMatch = null
+
 async function _displaySymbolsNotFound(synonymMap) {
     //Creates and displays everything under the Symbols not found sub title under 2. Input symbols in HTMl
     if (settings.partialMatches) {
@@ -1506,6 +1547,8 @@ async function _displaySymbolsNotFound(synonymMap) {
     }
 
     settings.enableSynonyms ? _setStatus("statusNumSynonyms", `(used: ${numSynonyms})`) : _setStatus("statusNumSynonyms", ``)
+    _lastSymbolMatch = settings.partialMatches ? null
+        : { found: settings.searchSymbols.length - numNotFound, total: settings.searchSymbols.length }
     settings.partialMatches ? _setStatus("statusSearchSymbolsRows", ``) : _setStatus("statusSearchSymbolsRows", `Symbols found in library: ${settings.searchSymbols.length - numNotFound} of ${settings.searchSymbols.length}`)
 
 }
@@ -1805,8 +1848,15 @@ function SETS_load(index) {
     }
     changeSymbols()
     SETS_closeModal()
+    // changeSymbols has just rematched the box, so the counts are current.
+    // Saying only how many genes went in was the least useful half of it:
+    // a list of 3,309 surface genes may only have 2,800 in the library, and
+    // that difference is the one worth seeing before pressing Run.
+    const m = _lastSymbolMatch
+    const n = x => x.toLocaleString("en-US")
     _setStatus("statusSearchSymbolsRows",
-        `${set.label}: ${set.genes.length} genes added (${merged.length} in the box)`)
+        `${set.label}: ${n(set.genes.length)} genes added, ${n(merged.length)} in the box` +
+        (m ? `, ${n(m.found)} of ${n(m.total)} found in the library` : ""))
 }
 
 // "Reset app" in the tool strip — back to how the app opens, without a page
