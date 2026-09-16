@@ -664,18 +664,27 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     if (v == null) return "no CN data"
     // Two decimals, not one: the deletion threshold is 0.3, and a CN of 0.26
     // rendered as "CN 0.3" reads as if it shouldn't have been flagged.
+    // Approximate copies, not the raw relative value. This column sits between
+    // a 70-character oligo and a row of buttons, so it gets about fourteen
+    // characters a line; "DEEP DELETION (CN 0.26, ~1 copy) - gene likely
+    // absent, guides uninformative" ran four lines deep and made every flagged
+    // row twice the height of the others. Copies is the number a bench
+    // scientist acts on, and the raw value is a column of the Copy number per
+    // gene output, which is where anyone checking a threshold would look.
     const copies = CN_approxCopies(v, cellLine.ploidy, cellLine.wgd)
-    const detail = `CN ${v.toFixed(2)}, ~${copies} cop${copies === 1 ? "y" : "ies"}`
-    if (v < 0.3)  return `DEEP DELETION (${detail}) - gene likely absent, guides uninformative`
-    if (v >= 5.0) return `STRONG AMPLIFICATION (${detail}) - copy-number effect likely, dropout may be a false positive`
-    if (v >= 3.0) return `AMPLIFIED (${detail}) - copy-number effect possible, interpret dropout with care`
+    const detail = `~${copies} cop${copies === 1 ? "y" : "ies"}`
+    // What each of these means for a screen is said once, above the table, in
+    // _cnColumnNote, rather than repeated on every row.
+    if (v < 0.3)  return `DEEP DELETION, ${detail}`
+    if (v >= 5.0) return `HIGHLY AMPLIFIED, ${detail}`
+    if (v >= 3.0) return `AMPLIFIED, ${detail}`
     // Between the two extremes the column used to say nothing at all, so a
     // gene sitting at one copy looked the same as one at two. Neither state
     // invalidates a screen, but a loss or a gain is worth knowing when a guide
     // behaves oddly, so they are named without being called warnings.
-    if (v < 0.7)  return `one-copy loss (${detail})`
-    if (v >= 2.0) return `gained (${detail})`
-    if (v >= 1.3) return `slight gain (${detail})`
+    if (v < 0.7)  return `one-copy loss, ${detail}`
+    if (v >= 2.0) return `gain, ${detail}`
+    if (v >= 1.3) return `slight gain, ${detail}`
     // A gene sitting at the line's own ploidy has nothing to report. Saying
     // so anyway filled the column on every row, and in a doubled line it read
     // as a finding: A-375 is near-tetraploid, so an unremarkable gene came out
@@ -701,7 +710,9 @@ function _cnColumnNote(cl) {
     if (cl.wgd === true) bits.push("whole-genome doubled")
     else if (cl.wgd === false) bits.push("no whole-genome doubling")
     const tail = bits.length ? ` is ${bits.join(", ")}` : " is the baseline"
-    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. A blank cell means no change.`
+    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. A blank cell means no change. ` +
+           `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out from the cutting alone, ` +
+           `which reads as a hit that is not one. The Copy number per gene output carries the underlying values.`
 }
 
 // Cell-line names come from DepMap, and the lines above a rendered table are

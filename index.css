@@ -810,10 +810,12 @@ footer.plate {
     /* 8px, not 12: with six columns the wider padding cost 48 px of table
        width, which was most of what pushed the last column off the pane. */
     padding: 4px 8px;
-    /* Centred. Several columns hold one short value under a much wider
-       heading, and left-aligning those left each value stranded against the
-       left edge of its column with a gap to the next. */
-    text-align: center;
+    /* Left, as it was. Centring was tried to stop short values sitting adrift
+       under much wider headings, and it read worse: a column of sequences and
+       a column of IDs both lose their common left edge, which is what makes
+       a table scannable. The headings were the real problem, and holding
+       those to 14 characters fixed it without moving the data. */
+    text-align: left;
     border-bottom: 1px solid var(--outlineColor);
     white-space: nowrap;
 }
@@ -2079,11 +2081,18 @@ a.gcBtnLink {
 .validationResultsTable th.wrapCell,
 .validationResultsTable td.wrapCell {
     white-space: normal;
-    /* A floor as well as a ceiling. Without the floor the browser squeezed a
-       four-word phrase into a four-line stack to give the columns beside it
-       room, which made every row tall to save a few pixels of width. */
-    min-width: 11ch;
     max-width: 24ch;
+}
+
+/* A floor for data cells only. Without it the browser squeezed a four-word
+   phrase into a four-line stack to give the columns beside it room, which
+   made every row tall to save a few pixels of width. 14ch is what the
+   copy-number column needs to set its longest phrase in two lines. Headings
+   are deliberately left out: a column whose heading is a phrase but whose
+   values are one word — "none", or a digit — does not need the room, and
+   giving it to them was enough to push the table off its pane. */
+.validationResultsTable td.wrapCell {
+    min-width: 14ch;
 }
 
 /* A heading is read once and a column is read many times, so a heading can
