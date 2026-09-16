@@ -1758,65 +1758,70 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     margin: 8px 0 0 0;
 }
 
-/* Wordmark. This was one flat PNG; the strapline is now live text so it can be
-   set in two stacked lines and still scale with the page. Only the leaves are
-   still a picture. The color is sampled from the original artwork. */
+/* Wordmark. The original artwork is one flat PNG of the name, the v2.0 and
+   the leaves. It is cut in two along the blank column between them, because
+   scaling the whole picture to enlarge the name enlarged the leaves with it.
+   Split, the name can grow and the leaves can stay the size they were drawn.
+   The strapline is live text, so it sets in two lines on a narrow screen
+   instead of becoming an illegible picture of text. */
 .brand {
-    /* The artwork is 779x188 and carries the name, the v2.0 and the leaves.
-       Establishing a container lets the strapline below be sized and placed
-       as a fraction of it, so the two stay locked together at any width. */
-    position: relative;
-    display: block;
-    /* Explicit, not fit-content: inline-size containment stops the element
-       measuring its own contents, so fit-content collapses to zero. The
-       artwork is 779px across; it is drawn 10% over that so the name reads at
-       the size it does on the printed version, and shrinks on narrow screens. */
-    width: 857px;
+    /* One row: the name with its strapline beneath, then the leaves. The
+       leaves are taller than the text block, as they are in the original, and
+       sit centred against it. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3.2cqw;
+    /* 651 + 26 + 134 at full size. Explicit, not fit-content: inline-size
+       containment stops the element measuring its own contents, so
+       fit-content would collapse to zero. */
+    width: 811px;
     max-width: 100%;
-    margin: 0 auto 0.4rem auto;
+    margin: 0 auto 0.2rem auto;
     container-type: inline-size;
 }
 
-.brandMark {
+/* Every width below is a fraction of that 811px, so the three parts keep
+   their proportions to each other as the header narrows. */
+/* Fixed width rather than shrink-to-fit: the strapline's indent is a margin,
+   which counted toward the block's content width and made the row a few
+   pixels too wide, and flex then took those pixels back out of the name. */
+.brandText {
     display: block;
-    width: 857px;
-    max-width: 100%;
+    flex: 0 0 80.3cqw;
+    width: 80.3cqw;
+}
+
+.brandWord {
+    display: block;
+    width: 100%;
     height: auto;
 }
 
-/* "- a sgRNA design/CRISPR screen tool" on one line. Set smaller than the name
-   so the whole phrase still fits under it rather than running past the
-   leaves. */
-/* Set where the original strapline was: its left edge sat at 146 of 779, and
-   its baseline at 171 of 188. Smaller than the original's because this line is
-   half as long again and has to finish before the leaves. */
+.brandLeaves {
+    display: block;
+    flex: 0 0 auto;
+    width: 16.5cqw;
+    height: auto;
+}
+
+/* "- a sgRNA design/CRISPR screen tool", set under the name rather than
+   positioned over the artwork. The indent lines its dash up with the stem of
+   the G above it, as the original strapline did. */
 .brandTag {
-    position: absolute;
-    /* Every offset is a fraction of the artwork's WIDTH, including the
-       vertical one, so the line keeps its place on the image at any size.
-       The original strapline's left edge sat at 146 of 779 and its baseline
-       at 171 of 188, which is 17px up from the bottom, or 2.2% of the width. */
-    left: 18.7cqw;
-    /* The name's letters stop 43% of the way down the artwork, and the rest of
-       that space was the old two-line strapline. One line does not need it, so
-       this sits 4.75% of the width up from the bottom, close under the name
-       rather than adrift below it. */
-    bottom: 4.75cqw;
-    /* 3.23% of the artwork's width. The name was enlarged and this line was
-       not, so it now reads as the subordinate line it is. */
-    font-size: 3.23cqw;
+    display: block;
+    margin: 0.9cqw 0 0 1.5cqw;
+    font-size: 4.1cqw;
     font-weight: 400;
     line-height: 1;
     white-space: nowrap;
     color: #83aa3d;
 }
 
-@media only screen and (max-width: 600px) {
-    /* The strapline is the long part, so it governs how small the whole
-       wordmark has to go before it fits. */
-    .brand { font-size: clamp(22px, 8.4vw, 40px); }
-    .brandTag { font-size: 0.30em; }
-}
+/* No narrow-screen override. Every size here is a fraction of the lockup's
+   own width, so the three parts shrink together and the strapline stays on
+   one line all the way down; measured at 811, 600, 480, 380 and 320 px with
+   nothing overflowing. An override that let it wrap only broke that. */
 
 /* The quieter of the two Primer-BLAST routes: a sentence under the buttons
    rather than a seventh button competing with them. */
