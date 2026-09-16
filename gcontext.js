@@ -69,6 +69,7 @@ var _GC = {
     locus: new Map(),     // genome|symbol|spacer -> locate result
     seq: new Map(),       // genome|chrom|start|end -> dna (plus strand, upper case)
     tx: new Map(),        // genome|chrom|start|end -> transcripts in that window
+    rep: new Map(),       // genome|chrom|start|end -> RepeatMasker intervals
     lastCall: 0,
     queue: Promise.resolve(),
     current: null,        // what the modal is showing, see _gcShow()
@@ -446,6 +447,75 @@ async function _gcTranscripts(genome, chrom, start, end) {
     return list
 }
 
+// RepeatMasker over the same window.
+//
+// This is the one thing about a template that decides where a primer may go
+// and cannot be seen by reading the sequence. Roughly half of the human
+// genome is repeat, and a primer inside an Alu primes in a million other
+// places, which gives a mixed Sanger trace that looks exactly like editing.
+// Worse, a flank that is mostly repeat leaves only a narrow strip where any
+// primer can sit, and that is worth knowing before wondering why every
+// candidate came back crowded against the cut.
+//
+// Failure here is not fatal: the window still draws and the export still
+// writes, only without the repeat annotation. So this never throws.
+async function _gcRepeats(genome, chrom, start, end) {
+    const key = `${genome}|${chrom}|${start}|${end}`
+    if (_GC.rep.has(key)) return _GC.rep.get(key)
+    var out = []
+    try {
+        const d = await _gcFetch(`/getData/track?genome=${genome};track=rmsk;chrom=${chrom};start=${start};end=${end}`)
+        var items = d ? d.rmsk : null
+        if (items && !Array.isArray(items)) items = Object.values(items).flat()
+        if (Array.isArray(items)) {
+            out = items
+                .filter(r => r.genoStart != null && r.genoEnd != null)
+                .map(r => ({
+                    start: Number(r.genoStart), end: Number(r.genoEnd),
+                    name: r.repName || "", cls: r.repClass || "", family: r.repFamily || ""
+                }))
+                .sort((a, b) => a.start - b.start)
+        }
+    } catch (e) {
+        console.warn("RepeatMasker lookup failed; the window is drawn without it.", e)
+        return []          // not cached, so a later window may still get it
+    }
+    _GC.rep.set(key, out)
+    return out
+}
+
+// Where the cut falls in the coding sequence, as a base and a codon of the
+// protein. Working this out from the exon list is exactly the sort of
+// arithmetic that is easy to get quietly wrong by one codon, so it is done
+// once here rather than left to whoever reads the file.
+function _gcCodingPosition(tx, cutAfterPos) {
+    if (!tx || !(tx.cdsStart < tx.cdsEnd)) return null
+    // The base immediately 3' of the cut on the plus strand.
+    const pos = cutAfterPos + 1
+    if (pos < tx.cdsStart || pos >= tx.cdsEnd) return null
+    const exons = tx.strand === "+" ? tx.exons : tx.exons.slice().reverse()
+    var counted = 0
+    for (const [es, ee] of exons) {
+        const a = Math.max(es, tx.cdsStart), b = Math.min(ee, tx.cdsEnd)
+        if (a >= b) continue
+        if (pos >= a && pos < b) {
+            const within = tx.strand === "+" ? pos - a : b - 1 - pos
+            const cdsBase = counted + within + 1              // 1-based
+            const codon = Math.ceil(cdsBase / 3)
+            var cdsLength = 0
+            for (const [s2, e2] of exons) {
+                const a2 = Math.max(s2, tx.cdsStart), b2 = Math.min(e2, tx.cdsEnd)
+                if (a2 < b2) cdsLength += b2 - a2
+            }
+            // The trailing stop codon is not a residue of the protein.
+            const proteinLength = Math.max(0, Math.floor(cdsLength / 3) - 1)
+            return { cdsBase: cdsBase, codon: codon, proteinLength: proteinLength }
+        }
+        counted += b - a
+    }
+    return null
+}
+
 // The transcript to annotate: the gene's own, overlapping the guide if it
 // can, otherwise whatever overlaps the guide.
 function _gcPickTranscript(list, symbol, site) {
@@ -747,12 +817,14 @@ async function _gcRender() {
     const windowStart = Math.max(0, site.spacerStart - cur.flank)
     const windowEnd = site.spacerStart + L + cur.flank
 
-    _gcStatus(`Loading ${(windowEnd - windowStart).toLocaleString("en-US")} bp of sequence and its exons…`,
-              `From the ${_GC_SOURCE}: ${g.assembly} ${site.chrom}:${(windowStart + 1).toLocaleString("en-US")}-${windowEnd.toLocaleString("en-US")}, plus the overlapping RefSeq transcript.`)
-    var dna, txList
+    _gcStatus(`Loading ${(windowEnd - windowStart).toLocaleString("en-US")} bp of sequence, its exons and its repeats…`,
+              `From the ${_GC_SOURCE}: ${g.assembly} ${site.chrom}:${(windowStart + 1).toLocaleString("en-US")}-${windowEnd.toLocaleString("en-US")}, plus the overlapping RefSeq transcript and the RepeatMasker annotation.`)
+    var dna, txList, repList
     try {
         dna = await _gcSequence(g.genome, site.chrom, windowStart, windowEnd)
         txList = await _gcTranscripts(g.genome, site.chrom, windowStart, windowEnd)
+        // Never fatal: _gcRepeats swallows its own errors and returns [].
+        repList = await _gcRepeats(g.genome, site.chrom, windowStart, windowEnd)
     } catch (e) {
         _gcMessage(`<p class="gcError">${_escapeHtml(e.message)}</p>` +
                    `<div class="gcRow"><button class="validate-btn" onclick="_gcRender()">Try again</button></div>`)
@@ -761,6 +833,7 @@ async function _gcRender() {
     if (_GC.current !== cur || cur.site !== site) return
     cur.tx = _gcPickTranscript(txList, cur.symbol, site)
     cur.windowStart = windowStart
+    cur.repeats = repList || []
     cur.plusBases = _gcBuildPlus(site, cur.tx, cur.flank, dna, windowStart)
     _GC.usedThisRun = true
     _gcShow()
@@ -785,11 +858,24 @@ function _gcView() {
     const cutIdx = bases.findIndex(b => b.cutAfter)
     const exonRanges = _gcRanges(bases, b => b.exon ? `e${b.exon}${b.coding ? "c" : "u"}` : null)
     const seq = bases.map(b => (b.spacer || b.pam) ? b.base.toUpperCase() : b.base.toLowerCase()).join("")
+    // Repeats arrive as plus-strand half-open genomic intervals. Put them on
+    // the same 1-based scale as everything else the outputs quote, flipping
+    // them with the window when the guide is shown on the minus strand.
+    const winEnd = cur.windowStart + n
+    const repeatRanges = (cur.repeats || []).map(r => {
+        const a = viewStrand === "+" ? r.start - cur.windowStart + 1 : winEnd - r.end + 1
+        const b = viewStrand === "+" ? r.end - cur.windowStart : winEnd - r.start
+        return { start: Math.max(1, a), end: Math.min(n, b), name: r.name, cls: r.cls, family: r.family }
+    }).filter(r => r.end >= r.start).sort((x, y) => x.start - y.start)
     return {
         cur: cur, site: site, g: g, bases: bases, n: n, viewStrand: viewStrand,
         chrom: site.chrom, start1: cur.windowStart + 1, end1: cur.windowStart + n,
         spacerR: spacerR, pamR: pamR, cutAfter: cutIdx + 1,   // 1-based position of the base before the cut
-        exonRanges: exonRanges, seq: seq,
+        exonRanges: exonRanges, seq: seq, repeatRanges: repeatRanges,
+        // Always resolved on the plus-strand array: the flip moves the cut
+        // flag to the other of the two bases it sits between, so reading it
+        // off the displayed orientation would be off by one.
+        coding: _gcCodingPosition(cur.tx, (cur.plusBases[cur.plusBases.findIndex(b => b.cutAfter)] || {}).pos),
         region: `${site.chrom}:${(cur.windowStart + 1).toLocaleString("en-US")}-${(cur.windowStart + n).toLocaleString("en-US")}`,
         regionPlain: `${site.chrom}:${cur.windowStart + 1}-${cur.windowStart + n}`
     }
