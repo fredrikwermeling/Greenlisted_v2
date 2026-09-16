@@ -59,6 +59,22 @@ function LIBX_lookup(spacer, species, excludeLibrary) {
     return out
 }
 
+// The design's own entry for this guide, so the table can show the library it
+// came from beside the others rather than leaving the reader to add one.
+function LIBX_ownEntry(spacer, species, library) {
+    const clean = String(spacer || "").trim().toUpperCase()
+    if (!clean || !_libxLoaded(species)) return null
+    const hits = _libxMap(species).get(clean)
+    if (!hits) return null
+    const want = String(library || "").trim().toLowerCase()
+    for (const h of hits) {
+        if ((h.library || "").trim().toLowerCase() === want) {
+            return { library: h.library, symbol: h.symbol, geneId: h.geneId, scores: h.scores }
+        }
+    }
+    return null
+}
+
 // How many same-species libraries there are to compare against, so the count
 // can be read against something. The index is the authority on this, since it
 // covers published libraries the app does not otherwise offer.
@@ -206,7 +222,7 @@ function LIBX_openFromButton(btn) {
 async function LIBX_open(symbol, spacer, guideId) {
     const species = _libxSpecies()
     document.getElementById("libxModal").className = "fazeIn upset-modal-overlay"
-    document.getElementById("libxTitle").textContent = `Other libraries — ${guideId || symbol}`
+    document.getElementById("libxTitle").textContent = `Libraries with this guide — ${guideId || symbol}`
     const body = document.getElementById("libxBody")
     if (!species) {
         body.innerHTML = `<p class="libxMsg">This only compares libraries of the same species, and an uploaded library does not say which species it is for.</p>`
@@ -232,24 +248,35 @@ function _libxRender(symbol, spacer, guideId, species) {
         `<div class="gcKey">Selected in</div><div class="gcVal">${_escapeHtml(mine)}</div>` +
         `</div>`
 
+    // The table lists every library holding this guide, the one being designed
+    // from included. Leaving it out made the reader add one to the count to
+    // answer "so how many libraries is it in?", and the row is worth having
+    // anyway: it is the only place the guide's own scores are shown.
+    const own = LIBX_ownEntry(spacer, species, mine)
+    const all = own ? [own].concat(hits || []) : (hits || [])
+
     if (!hits || !hits.length) {
-        html += `<p class="libxMsg">No other ${species} library in the index picks this guide. ` +
-                `That is not a mark against it — the libraries were designed at different times against different rules, ` +
-                `and each keeps only a handful of guides per gene.</p>`
+        html += `<p class="libxMsg">Found only in ${_escapeHtml(mine)}. No other ${species} library in the index picks ` +
+                `this guide. That is not a mark against it — the libraries were designed at different times against ` +
+                `different rules, and each keeps only a handful of guides per gene.</p>`
     } else {
-        html += `<p class="libxMsg">Also chosen by <b>${hits.length}</b> of the ${total} other ${species} ` +
-                `${hits.length === 1 ? "library" : "libraries"} in the index. A guide several independent designs ` +
-                `arrived at has passed several different scoring schemes.</p>` +
-                `<table class="validationResultsTable"><thead><tr><th>Library</th><th>Gene</th><th>Scores</th></tr></thead><tbody>`
-        for (const h of hits) {
-            html += `<tr><td>${_escapeHtml(h.library)}</td><td><i>${_escapeHtml(h.symbol)}</i></td>` +
-                    `<td>${_escapeHtml(h.scores || "—")}</td></tr>`
+        html += `<p class="libxMsg">Found in <b>${all.length}</b> of the ${total + 1} ${species} ` +
+                `${all.length === 1 ? "library" : "libraries"} in the index, listed below. A guide several independent ` +
+                `designs arrived at has passed several different scoring schemes.</p>`
+    }
+    if (all.length) {
+        html += `<table class="validationResultsTable"><thead><tr><th>Library</th><th>Gene</th><th>Scores</th></tr></thead><tbody>`
+        for (const h of all) {
+            const isMine = h === own
+            html += `<tr${isMine ? ' class="libxOwnRow"' : ""}><td>${_escapeHtml(h.library)}` +
+                    `${isMine ? ` <span class="libxThis">this design</span>` : ""}</td>` +
+                    `<td><i>${_escapeHtml(h.symbol)}</i></td>` +
+                    `<td class="libxScores">${_escapeHtml(h.scores || "—")}</td></tr>`
         }
         html += `</tbody></table>`
     }
     html += `<p class="gcFoot">From the same index the Validate sgRNA tool searches, built from the guide lists ` +
-            `distributed via Addgene and the Broad Institute GPP portal. Only ${species} libraries are compared, ` +
-            `and ${_escapeHtml(mine)} is left out of the count.</p>`
+            `distributed via Addgene and the Broad Institute GPP portal. Only ${species} libraries are compared.</p>`
     body.innerHTML = html
 }
 

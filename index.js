@@ -340,8 +340,14 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             // markup; everything below is data and gets escaped.
             // The run banner is the only line specific to this file, so it is
             // drawn as a callout instead of a fourth line of gray small print.
+            // Two of these lines are not small print. The run banner says what
+            // this file is, and the copy-number line says why most of a column
+            // is empty — a reader who misses it reads blank cells as missing
+            // data. Both are drawn as callouts; everything else stays quiet.
             infoHtml += /^THIS RUN:/.test(displayText)
                 ? `<p class="runBanner">${displayText}</p>`
+                : /^Copy number:/.test(displayText)
+                ? `<p class="cnNote">${displayText}</p>`
                 : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
             dataStart = i + 1
         } else {

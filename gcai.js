@@ -315,6 +315,62 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
     })
 }
 
+// The parts of the brief that only apply to some exports.
+//
+// One guide in one gene is not one situation. The cut may be in coding
+// sequence, in a UTR, in an intron, or outside every transcript; the library
+// may spell the gene differently from the annotation; the guide may have been
+// matched only after dropping a leading G it does not share with the genome;
+// the template may hold no repeat at all. Each of those changes what a useful
+// answer looks like, and a model that has to work them out from the data gets
+// some of them wrong. So they are decided here, where the facts are, and only
+// the lines that apply are written into the file.
+function _gcaiCaseNotes(v, tx, cur, csvWarning) {
+    const out = []
+
+    if (!tx) {
+        out.push("NO TRANSCRIPT. No RefSeq transcript was found in this window, so nothing here says which exon the cut falls in or what it " +
+                 "does to a protein. Do not guess at either. Say the guide's position is confirmed but its consequence for the gene is not " +
+                 "described by this file.")
+    } else if (!v.coding) {
+        out.push("THE CUT IS NOT IN CODING SEQUENCE. The file says where it falls — an intron, a UTR, or outside the transcript — and there " +
+                 "is no codon number because there is no codon. Do not make a frameshift argument. A cut in an intron or a UTR usually does " +
+                 "not knock a gene out, and if that looks unintended it is the most useful thing you can tell them. Judging the primers is " +
+                 "unaffected: the amplicon still has to span the cut.")
+    } else {
+        out.push("THE CUT IS IN CODING SEQUENCE and the file gives the codon, the protein length and how far through the protein it falls. " +
+                 "Use those rather than counting from the exon list, which is easy to get wrong by a codon. A frameshift early in a protein " +
+                 "is a more convincing knockout than one near the end, and a cut far enough from the last exon junction should also trigger " +
+                 "nonsense-mediated decay.")
+    }
+
+    if (cur.site && cur.site.trimmed) {
+        out.push("THIS GUIDE CARRIES AN EXTRA G. The spacer as the library lists it begins with a G that the genome does not have at that " +
+                 "position, and it matched only once that G was dropped. That is a normal design choice for U6 transcription, not an error, " +
+                 "but it means the oligo they order is one base longer than the sequence it targets. Mention it once, plainly, and do not " +
+                 "treat it as a mismatch.")
+    }
+
+    if (cur.locus && cur.locus.renamed) {
+        out.push("THE GENE WAS LOOKED UP UNDER A DIFFERENT SYMBOL from the one the library lists, because the library predates the current " +
+                 "name. The file records both. Say which name was used to find it, so they can check it is the gene they meant.")
+    }
+
+    if (!(v.repeatRanges || []).length) {
+        out.push("NO REPEAT was annotated anywhere in this template, so repeats are simply not a constraint here. If you would otherwise have " +
+                 "raised them, say plainly that there are none rather than leaving it unsaid.")
+    }
+
+    if (csvWarning) {
+        out.push("THE PASTED PRIMER RESULTS MAY NOT MATCH THIS TEMPLATE. The file carries a warning about it. Positions in the primer table " +
+                 "are then measured along a different sequence from the one here, so every distance from the cut is unreliable. Lead with " +
+                 "that, and tell them to rerun the export with the flank set as it was when they ran Primer-BLAST.")
+    }
+
+    if (!out.length) return ""
+    return "ABOUT THIS PARTICULAR EXPORT:\n" + out.map(t => "- " + t).join("\n") + "\n\n"
+}
+
 // =============================================================================
 // The file
 // =============================================================================
@@ -363,6 +419,11 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "WHO YOU ARE TALKING TO: a molecular biologist who exported this file from a tool called Green Listed and attached it. " +
             "They have not read it and cannot see inside it. They do not know what any field is called. " +
             "Never name a field, a key or a section of this file in your reply. Say what it means in ordinary words instead.\n\n" +
+            (question
+                ? "WHAT THEY ASKED, in their own words: \"" + String(question).replace(/"/g, "'") + "\"\n" +
+                  "Answer that. The rest of these instructions describe the usual case and are there to tell you what the file can support; " +
+                  "where their question points somewhere else, follow their question.\n\n"
+                : "") +
             (readout === "ngs"
                 ? "WHAT THEY ARE DOING: they have made a CRISPR knockout with the sgRNA described here and need PCR primers to amplify the " +
                   "edited site for amplicon NGS, where a short product is sequenced many times and the indels are counted from the reads. " +
@@ -381,7 +442,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 : "THEN, since no primer candidates came with the file, do not invent any. Designing primers needs melting temperatures computed " +
                   "under real salt conditions and a genome-wide search for where else they would prime, and neither can be done reliably by " +
                   "reading a sequence. Say so in one sentence, then help with what this file does support: checking the guide is where it should " +
-                  "be, which exon it cuts, and whether the edit is likely to disrupt the protein. " +
+                  "be, what part of the gene it cuts, and — where the file gives a codon — whether the edit is likely to disrupt the protein. " +
                   "Tell them they can rerun the export with the Primer-BLAST CSV pasted in, and you will pick between the pairs.\n\n") +
             "DO NOT REDESIGN THE PRIMER-BLAST REQUEST. The search windows and the product length in this file were set by the tool from the " +
             "readout the user chose, and they are already correct. Primer-BLAST then runs its own genome-wide specificity search and will not " +
@@ -393,8 +454,10 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "repeat, so do not try to spot repeats by eye from the sequence. Use it to explain the shape of the result, not to change the " +
             "request: if the candidates are crowded into one narrow stretch, or there are fewer of them than expected, the repeat section " +
             "usually says why, and that is worth telling them because it is a property of the locus rather than a mistake.\n\n" +
+            _gcaiCaseNotes(v, tx, cur, csvWarning) +
             "THROUGHOUT: numbers support the answer, they are not the answer. Give the two or three that matter, each with what it means. " +
-            "If something important is missing, say what you would need and how they would get it, in terms of what they would click.",
+            "If something important is missing, say what you would need and how they would get it, in terms of what they would click. " +
+            "Do not pad the reply to cover every section of the file; say what bears on their situation and stop.",
 
         question: question || null,
 

@@ -2082,3 +2082,49 @@ a.gcBtnLink {
     min-width: 11ch;
     max-width: 24ch;
 }
+
+/* The copy-number line above a result table. It explains why most of that
+   column is blank, so it cannot sit in the same gray small print as the
+   library and the date: a reader who skims past it reads an empty cell as
+   missing data rather than as a gene at the cell line's own ploidy. Blue
+   rather than the amber of the run banner, which is a warning; this is a
+   key to the column. */
+.cnNote {
+    margin: 4px 0 10px 0;
+    padding: 8px 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #2563eb;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    color: #1e3a8a;
+}
+
+/* The row for the library the design came from, in the per-guide library
+   table. It belongs in the list — the guide is in it — but it is not an
+   independent second opinion, so it is marked rather than left to be
+   inferred from the name. */
+.validationResultsTable tr.libxOwnRow {
+    background: var(--green-50, #f0fdf4);
+}
+
+.libxThis {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--green-700, #15803d);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-left: 6px;
+}
+
+/* A library can carry several scores for one guide, and written on one line
+   they ran past the edge of the panel. This is the only column of the three
+   that is prose, so it is the one that wraps. */
+.validationResultsTable td.libxScores {
+    white-space: normal;
+    min-width: 18ch;
+}
+
+#libxBody {
+    overflow-x: auto;
+}
