@@ -1777,7 +1777,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     align-items: center;
     gap: 0.06em;
     margin-bottom: 0.18em;
-    font-size: clamp(26px, 6.2vw, 58px);   /* everything below is in em of this */
+    font-size: clamp(26px, 6.2vw, 77px);   /* everything below is in em of this */
     line-height: 1;
     text-decoration: none;
     color: var(--brandGreen);
@@ -1822,11 +1822,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     padding-right: 0.12em;
 }
 
-/* Sized and nudged to sit as it did in the original artwork, where the leaves
-   stood a little taller than the two lines of text and tucked against the
-   final "d". */
+/* The original artwork's leaves stand 3.145 times the cap height of the name,
+   and Open Sans sets its cap at about 0.714 em, so 3.145 x 0.714 = 2.25 em. */
 .brandLeaves {
-    height: 2.05em;
+    height: 2.25em;
     width: auto;
     margin-left: -0.04em;
     margin-top: -0.06em;
