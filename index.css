@@ -1759,8 +1759,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    still a picture. The color is sampled from the original artwork. */
 .brand {
     --brandGreen: #83aa3d;
-    /* Centred on its own rather than left-aligned inside a box the wider nav
-       sizes, which is what left it sitting off to one side. */
+    /* Centered on its own rather than left-aligned inside a box the wider nav
+       sizes, which is what left it sitting off to one side.
+       The whole block is centered, leaves included, as the original artwork
+       was. That reads straight only because the strapline is set to almost
+       the width of the name below it, so the text mass is a rectangle rather
+       than a wedge; see .brandTag. */
     display: flex;
     width: fit-content;
     margin-left: auto;
@@ -1802,7 +1806,11 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    so the whole phrase still fits under it rather than running past the
    leaves. */
 .brandTag {
-    font-size: 0.355em;
+    /* Sized so the strapline comes out nearly as wide as the name above it,
+       which is what the original artwork did. A much shorter line leaves a
+       wedge of white under one end and the whole wordmark then reads as
+       off-centre however the box is aligned. */
+    font-size: 0.4em;
     font-weight: 400;
     white-space: nowrap;
     margin-top: 0.3em;
@@ -1949,4 +1957,14 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 .setsUsedSrc {
     color: var(--gray-500);
+}
+
+/* Between the matching options and the box the genes go in. Without it the
+   box read as a third matching option rather than the input it is. */
+.symbolsDivider {
+    width: 100%;
+    height: 0;
+    margin: 2px 0 0 0;
+    border: 0;
+    border-top: 1px solid var(--gray-200);
 }
