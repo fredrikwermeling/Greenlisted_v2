@@ -28,6 +28,13 @@
 
     /* Nucleotide runs read better fixed-width: the bases line up, and a
        lower-case string of acgt stops looking like a word. */
+    /* Controls, not prose. The platform's own interface face is hinted and
+       fitted for small bold text in a way a downloaded webfont is not, and
+       button labels are the smallest bold text in the app. Open Sans stays
+       for everything that is read rather than clicked. */
+    --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, sans-serif;
+
     --monoFont: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
         "Liberation Mono", monospace;
 
@@ -187,7 +194,11 @@ button {
     border-radius: var(--inputRadius);
     font-size: 14px;
     font-weight: 600;
-    font-family: inherit;
+    font-family: var(--ui-font);
+    /* A hair of tracking. Small bold text sets tight, and on a display that
+       is not rendering at an exact 2x the stems of adjacent letters blur into
+       each other before the letters themselves do. */
+    letter-spacing: 0.01em;
     padding: 8px 18px;
     /* Named properties, not `all`. With `all` the browser has to be ready to
        animate transform and filter too, which promotes the button to its own
@@ -1177,8 +1188,8 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 .gcBtn {
-    font-size: 12px;
-    padding: 3px 9px;
+    font-size: 13px;
+    padding: 4px 10px;
     white-space: nowrap;
 }
 
