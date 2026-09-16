@@ -161,27 +161,24 @@ function LIBX_columnFor(spacerOf) {
     const mine = (typeof settings !== "undefined" && settings.libraryName) || ""
     const loaded = _libxLoaded(species)
     const total = loaded ? _libxComparable(species, mine) : null
+    // The species and the word "other" moved into the heading. Spelled out on
+    // every row they were the same 22 characters over and over, which made the
+    // column wider than the sentence was worth and pushed the last column off
+    // the table. No denominator: "1 of 7" only invited the question of whether
+    // the library being designed from was inside the seven or outside it, and
+    // the answer changed nothing.
     return {
-        header: "Found in",
+        header: `Other ${species} libraries`,
         cell: cols => {
             const spacer = spacerOf(cols)
             if (!spacer) return ""
             if (!loaded) return `<span class="libxDim">…</span>`
             const hits = LIBX_lookup(spacer, species, mine)
             if (!hits || !hits.length) {
-                return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">` +
-                       `no other ${species} library</span>`
+                return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">none</span>`
             }
             const names = hits.map(h => h.library).join(", ")
-            // No denominator. "1 of 7" invited the question of whether the
-            // library being designed from was inside the 7 or outside it, and
-            // the answer changed nothing: what matters is how many other
-            // designs independently arrived at this guide, not the size of the
-            // field they were drawn from. "other" carries the exclusion, and
-            // the species stays in the cell because a count that silently
-            // mixed human and mouse libraries would mean nothing.
-            return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>` +
-                   `<span class="libxOf"> other ${species} ${hits.length === 1 ? "library" : "libraries"}</span>`
+            return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>`
         }
     }
 }
@@ -192,9 +189,9 @@ function LIBX_noticeHtml() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species)) return ""
     if (_libxState.loading) {
-        return `<p class="libxOffer" id="libxNotice">Loading the ${species} sgRNA index in the background — the <b>Found in</b> column fills in when it arrives.</p>`
+        return `<p class="libxOffer" id="libxNotice">Loading the ${species} sgRNA index in the background — the <b>Other libraries</b> column fills in when it arrives.</p>`
     }
-    return `<p class="libxOffer" id="libxNotice">The <b>Found in</b> column needs the ${species} sgRNA index. ` +
+    return `<p class="libxOffer" id="libxNotice">The <b>Other libraries</b> column needs the ${species} sgRNA index. ` +
            `<a href="javascript:void(0)" onclick="LIBX_loadAndRefresh()">Load it now</a> — about 35 MB, once per session.</p>`
 }
 
@@ -260,10 +257,22 @@ function LIBX_close() {
     document.getElementById("libxModal").className = "fazeOut upset-modal-overlay"
 }
 
+// Offered only when there is something behind it. On a guide no other
+// library picks, the popout could only repeat what the column already says,
+// and a button per row that says nothing is a column of noise that pushes
+// the useful ones off the edge of the table.
+//
+// While the index is still loading nothing is known, so nothing is offered;
+// the column redraws with the buttons once it lands.
 function LIBX_button(symbol, spacer, id) {
     const clean = String(spacer || "").trim().toUpperCase()
     if (!/^[ACGT]{15,30}$/.test(clean)) return ""
+    const species = _libxSpecies()
+    if (!species || !_libxLoaded(species)) return ""
+    const mine = (typeof settings !== "undefined" && settings.libraryName) || ""
+    const hits = LIBX_lookup(clean, species, mine)
+    if (!hits || !hits.length) return ""
     return `<button class="gcBtn libxBtn" data-symbol="${_escapeHtml(symbol)}" data-spacer="${clean}" ` +
            `data-id="${_escapeHtml(id)}" onclick="LIBX_openFromButton(this)" ` +
-           `title="Which other libraries of this species also pick this guide, and with what scores.">Libraries</button>`
+           `title="The ${hits.length} other ${species} ${hits.length === 1 ? "library" : "libraries"} that also pick this guide, and with what scores.">Libraries</button>`
 }

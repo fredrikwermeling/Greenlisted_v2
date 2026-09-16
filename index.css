@@ -793,7 +793,9 @@ footer.plate {
        which beats inheritance — so naming the face on the table alone left the
        cells in the sans face and only the raw view looked monospaced. */
     font-family: var(--monoFont);
-    padding: 4px 12px;
+    /* 8px, not 12: with six columns the wider padding cost 48 px of table
+       width, which was most of what pushed the last column off the pane. */
+    padding: 4px 8px;
     text-align: left;
     border-bottom: 1px solid var(--outlineColor);
     white-space: nowrap;
@@ -2052,4 +2054,19 @@ a.gcBtnLink {
 #validationTableDiv,
 #cnResultsDiv {
     overflow-x: auto;
+}
+
+/* A result cell holding prose rather than a symbol, an ID or a sequence.
+   Those three never contain a space, so a cell that does is a sentence and
+   can be broken across lines. Before this the longest sentence in a column
+   fixed that column's width and pushed everything after it off the right of
+   the pane. */
+.validationResultsTable th.wrapCell,
+.validationResultsTable td.wrapCell {
+    white-space: normal;
+    /* A floor as well as a ceiling. Without the floor the browser squeezed a
+       four-word phrase into a four-line stack to give the columns beside it
+       room, which made every row tall to save a few pixels of width. */
+    min-width: 11ch;
+    max-width: 24ch;
 }

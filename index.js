@@ -365,10 +365,16 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     for (let j = 0; j < headers.length; j++) {
         if (_GENE_HEADER_RE.test(headers[j].trim())) italicCols.add(j)
     }
+    // Gene symbols, guide IDs and sequences never contain a space, so a cell
+    // that does is prose and may wrap. Everything else stays on one line,
+    // where a break would make it unreadable. Without this the longest
+    // sentence in a column set the column's width and pushed the columns
+    // after it off the right of the pane.
+    const _wrappable = t => /\s/.test(String(t).trim())
     for (const h of headers) {
-        html += `<th>${_escapeHtml(h)}</th>`
+        html += `<th${_wrappable(h) ? ' class="wrapCell"' : ""}>${_escapeHtml(h)}</th>`
     }
-    for (const x of extras) html += `<th>${_escapeHtml(x.header)}</th>`
+    for (const x of extras) html += `<th${_wrappable(x.header) ? ' class="wrapCell"' : ""}>${_escapeHtml(x.header)}</th>`
     html += '</tr></thead><tbody>'
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
@@ -380,9 +386,17 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         html += '<tr>'
         for (let j = 0; j < cols.length; j++) {
             const safe = _escapeHtml(cols[j])
-            html += `<td>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
+            const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
+            html += `<td${cls}>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
         }
-        for (const x of extras) html += `<td class="gcCell">${x.cell(cols) || ""}</td>`
+        for (const x of extras) {
+            const cell = x.cell(cols) || ""
+            // Same rule as the data columns: a phrase can wrap, a button row
+            // cannot. Buttons carry no spaces outside their markup, so the
+            // test looks at the text the cell will actually show.
+            const text = cell.replace(/<[^>]*>/g, " ").trim()
+            html += `<td class="gcCell${/<button|<a /.test(cell) ? "" : (_wrappable(text) ? " wrapCell" : "")}">${cell}</td>`
+        }
         html += '</tr>'
     }
     html += '</tbody></table>'
@@ -664,18 +678,31 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     return ""
 }
 
-// The heading over that column. It carries the baseline the numbers are read
-// against, so a cell saying "~5 copies" is read as a gain over four rather
-// than as a gain over two.
+// The heading over that column. Short, because a table column is a bad place
+// for a sentence: at this width the full explanation stacked five lines deep
+// and made the header row taller than eight rows of data.
 function _cnColumnHeading(cl) {
+    return `Copy number (${_cnPlainName(cl)})`
+}
+
+// The sentence the heading used to carry, put above the table where there is
+// a full line to write on. It has to say what a blank cell means, or an empty
+// column reads as missing data, which is a thing the column says in words when
+// it is what it means.
+function _cnColumnNote(cl) {
     const bits = []
     if (cl.ploidy != null && !isNaN(cl.ploidy)) bits.push(`${Number(cl.ploidy).toFixed(1)}n`)
-    if (cl.wgd === true) bits.push("genome doubled")
-    else if (cl.wgd === false) bits.push("no doubling")
-    const tail = bits.length ? ` (${bits.join(", ")})` : ""
-    // "blank = no change" earns its place: without it an empty cell reads as
-    // missing data, which the column says outright when it means that.
-    return `Copy number in ${cl.name}${tail}, blank = no change`
+    if (cl.wgd === true) bits.push("whole-genome doubled")
+    else if (cl.wgd === false) bits.push("no whole-genome doubling")
+    const tail = bits.length ? ` is ${bits.join(", ")}` : " is the baseline"
+    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. A blank cell means no change.`
+}
+
+// Cell-line names come from DepMap, and the lines above a rendered table are
+// inserted as markup rather than escaped, so nothing that could be read as a
+// tag goes into one.
+function _cnPlainName(cl) {
+    return String(cl.name || "").replace(/[<>&\t]/g, "")
 }
 
 function _createAdapterOutput(libraryMap, screeningCellLine) {
@@ -685,6 +712,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine) {
     const cl = screeningCellLine || null
     const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
+    if (cl) out = out + _cnColumnNote(cl) + "\n"
     var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" + (cl ? `\t${_cnColumnHeading(cl)}\n` : "\n")
 
     for (var symbol of Object.keys(libraryMap)) {
@@ -1247,7 +1275,11 @@ function changeLibraryColumn() {
 function ADAPT_clean(el) {
     const before = el.value
     const caret = el.selectionStart
-    const clean = before.replace(/[^ACGTacgt]/g, "").toUpperCase()
+    // Case is left alone. Writing an adapter in lower case and the spacer in
+    // upper is how the finished oligo is normally set out, and the preview and
+    // the output both rely on it to show where the guide begins and ends.
+    // Upper-casing here quietly threw that away.
+    const clean = before.replace(/[^ACGTacgt]/g, "")
     if (clean !== before) {
         const removedBeforeCaret = before.slice(0, caret).replace(/[ACGTacgt]/g, "").length
         el.value = clean
@@ -1257,7 +1289,7 @@ function ADAPT_clean(el) {
             .filter(c => c.trim() !== "")
         _adapterNote(dropped.length
             ? `An adapter is DNA, so ${dropped.map(c => `"${c}"`).join(", ")} ` +
-              `${dropped.length === 1 ? "was" : "were"} dropped. Only A, C, G and T are kept.`
+              `${dropped.length === 1 ? "was" : "were"} dropped. Only A, C, G and T are kept, in whatever case you type them.`
             : "")
     } else {
         _adapterNote("")
