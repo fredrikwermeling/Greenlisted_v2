@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=3.8">
+    <link rel="stylesheet" media="all" href="index.css?v=4.0">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=3.8" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=4.0" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=3.8" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=4.0" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -319,6 +319,28 @@ User Upload lets you supply your own library file instead; you then tell the app
                                     <td>gRNA Column</td>
                                     <td><input type="number" id="gRNAIndex" onchange="changeLibraryColumn()"></td>
                                     <td id="statusFilegRNAIndex"></td>
+                                </tr>
+                                <!-- A built-in library declares which column holds its
+                                     score and which way it runs, so its guides come out
+                                     best first with nothing to set. An uploaded file
+                                     declares nothing, so it is asked here. -->
+                                <tr id="rankingIndexRow">
+                                    <td><label for="rankingIndex">Score column</label> <span class="titleTail">(optional)<span
+                                        class="infoDot" title="The column holding each guide's on-target score, if the file has one.
+
+Give it and the guides for each gene are listed best first, so the strongest is numbered _1. Leave it blank and the rows stay in the order they appear in your file.">i</span></span></td>
+                                    <td><input type="number" id="rankingIndex" onchange="changeLibraryColumn()"></td>
+                                    <td id="statusRankingIndex"></td>
+                                </tr>
+                                <tr id="rankingOrderRow">
+                                    <td><label for="rankingOrder">Best score is</label></td>
+                                    <td>
+                                        <select id="rankingOrder" onchange="changeLibraryColumn()">
+                                            <option value="descending">Highest</option>
+                                            <option value="ascending">Lowest</option>
+                                        </select>
+                                    </td>
+                                    <td></td>
                                 </tr>
                             </table>
 
@@ -604,23 +626,23 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=3.8"></script>
-    <script type="text/javascript" src="settings.js?v=3.8"></script>
-    <script type="text/javascript" src="grnaService.js?v=3.8"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=3.8"></script>
-    <script type="text/javascript" src="validate.js?v=3.8"></script>
-    <script type="text/javascript" src="upset.js?v=3.8"></script>
-    <script type="text/javascript" src="cnService.js?v=3.8"></script>
-    <script type="text/javascript" src="index.js?v=3.8"></script>
-    <script type="text/javascript" src="fileHandler.js?v=3.8"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=3.8"></script>
-    <script type="text/javascript" src="helpPopout.js?v=3.8"></script>
-    <script type="text/javascript" src="methods.js?v=3.8"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=3.8"></script>
-    <script type="text/javascript" src="gcontext.js?v=3.8"></script>
-    <script type="text/javascript" src="gcexport.js?v=3.8"></script>
-    <script type="text/javascript" src="gcai.js?v=3.8"></script>
-    <script type="text/javascript" src="gclibraries.js?v=3.8"></script>
+    <script type="text/javascript" src="library.js?v=4.0"></script>
+    <script type="text/javascript" src="settings.js?v=4.0"></script>
+    <script type="text/javascript" src="grnaService.js?v=4.0"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=4.0"></script>
+    <script type="text/javascript" src="validate.js?v=4.0"></script>
+    <script type="text/javascript" src="upset.js?v=4.0"></script>
+    <script type="text/javascript" src="cnService.js?v=4.0"></script>
+    <script type="text/javascript" src="index.js?v=4.0"></script>
+    <script type="text/javascript" src="fileHandler.js?v=4.0"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=4.0"></script>
+    <script type="text/javascript" src="helpPopout.js?v=4.0"></script>
+    <script type="text/javascript" src="methods.js?v=4.0"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=4.0"></script>
+    <script type="text/javascript" src="gcontext.js?v=4.0"></script>
+    <script type="text/javascript" src="gcexport.js?v=4.0"></script>
+    <script type="text/javascript" src="gcai.js?v=4.0"></script>
+    <script type="text/javascript" src="gclibraries.js?v=4.0"></script>
 
 </body>
 

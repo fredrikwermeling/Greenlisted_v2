@@ -1226,8 +1226,13 @@ function changeLibraryColumn() {
     //User input fields only called when adding a custom library
     const symbolColumn = document.getElementById("GeneSymbolIndex").value
     const RNAColumn = document.getElementById("gRNAIndex").value
+    // Blank means the file has no score to sort on, and its rows are left in
+    // the order they arrived. The built-in libraries take both of these from
+    // their own configuration instead; see changeLibrary().
+    const rankingColumn = parseInt(document.getElementById("rankingIndex").value, 10)
+    settings.rankingOrder = document.getElementById("rankingOrder").value === "ascending" ? "ascending" : "descending"
 
-    SET_settingsSetIndexes(RNAColumn, symbolColumn, 0)
+    SET_settingsSetIndexes(RNAColumn, symbolColumn, isNaN(rankingColumn) || rankingColumn <= 0 ? 0 : rankingColumn)
     updateCustomlibrary()
 }
 

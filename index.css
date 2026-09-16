@@ -1770,19 +1770,27 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
        sit centred against it. */
     display: flex;
     align-items: center;
-    justify-content: center;
-    /* The original artwork left 24 px between the "0" and the first leaf at
-       779 px wide. The name is set larger now, and carrying that gap up with
-       it pushed the leaves away from the word they belong to, so it is held
-       near the drawn distance instead of scaled with the name. */
-    gap: 1.6cqw;
-    /* 651 + 13 + 134 at full size. Explicit, not fit-content: inline-size
-       containment stops the element measuring its own contents, so
-       fit-content would collapse to zero. */
-    width: 798px;
+    /* 147 + 651 + 13 + 134: an empty column, the name, the gap the artwork
+       drew between the "0" and the first leaf, and the leaves. Explicit, not
+       fit-content: inline-size containment stops the element measuring its
+       own contents, so fit-content would collapse to zero. */
+    width: 945px;
     max-width: 100%;
     margin: 0 auto 0.2rem auto;
     container-type: inline-size;
+}
+
+/* The empty column on the left.
+   The original artwork was 779 px wide but its ink began 137 px in, so
+   centring the picture put the NAME at the middle of the page and let the
+   leaves hang past it to the right. Cropping the halves tight to their ink
+   threw that away and pulled the whole lockup left by about 75 px. This puts
+   it back, as layout rather than as a nudge, so the name sits centred over
+   the three panels and the leaves sit to the right of centre, the way the
+   logo was drawn. */
+.brand::before {
+    content: "";
+    flex: 0 0 15.5556cqw;
 }
 
 /* Every width below is a fraction of that 811px, so the three parts keep
@@ -1792,8 +1800,8 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    pixels too wide, and flex then took those pixels back out of the name. */
 .brandText {
     display: block;
-    flex: 0 0 81.6cqw;
-    width: 81.6cqw;
+    flex: 0 0 68.8889cqw;
+    width: 68.8889cqw;
 }
 
 .brandWord {
@@ -1805,7 +1813,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .brandLeaves {
     display: block;
     flex: 0 0 auto;
-    width: 16.8cqw;
+    /* The gap lives here rather than in the row's `gap`, which would also
+       open one after the empty column and throw the arithmetic out. */
+    margin-left: 1.3757cqw;
+    width: 14.1799cqw;
     height: auto;
 }
 
@@ -1814,8 +1825,8 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    the G above it, as the original strapline did. */
 .brandTag {
     display: block;
-    margin: 0.9cqw 0 0 1.5cqw;
-    font-size: 4.17cqw;
+    margin: 0.76cqw 0 0 1.27cqw;
+    font-size: 3.52cqw;
     font-weight: 400;
     line-height: 1;
     white-space: nowrap;
