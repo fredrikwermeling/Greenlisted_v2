@@ -211,11 +211,12 @@ function _gcaiRepeatSection(v) {
     const reps = v.repeatRanges || []
     const out = {
         whatThisIs: "RepeatMasker annotation of this template from UCSC, in the same coordinates as the sequence above. " +
-                    "A primer inside an interspersed repeat such as an Alu or a LINE primes in many other places in the " +
-                    "genome, and the mixed Sanger trace that results looks like editing. A primer on a simple repeat or a " +
-                    "low-complexity stretch fails for a different reason: the polymerase slips and the trace loses register. " +
-                    "Primer-BLAST screens for the first kind, and this is also why the candidates may all sit in the same " +
-                    "narrow stretch.",
+                    "This is here to explain the shape of the result, not to be acted on. Primer-BLAST runs a genome-wide " +
+                    "specificity search of its own and will not return a primer that matches in many places, so it already " +
+                    "avoids these stretches without being told to: given a whole flank to search, it comes back using only " +
+                    "the part that is not repetitive. What the annotation explains is why the candidates may all sit in one " +
+                    "narrow stretch, or why there are fewer of them than expected. Neither is a mistake and neither is fixed " +
+                    "by changing the search windows.",
         repeatsFound: reps.slice(0, 50).map(r => ({
             name: r.name,
             classification: [r.cls, r.family].filter(Boolean).join("/"),
@@ -380,12 +381,18 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 : "THEN, since no primer candidates came with the file, do not invent any. Designing primers needs melting temperatures computed " +
                   "under real salt conditions and a genome-wide search for where else they would prime, and neither can be done reliably by " +
                   "reading a sequence. Say so in one sentence, then help with what this file does support: checking the guide is where it should " +
-                  "be, which exon it cuts, whether the edit is likely to disrupt the protein, and what to ask Primer-BLAST for. " +
+                  "be, which exon it cuts, and whether the edit is likely to disrupt the protein. " +
                   "Tell them they can rerun the export with the Primer-BLAST CSV pasted in, and you will pick between the pairs.\n\n") +
+            "DO NOT REDESIGN THE PRIMER-BLAST REQUEST. The search windows and the product length in this file were set by the tool from the " +
+            "readout the user chose, and they are already correct. Primer-BLAST then runs its own genome-wide specificity search and will not " +
+            "return a primer that matches in many places, so it excludes repeats by itself: told it may use a whole flank, it comes back using " +
+            "only the part that is not repetitive. Telling the user to narrow the windows, avoid a repeat or change a length is redundant work " +
+            "you are asking of them for no gain. If something about the locus genuinely limits the design, say what it is and leave the settings " +
+            "alone.\n\n" +
             "ABOUT REPEATS: this file already carries the RepeatMasker annotation for the template and says which stretches are free of " +
-            "repeat, so do not try to spot repeats by eye from the sequence. If the candidates are crowded into one narrow stretch, the " +
-            "repeat section usually says why, and that is worth telling them because it is not their mistake and cannot be fixed by " +
-            "rerunning Primer-BLAST.\n\n" +
+            "repeat, so do not try to spot repeats by eye from the sequence. Use it to explain the shape of the result, not to change the " +
+            "request: if the candidates are crowded into one narrow stretch, or there are fewer of them than expected, the repeat section " +
+            "usually says why, and that is worth telling them because it is a property of the locus rather than a mistake.\n\n" +
             "THROUGHOUT: numbers support the answer, they are not the answer. Give the two or three that matter, each with what it means. " +
             "If something important is missing, say what you would need and how they would get it, in terms of what they would click.",
 
@@ -444,6 +451,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
 
         designConstraints: win ? {
             readoutTheseWereDesignedFor: readoutName,
+            theseAreAlreadySet: "Green Listed derived these from the readout the user chose and filled them into Primer-BLAST. " +
+                "They are recorded so you can see what was asked, not so they can be revised. Primer-BLAST applies its own " +
+                "specificity search on top of them.",
             whatPrimerBlastWasAskedFor: {
                 forwardPrimerWithin: [win.fwdStart, win.fwdEnd],
                 reversePrimerWithin: [win.revStart, win.revEnd],

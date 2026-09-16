@@ -189,7 +189,11 @@ button {
     font-weight: 600;
     font-family: inherit;
     padding: 8px 18px;
-    transition: all 0.2s ease;
+    /* Named properties, not `all`. With `all` the browser has to be ready to
+       animate transform and filter too, which promotes the button to its own
+       composited layer, and a composited layer rasterises its text once. That
+       is what made small button labels look soft. */
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
     background: var(--gray-100);
     /* --gray-700, not --gray-600. Button labels are the smallest bold text on
        the page, and a mid grey on a light grey ground left too little
@@ -200,15 +204,17 @@ button {
     text-wrap: balance;
 }
 
+/* A darker ground rather than filter: brightness(). A filter forces the
+   element onto a composited layer for as long as it is applied, and the text
+   on that layer is drawn from a raster rather than from the outlines. */
 button:hover {
-    filter: brightness(0.96);
+    background: var(--gray-200);
     cursor: pointer;
 }
 
 button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-    filter: none;
 }
 
 /* The one action that starts the run. Everything else on the page is a
@@ -222,7 +228,6 @@ button:disabled {
 .btn-primary:hover {
     background: var(--green-700);
     border-color: var(--green-700);
-    filter: none;
     box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
 }
 
@@ -235,7 +240,6 @@ button:disabled {
 
 .btn-outline:hover {
     background: var(--green-50);
-    filter: none;
 }
 
 textarea {
@@ -717,8 +721,11 @@ body.validate-mode #validateButton {
     color: white;
 }
 
+/* 13px, not 12. These labels are bold and short, which is the hardest case
+   for a screen to render cleanly, and one extra pixel of body buys more
+   legibility here than anywhere else on the page. */
 .validate-btn {
-    font-size: 12px;
+    font-size: 13px;
     white-space: nowrap;
     padding: 6px 12px;
 }
@@ -870,7 +877,6 @@ footer.plate {
 
 .upset-close-btn:hover {
     opacity: 0.7;
-    filter: none;
 }
 
 .upset-modal-body {
@@ -1166,7 +1172,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 .gcBtn {
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 9px;
     white-space: nowrap;
 }
@@ -1302,7 +1308,6 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 .gcStep:hover:not(:disabled) {
     background: var(--green-100);
-    filter: none;
 }
 
 .gcStep:disabled {
