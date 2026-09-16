@@ -12,6 +12,50 @@ var outputTexts = {
 }
 
 
+// "Symbols not found" and "Pick human cell line" sit at the foot of two
+// columns whose content above them differs and reflows independently, so no
+// fixed height lines them up at every window width: measured across nine
+// widths the offset ran from -5px to +19px. The symbol box is the one
+// flexible thing in its column, so its height is measured back from the two
+// headings and corrected after layout.
+const _SYMBOX_MIN = 180
+const _SYMBOX_MAX = 460
+
+function _alignSymbolColumn() {
+    const box = document.getElementById("searchSymbols")
+    if (!box) return
+    // Below 900px the three columns stack, so there is nothing to line up.
+    if (window.innerWidth <= 900) { box.style.height = ""; return }
+    if (document.body.classList.contains("validate-mode")) return
+    if (document.body.classList.contains("cn-mode")) return
+    const titles = [...document.querySelectorAll(".smallTitle")]
+    const notFound = titles.find(t => /Symbols not found/i.test(t.textContent))
+    const cellLine = titles.find(t => /Pick human cell line/i.test(t.textContent))
+    if (!notFound || !cellLine) return
+    // Both are visible only in design mode; a hidden element measures zero.
+    if (!notFound.getClientRects().length || !cellLine.getClientRects().length) return
+    // Growing the box does not move the heading below it by the same amount:
+    // the panel it sits in distributes free space, so part of the change is
+    // absorbed. One pass therefore lands short. Repeat until it settles, which
+    // takes two or three passes, and stop either way so a layout that cannot
+    // converge cannot spin.
+    for (var pass = 0; pass < 5; pass++) {
+        const delta = Math.round(cellLine.getBoundingClientRect().top - notFound.getBoundingClientRect().top)
+        if (Math.abs(delta) < 2) return
+        const current = box.getBoundingClientRect().height
+        const next = Math.max(_SYMBOX_MIN, Math.min(_SYMBOX_MAX, Math.round(current + delta)))
+        if (next === Math.round(current)) return        // clamped, cannot do better
+        box.style.height = next + "px"
+    }
+}
+
+// Layout settles after fonts and images land, so realign on those too.
+window.addEventListener("resize", () => {
+    clearTimeout(window._symboxTimer)
+    window._symboxTimer = setTimeout(_alignSymbolColumn, 120)
+})
+window.addEventListener("load", () => setTimeout(_alignSymbolColumn, 60))
+
 // Put the cursor where the work starts. The library has a sensible default
 // and the parameters are optional, so the gene box is the first thing anyone
 // actually has to fill in.
@@ -39,6 +83,7 @@ async function init() {
     // CN feature doesn't wait on a 62 MB download. Deliberately not awaited.
     if (typeof CN_prefetchWhenIdle === "function") CN_prefetchWhenIdle()
     _focusSymbolBox()
+    setTimeout(_alignSymbolColumn, 60)
 }
 
 async function loadTestSettings() {
@@ -607,7 +652,14 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     if (v < 0.3)  return `DEEP DELETION (${detail}) - gene likely absent, guides uninformative`
     if (v >= 5.0) return `STRONG AMPLIFICATION (${detail}) - copy-number effect likely, dropout may be a false positive`
     if (v >= 3.0) return `AMPLIFIED (${detail}) - copy-number effect possible, interpret dropout with care`
-    return ""
+    // Between the two extremes the column used to say nothing at all, so a
+    // gene sitting at one copy looked the same as one at two. Neither state
+    // invalidates a screen, but both are worth knowing when a guide behaves
+    // oddly, so they are reported without being called warnings.
+    if (v < 0.7)  return `one-copy loss (${detail})`
+    if (v >= 2.0) return `gained (${detail})`
+    if (v >= 1.3) return `slight gain (${detail})`
+    return `two copies (${detail})`
 }
 
 function _createAdapterOutput(libraryMap, screeningCellLine) {
@@ -1243,6 +1295,7 @@ const _CONTROL_UI = [
 // library and how many will be added. Called whenever the library, the
 // symbol list or any of the control fields changes.
 function _updateControlsStatus() {
+    setTimeout(_alignSymbolColumn, 0)
     const box = document.getElementById("controlsStatus")
     if (!box || typeof LIB_controlInfo !== "function") return
     const info = LIB_controlInfo()
@@ -1393,6 +1446,8 @@ function updateCustomlibrary() {
 }
 
 function _updateExampleText() {
+    // The preview's own height is fixed, but the panels around it are not.
+    setTimeout(_alignSymbolColumn, 0)
     //Displays the text SEQUENCE modified by trim and adapter sequences
     // Assembled from the parts rather than by searching the finished string,
     // so the guide stays highlighted even when a trim setting eats into it.

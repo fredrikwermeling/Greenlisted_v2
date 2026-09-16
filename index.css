@@ -950,11 +950,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    is what lets the middle and right columns line up. */
 .titleTail { white-space: nowrap; }
 
-/* The symbol box's height is set so that "Symbols not found" lines up with
-   "Pick human cell line" in the next column. Targeted at #searchSymbols
-   rather than textarea, which would also resize the output and not-found
-   boxes. Re-measure this if anything above either heading changes height: the
-   divider, the panel headings and the adapter preview have all moved it. */
+/* A starting height only. _alignSymbolColumn() measures the two column feet
+   after layout and corrects this, because no single number lines them up at
+   every window width. Targeted at #searchSymbols rather than textarea, which
+   would also resize the output and not-found boxes. */
 #searchSymbols {
     height: 301px;
 }
@@ -1996,4 +1995,11 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-style: italic;
     letter-spacing: normal;
     color: var(--gray-500);
+}
+
+/* The symbol box's set height must mean the same thing as its measured
+   height, or the routine that lines the two columns up overshoots by the
+   padding and border every time. */
+#searchSymbols {
+    box-sizing: border-box;
 }
