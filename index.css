@@ -1759,7 +1759,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    still a picture. The color is sampled from the original artwork. */
 .brand {
     --brandGreen: #83aa3d;
-    display: inline-flex;
+    /* Centred on its own rather than left-aligned inside a box the wider nav
+       sizes, which is what left it sitting off to one side. */
+    display: flex;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
     align-items: center;
     gap: 0.06em;
     margin-bottom: 0.18em;
@@ -1768,8 +1773,6 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     text-decoration: none;
     color: var(--brandGreen);
 }
-
-.brand:hover { filter: none; }
 
 .brandText {
     display: flex;
@@ -1924,4 +1927,26 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 #searchSymbols::placeholder {
     color: var(--gray-200);
     opacity: 1;
+}
+
+/* Which curated gene lists are in the symbol box. Sits above "Symbols not
+   found" so the provenance is on screen while the list is being edited, not
+   only in the methods text after a run. */
+.setsUsed {
+    margin: 0;
+    padding: 7px 11px;
+    background: var(--green-50);
+    border-left: 3px solid var(--green-500);
+    border-radius: 0 4px 4px 0;
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+}
+
+.setsUsed b {
+    color: var(--green-800);
+}
+
+.setsUsedSrc {
+    color: var(--gray-500);
 }

@@ -46,13 +46,13 @@
             <!-- The wordmark is live text rather than part of the image, so the
                  strapline can be set in two lines and still scale. Only the
                  leaves remain a picture. -->
-            <a class="brand" href="index.html" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
+            <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
                     <span class="brandName">Green&nbsp;Listed<span class="brandVer">v2.0</span></span>
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
                 <img class="brandLeaves" src="leaves.png" alt="">
-            </a>
+            </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
                 <a target="_blank" rel="noopener noreferrer"
@@ -310,7 +310,7 @@ Each symbol is looked up in the selected library. Anything that finds no match i
             <div class="plateContent">
 
                 <div class="smallPlate">
-                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Matching</span><span class="infoDot" title="How your typed symbols are matched to the library.
+                    <h3 class="smallTitle" id="symbolsTitle"><span id="symbolsTitleText">Symbol matching</span><span class="infoDot" title="How your typed symbols are matched to the library.
 
 Only direct matches: the symbol must appear exactly as the library spells it.
 
@@ -350,6 +350,11 @@ Use synonyms: resolves older or alternative names to the one the library uses, s
                     </div>
 
                 </div>
+
+                <!-- Which curated lists the genes in the box came from, so the
+                     provenance is visible before the run rather than only in
+                     the methods text afterwards. Written by _setsUsedRender(). -->
+                <p id="setsUsedNote" class="setsUsed design-only" style="display:none;"></p>
 
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Symbols not found<span class="infoDot" title="Symbols that produced no sgRNAs, with the synonym that was tried where one existed.

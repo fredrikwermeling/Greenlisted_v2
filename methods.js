@@ -148,9 +148,16 @@ function _methDesign() {
         : `${perGeneText} ${_methPlural(perGene, "sgRNA")} per gene for ` +
           `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")}`
 
+    const curatedShort = (typeof SETS_usedInText === "function")
+        ? SETS_usedInText((settings && settings.searchSymbols) || "") : []
+    const fromList = curatedShort.length
+        ? ` targeting the ${_methList(curatedShort.map(u => u.label))} ` +
+          `${_methPlural(curatedShort.length, "list", "lists")}`
+        : ""
+
     var short = `sgRNAs were designed using the Green Listed software ` +
                 `(${_METH_APP.url}; ${_METH_APP.short}), selecting ` +
-                `${selection} from the ${libName} library${libCite}`
+                `${selection}${fromList} from the ${libName} library${libCite}`
     // The total is worth stating when it is not already the number just
     // given — with controls, or when it was only implied by "n per gene".
     const totalStated = oneGene && !ctrlShort.length
@@ -168,6 +175,25 @@ function _methDesign() {
         `${geneGuides} ${_methPlural(geneGuides, "sgRNA")}` +
         (oneGene ? "." : ` (${perGeneText} per gene).`)
     )
+
+    // Where the gene list came from. A curated class and a hand-picked list
+    // are different experiments, and the class has a citable source.
+    const curated = (typeof SETS_usedInText === "function")
+        ? SETS_usedInText((settings && settings.searchSymbols) || "")
+        : []
+    if (curated.length) {
+        const parts = curated.map(u => {
+            const n = (u.present === u.total)
+                ? `all ${u.total} genes`
+                : `${u.present} of the ${u.total} genes`
+            return `${n} of the ${u.label} list (${u.source})`
+        })
+        sentences.push(
+            curated.length === 1
+                ? `The target genes were taken from a curated list supplied with the software: ${parts[0]}.`
+                : `The target genes were taken from curated lists supplied with the software: ${_methList(parts)}.`
+        )
+    }
 
     // Symbol matching. Worth stating because it changes which guides end up
     // in the library, and because a reader cannot tell from the gene list

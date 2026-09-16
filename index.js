@@ -182,7 +182,7 @@ function toggleValidateMode(species) {
         document.body.classList.remove("validate-mode")
         humanBtn.classList.remove("validate-btn-active")
         mouseBtn.classList.remove("validate-btn-active")
-        _setSectionTitle("symbolsTitle", "Matching")
+        _setSectionTitle("symbolsTitle", "Symbol matching")
         _setSectionTitle("inputPlateTitle", "2. Input symbols")
         // Reload default settings to restore a clean design-mode state
         init()
@@ -1116,6 +1116,7 @@ async function changeSynonyms() {
 }
 
 function changeSymbols() {
+    if (typeof _setsUsedRender === "function") _setsUsedRender()
     if (_validateState.isValidateMode) {
         const lines = document.getElementById("searchSymbols").value.split("\n").filter(s => s.trim().length > 0)
         _setStatus("statusSearchSymbolsRows", `${lines.length} sequence(s) entered`)
@@ -1520,7 +1521,48 @@ function _setStatus(elemId, text, isNotInnerHtml) {
 // geneSets.json the first time the picker is opened. Each set was resolved
 // against the built-in human libraries when the file was built, so every
 // symbol in it is one some library can actually target.
-var _setsState = { bySpecies: null, loading: null, sets: null }
+var _setsState = { bySpecies: null, loading: null, sets: null,
+                   // Every curated list added to the box this session, so the
+                   // run can say where its genes came from. What is actually
+                   // reported is checked against the box at the time, since
+                   // the list can be edited freely afterwards.
+                   used: [] }
+
+// The curated lists whose genes are still in the box, with how many of each
+// survived. A list the user has since deleted from the box is dropped rather
+// than claimed.
+// Takes either the raw box contents or the array of symbols a run was given,
+// since the methods text describes the run and the on-screen note describes
+// the box.
+function SETS_usedInText(symbols) {
+    if (!_setsState.used || !_setsState.used.length) return []
+    const list = Array.isArray(symbols)
+        ? symbols
+        : String(symbols || "").split(/\r?\n/)
+    const inBox = new Set(list.map(x => String(x).trim().toUpperCase()).filter(Boolean))
+    if (!inBox.size) return []
+    const out = []
+    for (const u of _setsState.used) {
+        var present = 0
+        for (const g of u.genes) if (inBox.has(g.toUpperCase())) present++
+        if (present > 0) out.push({ label: u.label, source: u.source, total: u.genes.length, present: present })
+    }
+    return out
+}
+
+// The line above "Symbols not found".
+function _setsUsedRender() {
+    const el = document.getElementById("setsUsedNote")
+    if (!el) return
+    const box = document.getElementById("searchSymbols")
+    const used = SETS_usedInText(box ? box.value : "")
+    if (!used.length) { el.style.display = "none"; el.innerHTML = ""; return }
+    el.style.display = ""
+    el.innerHTML = `From curated ${used.length === 1 ? "list" : "lists"}: ` +
+        used.map(u => `<b>${_escapeHtml(u.label)}</b> ` +
+            `(${u.present === u.total ? `${u.total} genes` : `${u.present} of ${u.total} genes still in the box`})` +
+            `<span class="setsUsedSrc"> — ${_escapeHtml(u.source)}</span>`).join("; ")
+}
 
 // Which species' lists to show. Every built-in library declares its species
 // through the synonym list it uses; an uploaded library has none, so it falls
@@ -1605,6 +1647,7 @@ async function SETS_syncToLibrary() {
     if (!set) return
     box.value = set.genes.join("\n")
     _setsState.loaded = { key: set.key, species: species, text: _setsSignature(box.value) }
+    _setsState.used = [{ key: set.key, label: set.label, source: set.source, genes: set.genes.slice() }]
     changeSymbols()
     _setStatus("statusSearchSymbolsRows",
         `${set.label}: switched to the ${species.toLowerCase()} list, ${set.genes.length} genes`)
@@ -1654,6 +1697,11 @@ function SETS_load(index) {
     _setsState.loaded = wasEmpty
         ? { key: set.key, species: _setsSpecies(), text: _setsSignature(box.value) }
         : null
+    // Remember the list itself, for the note above "Symbols not found" and
+    // for the methods text. Adding the same list twice records it once.
+    if (!_setsState.used.some(u => u.key === set.key)) {
+        _setsState.used.push({ key: set.key, label: set.label, source: set.source, genes: set.genes.slice() })
+    }
     changeSymbols()
     SETS_closeModal()
     _setStatus("statusSearchSymbolsRows",
@@ -1678,7 +1726,7 @@ async function TOOL_resetApp() {
         _cnState.tsvOutput = null
         _cnState.selectedCellLines = []
     }
-    if (typeof _setsState !== "undefined") _setsState.loaded = null
+    if (typeof _setsState !== "undefined") { _setsState.loaded = null; _setsState.used = [] }
     const cellLine = document.getElementById("screeningCellLineInput")
     if (cellLine) cellLine.value = ""
     const cellLineStatus = document.getElementById("screeningCellLineStatus")
@@ -2091,7 +2139,7 @@ function _cnExitMode() {
     document.body.classList.remove("cn-mode")
     const symbolsTitle = document.getElementById("symbolsTitle")
     const inputPlateTitle = document.getElementById("inputPlateTitle")
-    _setSectionTitle("symbolsTitle", "Matching")
+    _setSectionTitle("symbolsTitle", "Symbol matching")
     _setSectionTitle("inputPlateTitle", "2. Input symbols")
     init()
 }
