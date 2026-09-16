@@ -1377,13 +1377,19 @@ function _updateExampleText() {
     const middle = _applyTrim("SEQUENCE")
     const before = settings.adapterBefore || ""
     const after = settings.adapterAfter || ""
-    // With no adapters entered the preview only restates the word SEQUENCE,
-    // which tells the user nothing — so it stays out of the way until there
-    // is something to preview.
+    // With no adapters entered the preview would only restate the word
+    // SEQUENCE. It used to hide itself for that reason, but it sits in the
+    // middle of three columns, so appearing and disappearing shifted
+    // everything below it and knocked the columns out of line. It stays put
+    // and says what it is for instead.
     const el = document.getElementById("ExampleSequance")
-    el.style.display = (before || after) ? "" : "none"
-    if (!before && !after) { el.innerHTML = ""; return }
-    document.getElementById("ExampleSequance").innerHTML =
+    if (!before && !after) {
+        el.className = "isHint"
+        el.textContent = "Adapters appear here, around the guide."
+        return
+    }
+    el.className = ""
+    el.innerHTML =
         `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
 }
 

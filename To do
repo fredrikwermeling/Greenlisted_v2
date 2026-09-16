@@ -7,13 +7,6 @@ the dev origin after a handful of saves, and the clipboard write needs a genuine
 user gesture. If Copy fails it falls back to showing the text selected in the
 output pane, so nothing is lost either way.
 
-open — decision, not a bug:
-"Symbols not found" and "Pick human cell line" line up when the page loads, but
-entering adapter sequences shows the oligo preview and pushes the third column
-down ~70px. "Load test data" fills the adapters, so the demo path shows the
-shift. The two columns hold independently variable content and cannot stay
-locked in every state. Reserving the space permanently would fix it at the cost
-of a visible gap in the default view — left as is until someone decides.
 
 open — other repo:
 Correlate has the same cropped-logo bug on a phone (fixed-width logo, no
@@ -23,6 +16,7 @@ overflow at 390px — the same sweep here found two more real overflows in a mod
 that eyeballing had missed.
 
 done:
+"Symbols not found" and "Pick human cell line" now line up in every state, including with adapters entered. The adapter preview no longer appears and disappears — it stays put and carries a line saying what it is for until there is something to preview, so it cannot shift the column beneath it.
 Genomic context per sgRNA. Done — a Context button on each guide row fetches ±500 bp (adjustable) from the UCSC API for hg38/mm39, marks spacer, PAM, cut site and RefSeq Select exons; Copy FASTA, Copy for Word, GenBank download and a Primer-BLAST link that sets the organism from the guide's species, checks specificity against that genome, and asks for an amplicon of at least 500 bp with the forward primer in the first 350 bp and the reverse in the last 350, so the cut sits at least 150 bp from either primer (ICE and TIDE guidance). Every Primer-BLAST field is editable and remembered in the browser. Guide located by spacer+NGG search inside the gene, so it works for libraries without coordinates (and mouse libraries, whose coordinates are mm10).
 Controls in the screen library. Done — Controls box in section 3, non-targeting (NegCtrl) and safe-targeting (CutCtrl), per-kind counts, auto = 10% of targeting guides split across the kinds ticked, floor of 10 each.
 Double check the copy # feature. Done — 8 issues found and fixed (output-pane crash, WGD tooltip contradiction, SVG word-scramble + WGD pill overflow, unescaped symbols, synonym race, HTML in downloaded TSVs, stale header).

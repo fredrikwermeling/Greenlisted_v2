@@ -397,6 +397,10 @@ a:hover {
    not wrap on its own — it used to run off both edges of the panel. Wrapping
    it and setting it in a smaller monospace face keeps the whole oligo visible
    however long the adapters are. */
+/* Always present, so its arrival cannot shove the rest of this column down
+   and knock "Pick human cell line" out of line with "Symbols not found"
+   beside it. Before any adapter is typed it carries a line saying what it is
+   for, rather than an empty reserved box. */
 #ExampleSequance {
     align-self: center;
     width: 100%;
@@ -946,12 +950,13 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    is what lets the middle and right columns line up. */
 .titleTail { white-space: nowrap; }
 
-/* The symbol box is deliberately a little shorter than the default textarea
-   height, so that "Symbols not found" lines up with "Pick human cell line"
-   in the next column. Targeted at #searchSymbols rather than textarea, which
-   would also resize the output and not-found boxes. */
+/* The symbol box's height is set so that "Symbols not found" lines up with
+   "Pick human cell line" in the next column. Targeted at #searchSymbols
+   rather than textarea, which would also resize the output and not-found
+   boxes. Re-measure this if anything above either heading changes height: the
+   divider, the panel headings and the adapter preview have all moved it. */
 #searchSymbols {
-    height: 253px;
+    height: 301px;
 }
 
 /* Reserve the one line the controls panel uses for its positive-control
@@ -1920,9 +1925,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    columns read as misaligned. Matching the minimum keeps their tops and the
    content beneath them in step. */
 .smallTitle {
-    /* The library dropdown sets the tallest of these headers; the rest match
-       it so the three columns stay level. */
-    min-height: 60px;
+    /* One height for every panel header, so the three columns stay level.
+       Set by the text ones rather than by the library dropdown, which is
+       sized down to fit it. */
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1933,7 +1939,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 /* The example genes shown until something is typed. Dimmer than real input so
    it cannot be mistaken for a prefilled search. */
 #searchSymbols::placeholder {
-    color: var(--gray-200);
+    color: var(--gray-500);
     opacity: 1;
 }
 
@@ -1996,4 +2002,23 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
         font-size: 0.78rem;
         padding: 6px 10px;
     }
+}
+
+/* The library dropdown is the only header holding a control rather than a
+   line of text, and at its natural size it made every other header taller to
+   match. Trimmed to sit inside the same 50px. */
+#libraries {
+    padding: 4px 10px;
+    font-size: calc(var(--base-fontsize) * 0.85);
+}
+
+
+/* The preview before there is anything to preview: a sentence, not a
+   sequence, so it is set in the reading face. */
+#ExampleSequance.isHint {
+    font-family: var(--sans-font);
+    font-size: 0.75rem;
+    font-style: italic;
+    letter-spacing: normal;
+    color: var(--gray-500);
 }
