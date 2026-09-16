@@ -133,7 +133,7 @@ function LIBX_columnFor(spacerOf) {
     const loaded = _libxLoaded(species)
     const total = loaded ? _libxComparable(species, mine) : null
     return {
-        header: "Other libraries",
+        header: "In other libraries",
         cell: cols => {
             const spacer = spacerOf(cols)
             if (!spacer) return ""
@@ -152,7 +152,7 @@ function LIBX_columnFor(spacerOf) {
 function LIBX_noticeHtml() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species)) return ""
-    return `<p class="libxOffer" id="libxNotice">The <b>Other libraries</b> column is empty until the ${species} sgRNA index is loaded. ` +
+    return `<p class="libxOffer" id="libxNotice">The <b>In other libraries</b> column is empty until the ${species} sgRNA index is loaded. ` +
            `<a href="javascript:void(0)" onclick="LIBX_loadAndRefresh()">Load it now</a> — about 35 MB, once per session.</p>`
 }
 

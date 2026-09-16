@@ -174,7 +174,7 @@ function GC_rowExtraAdapter() {
     if (typeof searchOutput === "undefined" || !searchOutput || !searchOutput.filteredLibraryMap) return null
     const map = searchOutput.filteredLibraryMap
     return {
-        header: "Genomic context",
+        header: "Inspect",
         cell: cols => {
             const symbol = _gcUnquote(cols[0])
             const id = _gcUnquote(cols[1] || "")
@@ -192,7 +192,7 @@ function GC_rowExtraAdapter() {
 function GC_rowExtraFull() {
     if (typeof settings === "undefined") return null
     return {
-        header: "Genomic context",
+        header: "Inspect",
         cell: cols => {
             const symbol = _gcUnquote(cols[settings.symbolColumn - 1])
             const spacer = cols[settings.RNAColumn - 1]

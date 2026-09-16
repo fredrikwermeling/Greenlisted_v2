@@ -1763,72 +1763,48 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
    set in two stacked lines and still scale with the page. Only the leaves are
    still a picture. The color is sampled from the original artwork. */
 .brand {
-    --brandGreen: #83aa3d;
-    /* Centered on its own rather than left-aligned inside a box the wider nav
-       sizes, which is what left it sitting off to one side.
-       The whole block is centered, leaves included, as the original artwork
-       was. That reads straight only because the strapline is set to almost
-       the width of the name below it, so the text mass is a rectangle rather
-       than a wedge; see .brandTag. */
-    display: flex;
-    width: fit-content;
-    margin-left: auto;
-    margin-right: auto;
-    align-items: center;
-    gap: 0.06em;
-    margin-bottom: 0.18em;
-    font-size: clamp(26px, 6.2vw, 77px);   /* everything below is in em of this */
-    line-height: 1;
-    text-decoration: none;
-    color: var(--brandGreen);
+    /* The artwork is 779x188 and carries the name, the v2.0 and the leaves.
+       Establishing a container lets the strapline below be sized and placed
+       as a fraction of it, so the two stay locked together at any width. */
+    position: relative;
+    display: block;
+    /* Explicit, not fit-content: inline-size containment stops the element
+       measuring its own contents, so fit-content collapses to zero. This is
+       the artwork's natural width, shrinking on narrow screens. */
+    width: 779px;
+    max-width: 100%;
+    margin: 0 auto 0.4rem auto;
+    container-type: inline-size;
 }
 
-.brandText {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    /* Right-aligned so the strapline ends against the leaves instead of
-       leaving a gap, which is how the original artwork read. */
-    align-items: flex-end;
-}
-
-.brandName {
-    font-weight: 700;
-    letter-spacing: -0.005em;
-    white-space: nowrap;
-}
-
-/* The version rides above the cap line, as it did in the artwork. */
-.brandVer {
-    font-size: 0.3em;
-    font-weight: 600;
-    vertical-align: super;
-    margin-left: 0.15em;
-    letter-spacing: 0;
+.brandMark {
+    display: block;
+    width: 779px;
+    max-width: 100%;
+    height: auto;
 }
 
 /* "- a sgRNA design/CRISPR screen tool" on one line. Set smaller than the name
    so the whole phrase still fits under it rather than running past the
    leaves. */
+/* Set where the original strapline was: its left edge sat at 146 of 779, and
+   its baseline at 171 of 188. Smaller than the original's because this line is
+   half as long again and has to finish before the leaves. */
 .brandTag {
-    /* Sized so the strapline comes out nearly as wide as the name above it,
-       which is what the original artwork did. A much shorter line leaves a
-       wedge of white under one end and the whole wordmark then reads as
-       off-centre however the box is aligned. */
-    font-size: 0.4em;
+    position: absolute;
+    /* Every offset is a fraction of the artwork's WIDTH, including the
+       vertical one, so the line keeps its place on the image at any size.
+       The original strapline's left edge sat at 146 of 779 and its baseline
+       at 171 of 188, which is 17px up from the bottom, or 2.2% of the width. */
+    left: 18.7cqw;
+    bottom: 2.2cqw;
+    /* 3.55% of the artwork's width sets this line to about 470px of the 481
+       available between its left edge and the leaves. */
+    font-size: 3.55cqw;
     font-weight: 400;
+    line-height: 1;
     white-space: nowrap;
-    margin-top: 0.3em;
-    padding-right: 0.12em;
-}
-
-/* The original artwork's leaves stand 3.145 times the cap height of the name,
-   and Open Sans sets its cap at about 0.714 em, so 3.145 x 0.714 = 2.25 em. */
-.brandLeaves {
-    height: 2.25em;
-    width: auto;
-    margin-left: -0.04em;
-    margin-top: -0.06em;
+    color: #83aa3d;
 }
 
 @media only screen and (max-width: 600px) {

@@ -12,6 +12,20 @@ var outputTexts = {
 }
 
 
+// Put the cursor where the work starts. The library has a sensible default
+// and the parameters are optional, so the gene box is the first thing anyone
+// actually has to fill in.
+function _focusSymbolBox() {
+    const box = document.getElementById("searchSymbols")
+    // Only when it is the box in play and empty: focusing it would otherwise
+    // scroll a returning user away from whatever they were reading, and in
+    // the takeover modes it is not the first thing to fill in either.
+    if (!box || box.value.trim()) return
+    if (document.body.classList.contains("validate-mode")) return
+    if (document.body.classList.contains("cn-mode")) return
+    try { box.focus({ preventScroll: true }) } catch (e) { box.focus() }
+}
+
 async function init() {
     var data = null
     try {
@@ -24,6 +38,7 @@ async function init() {
     // Warm the copy-number matrix in the background so the first click on a
     // CN feature doesn't wait on a 62 MB download. Deliberately not awaited.
     if (typeof CN_prefetchWhenIdle === "function") CN_prefetchWhenIdle()
+    _focusSymbolBox()
 }
 
 async function loadTestSettings() {
@@ -315,6 +330,11 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     html += '</tr></thead><tbody>'
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
+        // Pad short rows out to the header. A row ending in an empty field
+        // ends in a separator, and trimming the file removes that separator
+        // from the last row, which used to shift every appended column left
+        // by one on that row alone.
+        while (cols.length < headers.length) cols.push("")
         html += '<tr>'
         for (let j = 0; j < cols.length; j++) {
             const safe = _escapeHtml(cols[j])
@@ -853,10 +873,8 @@ function showAdapterOutput() {
 // guide views is being drawn. Kept in one place so the two stay identical.
 function _guideRowExtras(which) {
     const extras = []
-    const ctx = (which === "adapter")
-        ? (typeof GC_rowExtraAdapter === "function" ? GC_rowExtraAdapter() : null)
-        : (typeof GC_rowExtraFull === "function" ? GC_rowExtraFull() : null)
-    if (ctx) extras.push(ctx)
+    // What is known about the guide comes first, then what you can do with
+    // it. The buttons used to sit between two columns of information.
     if (typeof LIBX_columnFor === "function") {
         const spacerOf = (which === "adapter") ? _adapterSpacerOf() : _fullSpacerOf()
         if (spacerOf) {
@@ -864,6 +882,10 @@ function _guideRowExtras(which) {
             if (col) extras.push(col)
         }
     }
+    const ctx = (which === "adapter")
+        ? (typeof GC_rowExtraAdapter === "function" ? GC_rowExtraAdapter() : null)
+        : (typeof GC_rowExtraFull === "function" ? GC_rowExtraFull() : null)
+    if (ctx) extras.push(ctx)
     return extras
 }
 
@@ -1385,7 +1407,7 @@ function _updateExampleText() {
     const el = document.getElementById("ExampleSequance")
     if (!before && !after) {
         el.className = "isHint"
-        el.textContent = "Adapters appear here, around the guide."
+        el.textContent = "Add an adapter to preview a finished oligo."
         return
     }
     el.className = ""
@@ -1761,6 +1783,7 @@ async function TOOL_resetApp() {
     document.getElementById("fileContentContainer").style.display = "none"
     await init()
     _setStatus("statusSearch", "")
+    _focusSymbolBox()
 }
 
 // "sgRNA design" in the tool strip — returns to the main flow from whichever
