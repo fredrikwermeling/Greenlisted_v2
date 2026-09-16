@@ -51,9 +51,13 @@ const _GC_MIN_GAP_MS = 1000        // UCSC asks for at most one request per seco
 // silently drops USER_SEQLOC, which is the parameter that stops the run
 // halting on a "which of these hits did you mean" page, and a GET URL is
 // capped near 8 kB, which a long flank would exceed.
-const _GC_PB_URL = "https://www.ncbi.nlm.nih.gov/tools/primer-blast/primertool.cgi"
-// The page that renders the form, for looking at the settings rather than
-// running them.
+// The form page. Submitting straight to the engine behind it (primertool.cgi)
+// was tried and abandoned: a direct submission carries only the parameters we
+// send, and the ones that bound the BLAST are among those the form supplies
+// but a link cannot. Runs launched that way analysed 2,000,000 hits against
+// the form's 50,000 and searched 50,000 target sequences against its 100, and
+// took ten minutes or more where the form takes about two. Sending the full
+// field set did not fix it either. So the form is the only route.
 const _GC_PB_FORM_URL = "https://www.ncbi.nlm.nih.gov/tools/primer-blast/index.cgi"
 const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
@@ -107,28 +111,6 @@ const _GC_PB_STOCK = {
     numReturn: 10
 }
 
-// RefSeq accession for each chromosome, from the NCBI assembly reports for
-// GRCh38.p14 and GRCm39. Needed to tell Primer-BLAST up front which genomic
-// locus the pasted template is, which is what stops it interrupting with a
-// "select your intended target" page before it will design anything.
-const _GC_CHROM_ACC = {
-    hg38: {
-        chr1:"NC_000001.11", chr2:"NC_000002.12", chr3:"NC_000003.12", chr4:"NC_000004.12",
-        chr5:"NC_000005.10", chr6:"NC_000006.12", chr7:"NC_000007.14", chr8:"NC_000008.11",
-        chr9:"NC_000009.12", chr10:"NC_000010.11", chr11:"NC_000011.10", chr12:"NC_000012.12",
-        chr13:"NC_000013.11", chr14:"NC_000014.9", chr15:"NC_000015.10", chr16:"NC_000016.10",
-        chr17:"NC_000017.11", chr18:"NC_000018.10", chr19:"NC_000019.10", chr20:"NC_000020.11",
-        chr21:"NC_000021.9", chr22:"NC_000022.11", chrX:"NC_000023.11", chrY:"NC_000024.10"
-    },
-    mm39: {
-        chr1:"NC_000067.7", chr2:"NC_000068.8", chr3:"NC_000069.7", chr4:"NC_000070.7",
-        chr5:"NC_000071.7", chr6:"NC_000072.7", chr7:"NC_000073.7", chr8:"NC_000074.7",
-        chr9:"NC_000075.7", chr10:"NC_000076.7", chr11:"NC_000077.7", chr12:"NC_000078.7",
-        chr13:"NC_000079.7", chr14:"NC_000080.7", chr15:"NC_000081.7", chr16:"NC_000082.7",
-        chr17:"NC_000083.7", chr18:"NC_000084.7", chr19:"NC_000085.7", chrX:"NC_000086.8",
-        chrY:"NC_000087.8"
-    }
-}
 
 // The two ways people read a CRISPR edit want opposite things from the PCR,
 // and the difference is large enough that picking one should not mean editing
@@ -918,10 +900,7 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>` +
-        `<p class="gcAlt">Primer-BLAST opens with everything filled in, and pauses once to ask which genome hit is your target &mdash; tick your gene and submit. ` +
-        `You can instead <a href="javascript:void(0)" onclick="GC_openPrimerBlast()" ` +
-        `title="Submits the search immediately, declaring the genomic position so the target question is never asked. Primer-BLAST then does the whole job in one pass, which takes several minutes and shows only a Running status while it works.">skip that question and run it directly</a>, ` +
-        `which answers the question for you but then works for several minutes showing only &ldquo;Running&rdquo;.</p>`
+        `<p class="gcAlt">Primer-BLAST opens with everything filled in. It pauses once to ask which genome hit is your target &mdash; tick the row for your gene and press Submit.</p>`
 
     html += _gcSeqHtml(v)
 
@@ -1167,15 +1146,10 @@ function _gcPrimerBlastParams() {
     p.set("PRIMER_SPECIFICITY_DATABASE", pb.db)
     p.set("SEARCH_SPECIFIC_PRIMER", "on")
 
-    // Name the locus this template came from. Without it Primer-BLAST finds
-    // the template's own position in the genome, cannot tell it from an
-    // off-target, and stops at a page asking which hits are intended before
-    // designing anything. The coordinates are the plus strand of the window
-    // and are 0-based inclusive, which is the form NCBI itself emits; a
-    // reverse-complemented template is still matched at the same place, so
-    // this is correct for guides on either strand.
-    const acc = (_GC_CHROM_ACC[v.g.genome] || {})[v.site.chrom]
-    if (acc) p.set("USER_SEQLOC", `ref|${acc}|?${v.cur.windowStart}?${v.cur.windowStart + v.n - 1}`)
+    // No USER_SEQLOC here. It is what would answer the "which of these hits
+    // did you mean" question in advance, but the form page discards it, and
+    // the only way to make it stick is to bypass the form, which costs far
+    // more time than the question does.
 
     const num = (key, val) => { if (val !== "" && val != null && !isNaN(Number(val))) p.set(key, String(val)) }
     num("PRIMER_PRODUCT_MIN", pb.productMin)
@@ -1196,13 +1170,6 @@ function _gcPrimerBlastParams() {
     return p
 }
 
-// Straight to the search. Posted rather than linked, because the form page
-// drops the target declaration and the run would then stop to ask.
-function GC_openPrimerBlast() {
-    const p = _gcPrimerBlastParams()
-    if (p) _gcPostToPrimerBlast(p)
-}
-
 // The same settings, but shown on Primer-BLAST's own form rather than run, so
 // what the app asked for can be read, changed, and learned from. This route
 // necessarily meets the "which of these hits did you mean" step, because the
@@ -1214,33 +1181,6 @@ function GC_openPrimerBlastForm() {
     window.open(`${_GC_PB_FORM_URL}?${p.toString()}`, "_blank", "noopener")
 }
 
-// Submit as a real form POST, the way Primer-BLAST's own page does. A link
-// cannot carry the target declaration through — index.cgi renders the form
-// without it, so pressing Get Primers there loses it and the run stops to ask
-// which genome hit was intended.
-function _gcPostToPrimerBlast(params) {
-    try {
-        const f = document.createElement("form")
-        f.method = "POST"
-        f.action = _GC_PB_URL
-        f.target = "_blank"
-        f.enctype = "multipart/form-data"
-        f.style.display = "none"
-        params.forEach((value, key) => {
-            const i = document.createElement("input")
-            i.type = "hidden"; i.name = key; i.value = value
-            f.appendChild(i)
-        })
-        document.body.appendChild(f)
-        f.submit()
-        setTimeout(() => f.remove(), 1000)
-    } catch (e) {
-        // Falling back to a link loses the target declaration, so the run will
-        // stop and ask; better than not opening at all.
-        console.warn("Primer-BLAST POST failed, falling back to a link:", e)
-        window.open(`${_GC_PB_URL}?${params.toString()}`, "_blank", "noopener")
-    }
-}
 
 // -----------------------------------------------------------------------------
 // Primer-BLAST settings
