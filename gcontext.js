@@ -914,14 +914,14 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_copyFasta()" title="Plain text: flanks in lower case, spacer and PAM in upper case, positions in the header. Paste into Primer-BLAST, Primer3 or any editor.">Copy FASTA</button>` +
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the colouring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
-        `<button class="validate-btn" onclick="GC_openPrimerBlast()" title="Runs NCBI Primer-BLAST in a new tab on this sequence, with the primer windows set so both primers sit clear of the cut and the genomic position declared so it does not stop to ask which hit you meant. The search starts straight away; it takes a few minutes. Uses the settings below.">Run Primer-BLAST</button>` +
+        `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>` +
-        `<p class="gcAlt">Run Primer-BLAST starts the search straight away. To see the settings first, ` +
-        `<a href="javascript:void(0)" onclick="GC_openPrimerBlastForm()" ` +
-        `title="Opens Primer-BLAST's own form with every one of these settings filled in, so you can read what was asked for, change it, and submit it yourself. Going this way it will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">open its form with these settings filled in</a> ` +
-        `instead. That way it pauses once to ask which genome hit you meant &mdash; tick your gene and submit.</p>`
+        `<p class="gcAlt">Primer-BLAST opens with everything filled in, and pauses once to ask which genome hit is your target &mdash; tick your gene and submit. ` +
+        `You can instead <a href="javascript:void(0)" onclick="GC_openPrimerBlast()" ` +
+        `title="Submits the search immediately, declaring the genomic position so the target question is never asked. Primer-BLAST then does the whole job in one pass, which takes several minutes and shows only a Running status while it works.">skip that question and run it directly</a>, ` +
+        `which answers the question for you but then works for several minutes showing only &ldquo;Running&rdquo;.</p>`
 
     html += _gcSeqHtml(v)
 
