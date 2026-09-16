@@ -49,6 +49,7 @@
     --green-200: #cdebb9;
     --green-100: #e6f6dc;
     --green-50: #f3faee;
+    --gray-700: #374151;
     --gray-600: #4b5563;
     --gray-500: #6b7280;
     --gray-200: #e5e7eb;
@@ -85,8 +86,11 @@
 
 body {
     color: #1f2937;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    /* No -webkit-font-smoothing: antialiased here.
+       On a retina Mac it turns off subpixel rendering and draws every glyph a
+       fraction thinner, which at 11 and 12 px reads as a low-resolution
+       button rather than as a design choice. The OS default is heavier and
+       crisper, and small bold labels are exactly where that shows. */
     text-wrap: pretty;
     padding-right: 10%;
     padding-left: 10%;
@@ -187,7 +191,10 @@ button {
     padding: 8px 18px;
     transition: all 0.2s ease;
     background: var(--gray-100);
-    color: var(--gray-600);
+    /* --gray-700, not --gray-600. Button labels are the smallest bold text on
+       the page, and a mid grey on a light grey ground left too little
+       contrast for them to look sharp. */
+    color: var(--gray-700);
     align-self: center;
     border: 1px solid var(--gray-200);
     text-wrap: balance;
