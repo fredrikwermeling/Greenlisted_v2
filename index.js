@@ -655,12 +655,15 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     if (v >= 3.0) return `AMPLIFIED (${detail}) - copy-number effect possible, interpret dropout with care`
     // Between the two extremes the column used to say nothing at all, so a
     // gene sitting at one copy looked the same as one at two. Neither state
-    // invalidates a screen, but both are worth knowing when a guide behaves
-    // oddly, so they are reported without being called warnings.
+    // invalidates a screen, but a loss or a gain is worth knowing when a guide
+    // behaves oddly, so they are named without being called warnings.
     if (v < 0.7)  return `one-copy loss (${detail})`
     if (v >= 2.0) return `gained (${detail})`
     if (v >= 1.3) return `slight gain (${detail})`
-    return `two copies (${detail})`
+    // The ordinary diploid case needs no name. The numbers say it, and naming
+    // it as well put a label on every single row, which buried the few rows
+    // that were actually saying something.
+    return detail
 }
 
 function _createAdapterOutput(libraryMap, screeningCellLine) {
