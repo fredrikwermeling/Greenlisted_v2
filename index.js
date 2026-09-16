@@ -663,17 +663,17 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     if (!resolved) return "no CN data"
     const v = CN_lookup(cellLine.id, resolved)
     if (v == null) return "no CN data"
-    // Two decimals, not one: the deletion threshold is 0.3, and a CN of 0.26
-    // rendered as "CN 0.3" reads as if it shouldn't have been flagged.
-    // Approximate copies, not the raw relative value. This column sits between
-    // a 70-character oligo and a row of buttons, so it gets about fourteen
-    // characters a line; "DEEP DELETION (CN 0.26, ~1 copy) - gene likely
-    // absent, guides uninformative" ran four lines deep and made every flagged
-    // row twice the height of the others. Copies is the number a bench
-    // scientist acts on, and the raw value is a column of the Copy number per
-    // gene output, which is where anyone checking a threshold would look.
-    const copies = CN_approxCopies(v, cellLine.ploidy, cellLine.wgd)
-    const detail = `~${copies} cop${copies === 1 ? "y" : "ies"}`
+    // Relative to the line's own ploidy, not converted to copies. "~6 copies"
+    // reads as a lot until you remember the baseline here is four, and it
+    // hides the very thing the heading is at pains to say. "1.43x" carries the
+    // comparison in the number itself and does not have to be reinterpreted
+    // for each cell line.
+    //
+    // Two decimals below 3x, where the thresholds are and where 0.26 rounded
+    // to 0.3 would read as if it should not have been flagged; one above,
+    // where the second decimal is noise. The copies are still worked out in
+    // the Copy number per gene output.
+    const detail = `${v < 3 ? v.toFixed(2) : v.toFixed(1)}x`
     // What each of these means for a screen is said once, above the table, in
     // _cnColumnNote, rather than repeated on every row.
     if (v < 0.3)  return `DEEP DELETION, ${detail}`
@@ -728,9 +728,10 @@ function _cnColumnNote(cl) {
     if (cl.wgd === true) bits.push("whole-genome doubled")
     else if (cl.wgd === false) bits.push("no whole-genome doubling")
     const tail = bits.length ? ` is ${bits.join(", ")}` : " is the baseline"
-    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. A blank cell means no change. ` +
+    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. Values are relative to that ` +
+           `baseline: 1.0x is the line's own average, 0.5x is half of it, 2.0x is double. A blank cell means no change. ` +
            `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out from the cutting alone, ` +
-           `which reads as a hit that is not one. The Copy number per gene output carries the underlying values.`
+           `which reads as a hit that is not one. The Copy number per gene output carries the same values with the copies worked out.`
 }
 
 // Cell-line names come from DepMap, and the lines above a rendered table are
