@@ -82,6 +82,7 @@ async function init() {
     // Warm the copy-number matrix in the background so the first click on a
     // CN feature doesn't wait on a 62 MB download. Deliberately not awaited.
     if (typeof CN_prefetchWhenIdle === "function") CN_prefetchWhenIdle()
+    if (typeof LIBX_prefetchWhenIdle === "function") LIBX_prefetchWhenIdle()
     _focusSymbolBox()
     setTimeout(_alignSymbolColumn, 60)
 }
@@ -1131,6 +1132,9 @@ async function changeLibrary() {
     // ones already declare which direction their score ranks and ship a
     // uniform guide length. Revealed by the .custom-only rule in index.css.
     document.body.classList.toggle("custom-library", libraryName == "custom")
+    // A different species needs a different index; fetching it now means the
+    // column is ready by the time a run finishes.
+    if (typeof LIBX_prefetchWhenIdle === "function") LIBX_prefetchWhenIdle()
 
     if (libraryName == "custom") { //shows new input fields for custom library
         settings.librarySpecies = ""   // unknown; the picker falls back to the synonym list

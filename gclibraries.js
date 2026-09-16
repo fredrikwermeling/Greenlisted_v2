@@ -119,6 +119,35 @@ async function LIBX_loadAndRefresh() {
     else showAdapterOutput()
 }
 
+// Pull the index in the background once the app has settled, so the column is
+// already filled the first time anyone looks at it. The copy-number matrix,
+// which is larger, has been doing this since it was added.
+function LIBX_prefetchWhenIdle() {
+    const species = _libxSpecies()
+    if (!species || _libxLoaded(species) || _libxState.loading) return
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) {
+        console.log("sgRNA index prefetch skipped: metered or slow connection")
+        return
+    }
+    const start = () => {
+        if (_libxLoaded(species) || _libxState.loading) return
+        LIBX_load(species).then(ok => {
+            // If a result table is already on screen, fill the column in now
+            // rather than leaving dashes until the next run.
+            if (!ok) return
+            const active = document.querySelector("#outputTable button.show-active")
+            if (!active) return
+            if (active.dataset.show === "full") showFullOutput()
+            else if (active.dataset.show === "adapter") showAdapterOutput()
+        }).catch(e => console.warn("sgRNA index prefetch failed (harmless):", e))
+    }
+    // Behind the copy-number matrix in the queue: that one is needed the
+    // moment a cell line is picked, this only annotates a finished run.
+    if (typeof requestIdleCallback === "function") requestIdleCallback(start, { timeout: 15000 })
+    else setTimeout(start, 9000)
+}
+
 // =============================================================================
 // The extra column
 // =============================================================================
@@ -133,16 +162,19 @@ function LIBX_columnFor(spacerOf) {
     const loaded = _libxLoaded(species)
     const total = loaded ? _libxComparable(species, mine) : null
     return {
-        header: "In other libraries",
+        header: "Found in",
         cell: cols => {
             const spacer = spacerOf(cols)
             if (!spacer) return ""
-            if (!loaded) return `<span class="libxDim">—</span>`
+            if (!loaded) return `<span class="libxDim">…</span>`
             const hits = LIBX_lookup(spacer, species, mine)
-            if (!hits || !hits.length) return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">0</span>`
+            if (!hits || !hits.length) {
+                return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">` +
+                       `no other ${species === "human" ? "human" : "mouse"} library</span>`
+            }
             const names = hits.map(h => h.library).join(", ")
             return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>` +
-                   `<span class="libxOf"> of ${total}</span>`
+                   `<span class="libxOf"> of ${total} ${total === 1 ? "library" : "libraries"}</span>`
         }
     }
 }
@@ -152,7 +184,10 @@ function LIBX_columnFor(spacerOf) {
 function LIBX_noticeHtml() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species)) return ""
-    return `<p class="libxOffer" id="libxNotice">The <b>In other libraries</b> column is empty until the ${species} sgRNA index is loaded. ` +
+    if (_libxState.loading) {
+        return `<p class="libxOffer" id="libxNotice">Loading the ${species} sgRNA index in the background — the <b>Found in</b> column fills in when it arrives.</p>`
+    }
+    return `<p class="libxOffer" id="libxNotice">The <b>Found in</b> column needs the ${species} sgRNA index. ` +
            `<a href="javascript:void(0)" onclick="LIBX_loadAndRefresh()">Load it now</a> — about 35 MB, once per session.</p>`
 }
 
