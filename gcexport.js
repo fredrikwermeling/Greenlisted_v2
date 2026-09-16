@@ -213,16 +213,10 @@ function GC_buildSvg(v) {
     // it. Courier and Helvetica are PDF base-14 fonts, and this figure uses
     // nothing else, so the vector PDF needs no embedded font and comes out a
     // fraction of the size of the raster one.
-    const ops = []
-    const opRect = (x, y, w, h, fill, stroke) => ops.push({ t: "rect", x: x, y: y, w: w, h: h, fill: fill, stroke: stroke })
-    const opLine = (x1, y1, x2, y2, stroke, width) => ops.push({ t: "line", x1: x1, y1: y1, x2: x2, y2: y2, stroke: stroke, w: width })
-    const opText = (x, y, str, size, fill, mono, bold, anchorEnd) =>
-        ops.push({ t: "text", x: x, y: y, s: str, size: size, fill: fill, mono: !!mono, bold: !!bold, end: !!anchorEnd })
-    // A row of sequence, with the x of every base. Kept apart from plain text
-    // because the vector writer has to place each base itself rather than let
-    // the font's own advance do it; see _gcxOpsToPdf.
-    const opSeq = (xs, y, str, size, fill) =>
-        ops.push({ t: "seq", xs: xs, y: y, s: str, size: size, fill: fill })
+    // The display list that used to run alongside this, for replaying the
+    // figure as vector PDF, is gone with that writer. The SVG below is the
+    // only description of the figure now, and every other format is made from
+    // it by rasterising or by embedding it.
 
     var s = `<?xml version="1.0" encoding="UTF-8"?>\n`
     s += `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`
@@ -233,11 +227,9 @@ function GC_buildSvg(v) {
     head.forEach((line, i) => {
         const bold = i === 0
         s += `<text x="${_GCX.padX}" y="${y}" style="${_gcxFont(_GCX.sans, bold ? 12 : 10.5, `fill:${bold ? C.head : C.muted};${bold ? "font-weight:bold;" : ""}`)}">${_gcxEsc(line)}</text>\n`
-        opText(_GCX.padX, y, line, bold ? 12 : 10.5, bold ? C.head : C.muted, false, bold)
         y += 15
     })
     s += `<line x1="${_GCX.padX}" y1="${headH - 6}" x2="${width - _GCX.padX}" y2="${headH - 6}" stroke="${C.rule}" stroke-width="1"/>\n`
-    opLine(_GCX.padX, headH - 6, width - _GCX.padX, headH - 6, C.rule, 1)
 
     // ---- sequence
     // Feature panels are drawn first as runs of identical color, so a 500 bp
@@ -254,7 +246,6 @@ function GC_buildSvg(v) {
         // line number, right-aligned against the sequence
         seqSvg += `<text x="${x0 - 8}" y="${baseY}" text-anchor="end" ` +
                   `style="${_gcxFont(_GCX.face, _GCX.fontPx - 1, `fill:${C.muted};`)}">${start + 1}</text>\n`
-        opText(x0 - 8, baseY, String(start + 1), _GCX.fontPx - 1, C.muted, true, false, true)
 
         var runStart = -1, runColor = null
         for (var i = start; i <= end; i++) {
@@ -265,7 +256,6 @@ function GC_buildSvg(v) {
                     const rx = x0 + _gcxCol(runStart - start) * _GCX.advance - 0.4
                     const rw = (_gcxCol(i - 1 - start) - _gcxCol(runStart - start) + 1) * _GCX.advance + 0.8
                     seqSvg += `<rect x="${rx.toFixed(2)}" y="${(rowY + 1.5).toFixed(2)}" width="${rw.toFixed(2)}" height="${_GCX.lineH - 3}" fill="${runColor}"/>\n`
-                    opRect(rx, rowY + 1.5, rw, _GCX.lineH - 3, runColor, null)
                 }
                 runStart = i; runColor = col
             }
@@ -282,7 +272,6 @@ function GC_buildSvg(v) {
             if (b.cutAfter) {
                 const cx = x0 + (_gcxCol(i - start) + 1) * _GCX.advance - _GCX.advance * 0.5 + _GCX.advance * 0.5
                 cutSvg += `<line x1="${cx.toFixed(2)}" y1="${(rowY + 1).toFixed(2)}" x2="${cx.toFixed(2)}" y2="${(rowY + _GCX.lineH - 1).toFixed(2)}" stroke="${C.cut}" stroke-width="1.6"/>\n`
-                opLine(cx, rowY + 1, cx, rowY + _GCX.lineH - 1, C.cut, 1.6)
             }
         }
         textSvg += `<text x="${xs.join(" ")}" y="${baseY}" xml:space="preserve" ` +
@@ -294,7 +283,6 @@ function GC_buildSvg(v) {
         // Where it does not — a viewer substituting for Courier, a face
         // measured at a different size — the bases drift out from under their
         // own highlights and the ten-base gaps close up.
-        if (chars) opSeq(xs.map(Number), baseY, chars, _GCX.fontPx, C.text)
     }
     s += seqSvg + textSvg + cutSvg
 
@@ -311,9 +299,6 @@ function GC_buildSvg(v) {
                 s += `<rect x="${lx}" y="${legY - 8}" width="${LEG_SWATCH}" height="${LEG_SWATCH}" fill="${col}" stroke="${C.rule}" stroke-width="0.8"/>\n`
             }
             s += `<text x="${(lx + LEG_SWATCH + LEG_TEXT_GAP).toFixed(1)}" y="${legY}" style="${_gcxFont(_GCX.sans, LEG_FONT, `fill:${C.muted};`)}">${_gcxEsc(label)}</text>\n`
-            if (col === null) opLine(lx + 5, legY - 8, lx + 5, legY + 2, C.cut, 1.6)
-            else opRect(lx, legY - 8, LEG_SWATCH, LEG_SWATCH, col, C.rule)
-            opText(lx + LEG_SWATCH + LEG_TEXT_GAP, legY, label, LEG_FONT, C.muted, false)
             lx += legendItemW[idx] + LEG_ITEM_GAP
         }
         legY += 15
@@ -323,12 +308,11 @@ function GC_buildSvg(v) {
     var fy = height - _GCX.padY - (footLines.length - 1) * 12
     for (const line of footLines) {
         s += `<text x="${_GCX.padX}" y="${fy}" style="${_gcxFont(_GCX.sans, 9, `fill:${C.muted};`)}">${_gcxEsc(line)}</text>\n`
-        opText(_GCX.padX, fy, line, 9, C.muted, false)
         fy += 12
     }
 
     s += `</svg>\n`
-    return { svg: s, width: width, height: height, ops: ops }
+    return { svg: s, width: width, height: height }
 }
 
 // =============================================================================
@@ -483,133 +467,62 @@ function _gcxPackBits(src) {
 
 // A true vector PDF drawn from the display list. The figure uses only
 // rectangles, lines and text in a monospace and a sans face, and PDF has
-// Courier and Helvetica built in, so nothing has to be embedded and nothing
-// is rasterised: the file is a few tens of kilobytes and stays sharp at any
-// magnification, instead of a megabyte-plus picture of the same thing.
-function _gcxOpsToPdf(fig, widthCm) {
-    const ptW = (widthCm || 10) / 2.54 * 72
-    const scale = ptW / fig.width
-    const ptH = fig.height * scale
-    const hex = c => {
-        const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(c) || "")
-        if (!m) return [0, 0, 0]
-        return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255]
-    }
-    const f = n => (Math.round(n * 100) / 100).toString()
-    // Y grows downward in the figure and upward in PDF.
-    const Y = y => f((fig.height - y) * scale)
-    const X = x => f(x * scale)
-    // PDF string literals escape the delimiters and the escape itself; the
-    // base-14 fonts are single-byte, so anything outside Latin-1 is replaced
-    // rather than mangled.
-    const str = t => String(t)
-        .replace(/[\u2010-\u2015]/g, "-")
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201c\u201d]/g, '"')
-        .replace(/\u00b7/g, "-")
-        .replace(/[\u2192]/g, "->")
-        .replace(/[^\x20-\x7e\xa0-\xff]/g, "?")
-        .replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
-
-    var c = ""
-    var lastFill = null
-    const setFill = col => {
-        const k = String(col)
-        if (k === lastFill) return
-        lastFill = k
-        const [r, g, b] = hex(col)
-        c += `${f(r)} ${f(g)} ${f(b)} rg\n`
-    }
-    for (const op of fig.ops) {
-        if (op.t === "rect") {
-            if (op.fill) {
-                setFill(op.fill)
-                c += `${X(op.x)} ${Y(op.y + op.h)} ${f(op.w * scale)} ${f(op.h * scale)} re f\n`
-            }
-            if (op.stroke) {
-                const [r, g, b] = hex(op.stroke)
-                c += `${f(r)} ${f(g)} ${f(b)} RG ${f(0.8 * scale)} w ${X(op.x)} ${Y(op.y + op.h)} ${f(op.w * scale)} ${f(op.h * scale)} re S\n`
-                lastFill = null
-            }
-        } else if (op.t === "line") {
-            const [r, g, b] = hex(op.stroke)
-            c += `${f(r)} ${f(g)} ${f(b)} RG ${f((op.w || 1) * scale)} w ${X(op.x1)} ${Y(op.y1)} m ${X(op.x2)} ${Y(op.y2)} l S\n`
-        } else if (op.t === "text") {
-            setFill(op.fill)
-            const font = op.mono ? "/F1" : (op.bold ? "/F3" : "/F2")
-            const size = op.size * scale
-            // Courier and Helvetica advance 0.6 and ~0.55 em; only the
-            // right-aligned line numbers need the width back, and they are
-            // monospace, so 0.6 em is exact for them.
-            const x = op.end ? (op.x * scale - op.s.length * size * 0.6) : op.x * scale
-            c += `BT ${font} ${f(size)} Tf ${f(x)} ${Y(op.y)} Td (${str(op.s)}) Tj ET\n`
-        } else if (op.t === "seq") {
-            // Every base placed by its own text matrix. Td moves relative to
-            // where the last glyph left off, which means the font decides the
-            // spacing; Tm sets the position outright, so a base lands under
-            // its own highlight whatever face the reader ends up using and
-            // the ten-base gaps stay open. It costs about thirty bytes a base
-            // and buys a row that cannot drift.
-            setFill(op.fill)
-            const size = op.size * scale
-            c += `BT /F1 ${f(size)} Tf\n`
-            const y = Y(op.y)
-            for (var ci = 0; ci < op.s.length; ci++) {
-                c += `1 0 0 1 ${X(op.xs[ci])} ${y} Tm (${str(op.s[ci])}) Tj\n`
-            }
-            c += "ET\n"
-        }
+// Single-page PDF holding the figure as a picture of itself, page sized in
+// points so it imports at the requested width.
+//
+// This used to be drawn instead: a display list replayed with the PDF base-14
+// fonts, which kept it vector and tiny. The base-14 set has exactly one
+// monospace face, Courier, so the sequence came out in a typewriter serif
+// where the screen shows a clean sans, and the file looked nothing like the
+// thing it was a picture of. Embedding a real monospace face would mean
+// subsetting a font in the browser.
+//
+// So the PDF is the same raster every other format gets, which is exactly
+// what is on screen, and SVG is the vector format — it is the on-screen
+// drawing itself, opens in Illustrator or Inkscape, and is what a journal
+// asking for vector art actually wants.
+//
+// Deflate, not JPEG: this is text on flat colour, where JPEG rings around
+// every glyph, and deflate on the same figure is both lossless and smaller.
+async function _gcxCanvasToPdf(canvas, widthCm, heightCm) {
+    const w = canvas.width, h = canvas.height
+    const data = canvas.getContext("2d").getImageData(0, 0, w, h).data
+    const rgb = new Uint8Array(w * h * 3)
+    for (var i = 0, j = 0; i < data.length; i += 4) {
+        const a = data[i + 3] / 255
+        rgb[j++] = Math.round(data[i] * a + 255 * (1 - a))
+        rgb[j++] = Math.round(data[i + 1] * a + 255 * (1 - a))
+        rgb[j++] = Math.round(data[i + 2] * a + 255 * (1 - a))
     }
 
-    const enc = new TextEncoder()
-    const parts = [], offsets = []
-    var len = 0
-    const push = t => { const b = (typeof t === "string") ? enc.encode(t) : t; parts.push(b); len += b.length }
-    const content = enc.encode(c)
-    push("%PDF-1.4\n")
-    offsets.push(len); push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-    offsets.push(len); push("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    offsets.push(len); push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(ptW)} ${f(ptH)}] /Resources << /Font << /F1 6 0 R /F2 7 0 R /F3 8 0 R >> >> /Contents 5 0 R >>\nendobj\n`)
-    offsets.push(len); push("4 0 obj\n<< >>\nendobj\n")
-    offsets.push(len); push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n`); push(content); push("\nendstream\nendobj\n")
-    offsets.push(len); push("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>\nendobj\n")
-    offsets.push(len); push("7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n")
-    offsets.push(len); push("8 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n")
-    const xrefStart = len
-    var xref = `xref\n0 ${offsets.length + 1}\n0000000000 65535 f \n`
-    for (const off of offsets) xref += String(off).padStart(10, "0") + " 00000 n \n"
-    push(xref)
-    push(`trailer\n<< /Size ${offsets.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`)
-    const out = new Uint8Array(len)
-    var o = 0
-    for (const pt of parts) { out.set(pt, o); o += pt.length }
-    return out.buffer
-}
+    var body = null, filter = ""
+    if (typeof CompressionStream !== "undefined") {
+        try {
+            const stream = new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"))
+            body = new Uint8Array(await new Response(stream).arrayBuffer())
+            filter = "/Filter /FlateDecode "
+        } catch (e) { body = null }
+    }
+    if (!body) {
+        // No CompressionStream: a JPEG rather than 3 MB of raw samples.
+        const b64 = canvas.toDataURL("image/jpeg", 0.95).split(",")[1]
+        const bin = atob(b64)
+        body = new Uint8Array(bin.length)
+        for (var k = 0; k < bin.length; k++) body[k] = bin.charCodeAt(k)
+        filter = "/Filter /DCTDecode "
+    }
 
-// Single-page PDF holding the figure as a JPEG, page sized in points so it
-// imports at the requested width. Kept as the fallback if the vector writer
-// ever throws. Ported from Correlate.
-function _gcxCanvasToPdf(canvas, widthCm, heightCm) {
-    const tmp = document.createElement("canvas")
-    tmp.width = canvas.width; tmp.height = canvas.height
-    const tctx = tmp.getContext("2d")
-    tctx.fillStyle = "#fff"; tctx.fillRect(0, 0, tmp.width, tmp.height)
-    tctx.drawImage(canvas, 0, 0)
-    const b64 = tmp.toDataURL("image/jpeg", 0.95).split(",")[1]
-    const bin = atob(b64)
-    const jpeg = new Uint8Array(bin.length)
-    for (var i = 0; i < bin.length; i++) jpeg[i] = bin.charCodeAt(i)
     const ptW = (widthCm || 10) / 2.54 * 72, ptH = (heightCm || 10) / 2.54 * 72
     const enc = new TextEncoder()
     const parts = [], offsets = []
     var len = 0
-    const push = s => { const b = (typeof s === "string") ? enc.encode(s) : s; parts.push(b); len += b.length }
+    const push = t => { const b = (typeof t === "string") ? enc.encode(t) : t; parts.push(b); len += b.length }
     push("%PDF-1.4\n")
     offsets.push(len); push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
     offsets.push(len); push("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
     offsets.push(len); push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${ptW.toFixed(2)} ${ptH.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`)
-    offsets.push(len); push(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`)
-    push(jpeg); push("\nendstream\nendobj\n")
+    offsets.push(len); push(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 ${filter}/Length ${body.length} >>\nstream\n`)
+    push(body); push("\nendstream\nendobj\n")
     const content = `q ${ptW.toFixed(2)} 0 0 ${ptH.toFixed(2)} 0 0 cm /Im0 Do Q\n`
     offsets.push(len); push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`)
     const xrefStart = len
@@ -623,7 +536,6 @@ function _gcxCanvasToPdf(canvas, widthCm, heightCm) {
     return out.buffer
 }
 
-// Write a pHYs chunk so the PNG carries its intended print density.
 function _gcxSetPngDpi(arrayBuffer, dpi) {
     const ppm = Math.round(dpi * 39.3701)
     const src = new Uint8Array(arrayBuffer)
@@ -729,13 +641,20 @@ async function _gcxCanvasToPptx(canvas, widthCm, heightCm, svgStr) {
 // Dialog and dispatch
 // =============================================================================
 
+// Anything stored before this was saved under a default of 20 cm and a
+// fallback of 20 cm on an empty box, so a width of 20 in an old record cannot
+// be told apart from a width nobody chose. Records without the stamp are read
+// for their format and density and given the current default width.
+const _GCX_PREF_VERSION = 2
+
 function _gcxPrefs() {
     var stored = null
     try { stored = JSON.parse(localStorage.getItem(_GCX_STORE) || "null") } catch (e) { stored = null }
+    if (stored && stored.v !== _GCX_PREF_VERSION) { delete stored.widthCm; stored.v = _GCX_PREF_VERSION }
     // 10 cm suits a single journal column and a lab-book page, and still sets
     // the sequence at about 6.5 pt, which is the size sequence figures are
     // normally printed at. Wider is for a poster or a full-width panel.
-    return Object.assign({ format: "pdf", widthCm: 10, dpi: 300 }, stored || {})
+    return Object.assign({ format: "pdf", widthCm: 10, dpi: 300, v: _GCX_PREF_VERSION }, stored || {})
 }
 
 function _gcxSavePrefs(p) {
@@ -823,7 +742,7 @@ async function GC_xRun() {
     // figure rather than returning it to the default.
     const widthCm = Math.max(5, Math.min(60, parseFloat(document.getElementById("gcxW").value) || 10))
     const dpi = parseInt(document.getElementById("gcxDpi").value, 10) || 300
-    _gcxSavePrefs({ format: fmt, widthCm: widthCm, dpi: dpi })
+    _gcxSavePrefs({ format: fmt, widthCm: widthCm, dpi: dpi, v: _GCX_PREF_VERSION })
 
     const v = _gcView()
     const fig = GC_buildSvg(v)
@@ -837,16 +756,8 @@ async function GC_xRun() {
         if (fmt === "svg") {
             _gcxSave(new Blob([fig.svg], { type: "image/svg+xml;charset=utf-8" }), `${base}.svg`)
         } else if (fmt === "pdf") {
-            // Drawn, not photographed: no raster is produced for a PDF at all.
-            var pdfBuf
-            try {
-                pdfBuf = _gcxOpsToPdf(fig, widthCm)
-            } catch (e) {
-                console.warn("Vector PDF failed, falling back to a raster page:", e)
-                const c = await _gcxRasterise(fig.svg, fig.width, fig.height, (widthCm / 2.54 * dpi) / fig.width)
-                pdfBuf = _gcxCanvasToPdf(c, widthCm, heightCm)
-            }
-            _gcxSave(new Blob([pdfBuf], { type: "application/pdf" }), `${base}.pdf`)
+            const c = await _gcxRasterise(fig.svg, fig.width, fig.height, (widthCm / 2.54 * dpi) / fig.width)
+            _gcxSave(new Blob([await _gcxCanvasToPdf(c, widthCm, heightCm)], { type: "application/pdf" }), `${base}.pdf`)
         } else {
             // Scale so the raster prints at widthCm at the chosen density.
             // PowerPoint makes its own, smaller, fallback below.
@@ -854,8 +765,6 @@ async function GC_xRun() {
             const canvas = (fmt === "pptx") ? null : await _gcxRasterise(fig.svg, fig.width, fig.height, scale)
             if (fmt === "tiff") {
                 _gcxSave(new Blob([_gcxCanvasToTiff(canvas, dpi, await _gcxDeflateRgb(canvas))], { type: "image/tiff" }), `${base}.tiff`)
-            } else if (fmt === "pdf") {
-                _gcxSave(new Blob([_gcxCanvasToPdf(canvas, widthCm, heightCm)], { type: "application/pdf" }), `${base}.pdf`)
             } else if (fmt === "pptx") {
                 // PowerPoint 2016 and later draw the embedded SVG, so the PNG
                 // beside it is only a fallback for much older versions. At
