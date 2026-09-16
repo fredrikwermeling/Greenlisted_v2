@@ -69,12 +69,21 @@
                  "Green Listed", the v2.0 and the leaves are exactly the drawn
                  shapes rather than a reconstruction of them. Cutting it is
                  what lets the name be set larger while the leaves stay the
-                 size they were drawn. The strapline is live text under the
-                 name. Every size is in cqw, so the three parts hold their
-                 proportions at any width. -->
+                 size they were drawn.
+
+                 The name half is then traced to SVG. The artwork is only
+                 779 px across and the name is now drawn wider than that, so
+                 the PNG was being stretched past its own pixels and looked
+                 soft, worse again on a retina screen. The trace follows the
+                 drawn outlines, so it is the same letterforms rather than a
+                 guess at the font, and it is sharp at any size. The leaves
+                 stay a PNG: they are shaded, not flat, and nothing enlarges
+                 them. The strapline is live text under the name. Every size
+                 is in cqw, so the three parts hold their proportions at any
+                 width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.png?v=3.6" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=3.6" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
                 <img class="brandLeaves" src="logo-leaves.png?v=3.6" alt="">
