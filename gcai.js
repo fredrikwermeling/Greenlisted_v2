@@ -377,7 +377,21 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
     const cut = v.cutAfter                 // last base before the cut, 1-based
     const n = v.n
     const sanger = readout !== "ngs"
-    return pairs.map(p => {
+    // Which pairs are the same amplicon as which.
+    //
+    // Primer-BLAST returns near-duplicates: the same site offered again
+    // shifted a base or two. They look like ten choices and are not, and a
+    // second choice that shares both sites with the first is no fallback at
+    // all — whatever stops one stops the other. An assistant reading this file
+    // recommended exactly that, calling the shifted copy "essentially as good".
+    const span = p => ({ f: [p.forward.start, p.forward.end],
+                         r: [p.reverse.threePrimeEnd, p.reverse.fivePrimeEnd] })
+    const overlaps = (a, b) => a[0] <= b[1] && b[0] <= a[1]
+    const sameSites = pairs.map((p, i) => pairs
+        .map((q, j) => ({ q: q, j: j }))
+        .filter(o => o.j !== i && overlaps(span(p).f, span(o.q).f) && overlaps(span(p).r, span(o.q).r))
+        .map(o => o.q.pair != null ? o.q.pair : o.j + 1))
+    return pairs.map((p, pi) => {
         const fEnd = p.forward.end               // forward primer 3' end
         const rLo = p.reverse.threePrimeEnd      // reverse primer 3' end (lower coord)
         const rHi = p.reverse.fivePrimeEnd       // reverse primer 5' end (higher coord)
@@ -397,8 +411,21 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
         const rRep = _gcaiInRepeat(v, rLo, rHi)
         if (fRep) notes.push(`The forward primer lies inside an annotated repeat, ${fRep}. Expect it to prime elsewhere in the genome as well.`)
         if (rRep) notes.push(`The reverse primer lies inside an annotated repeat, ${rRep}. Expect it to prime elsewhere in the genome as well.`)
+        const same = sameSites[pi]
+        if (same.length) {
+            notes.push(`Pair${same.length === 1 ? "" : "s"} ${same.join(", ")} ` +
+                       `${same.length === 1 ? "uses" : "use"} the same two primer sites as this one, shifted by a base or two. ` +
+                       `Not an independent fallback: whatever stops one will stop the other.`)
+        }
         return Object.assign({}, p, {
             insideAnAnnotatedRepeat: { forwardPrimer: fRep, reversePrimer: rRep },
+            // Worked out here because it is the comparison most often made by
+            // eye across ten pairs, and most often got wrong: one reply named
+            // a pair as having the closest-matched melting temperatures of
+            // those that qualified when another pair was three times closer.
+            tmDifference: (p.forward.tm != null && p.reverse.tm != null)
+                ? Number(Math.abs(p.forward.tm - p.reverse.tm).toFixed(2)) : null,
+            sameTwoPrimerSitesAs: sameSites[pi],
             relativeToCutSite: {
                 cutIsBetweenTemplatePositions: [cut, cut + 1],
                 productSpansCutSite: spansCut,
@@ -413,11 +440,15 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
                     basesOfTemplateBeforeTheCut: Math.max(0, cut - p.forward.start + 1)
                 }
             },
-            fitsGuidance: {
+            // Only the readout that was chosen. A Sanger export carrying an
+            // amplicon-NGS verdict on every pair is ten lines of false there
+            // about a method nobody asked for.
+            fitsGuidance: sanger ? {
                 ice: p.productLength != null && p.productLength >= 400 && p.productLength <= 800
                      && fwdLeadIn >= 150 && revLeadIn >= 150,
                 tide: p.productLength != null && p.productLength >= 500 && p.productLength <= 1500
-                      && fwdLeadIn >= 100,
+                      && fwdLeadIn >= 100
+            } : {
                 ampliconNgs: p.productLength != null && p.productLength >= 200 && p.productLength <= 280
                      && fwdLeadIn >= 50 && revLeadIn >= 50
             },
@@ -549,7 +580,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 ? "THEN RECOMMEND ONE PAIR and say plainly why, in two or three sentences. The numbers you need are already worked out for each " +
                   "pair: how far each primer sits from the cut, whether the product spans it, and whether it fits the ICE and TIDE guidance. " +
                   "Do not recompute them from the positions; they are relative to the template in this file and easy to get wrong. " +
-                  "Name a second choice and what would make you switch to it. Mention a real risk if there is one, and say plainly when there is not.\n\n"
+                  "Name a second choice that uses different primer sites from the first, and say what would make you switch to it: a pair " +
+                  "that is the same two sites shifted by a base is not a fallback, and each pair says which others those are. " +
+                  "Mention a real risk if there is one, and say plainly when there is not.\n\n"
                 : "THEN, since no primer candidates came with the file, do not invent any. Designing primers needs melting temperatures computed " +
                   "under real salt conditions and a genome-wide search for where else they would prime, and neither can be done reliably by " +
                   "reading a sequence. Say so in one sentence, then help with what this file does support: checking the guide is where it should " +
@@ -572,6 +605,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
                   "a file of this kind without that confirmation, do not recommend a pair: primer positions mean nothing against the " +
                   "wrong sequence, and every number derived from them would be wrong in a way that looks entirely reasonable.\n\n"
                 : "") +
+            "DO NOT COMPARE NUMBERS ACROSS PAIRS BY EYE. Every comparison that decides between pairs is already worked out: the distance " +
+            "from each primer to the cut, the difference between the two melting temperatures, and which other pairs are the same two " +
+            "primer sites shifted by a base. Ten pairs of numbers read off a list is where these answers go wrong.\n\n" +
             "THROUGHOUT: numbers support the answer, they are not the answer. Give the two or three that matter, each with what it means. " +
             "If something important is missing, say what you would need and how they would get it, in terms of what they would click. " +
             "Do not pad the reply to cover every section of the file; say what bears on their situation and stop.",
@@ -687,7 +723,8 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "Neither primer may lie inside an annotated repeat. This file says which ones do.",
             "A pair can be read from either end. If the forward primer is close to the minimum clearance, sequencing the same product with the reverse primer puts the cut deep inside a clean read instead, and it costs one extra reaction.",
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere in the genome gives a mixed trace that looks like editing.",
-            "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity."
+            "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity. The difference between the two temperatures is given for each pair; do not work it out across ten pairs by eye.",
+            "A second choice is only worth naming if it uses different primer sites. Primer-BLAST offers the same site again shifted by a base or two, and each pair says which others are the same two sites as itself. A fallback that shares both of them fails for every reason the first one does."
         ],
 
         notIncluded: {
