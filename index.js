@@ -596,7 +596,7 @@ async function runScreening() {
 
         const fullOutput = _createFullTxtOutput(searchOutput.filteredLibraryMap, searchOutput.headers)
         const notFoundOutput = _createSymbolNotFound(searchOutput.usedSynonyms)
-        const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null)
+        const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null, searchOutput.essentialAdded)
         const MAGeCKOutput = _createMAGeCKOutput(searchOutput.filteredLibraryMap)
 
         // A new design starts a clean slate for the genomic-context feature,
@@ -694,32 +694,6 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
     return ""
 }
 
-// The label over the first output. It was "Output with adapters", which named
-// the one thing the file does to the sequences and nothing about what else it
-// carries — and the adapters are optional, so on a run without them the name
-// described a step that had not happened. "Oligos to order" says what the file
-// is for. The third line is added when a screening cell line is picked, since
-// that adds a column and a label that does not mention it leaves the column to
-// be found by accident. Called whenever the cell-line box resolves.
-function _outLabelAdapter(match) {
-    const el = document.getElementById("outLabelAdapter")
-    if (!el) return
-    // The info dot is kept and put back on the name's own line. Rebuilding the
-    // cell around it is simpler than trying to edit one line of it in place.
-    const dot = el.querySelector(".infoDot")
-    const name = document.createElement("span")
-    name.innerHTML = `Oligos to<br>order`
-    el.innerHTML = ""
-    el.appendChild(name)
-    if (dot) name.appendChild(dot)
-    if (match) {
-        const add = document.createElement("span")
-        add.className = "outLabelAdd"
-        add.textContent = "+ copy number"
-        el.appendChild(add)
-    }
-}
-
 // Headings the on-screen table should draw as something richer than their own
 // plain text. The plain text is what goes into the downloaded file and is what
 // the lookup is keyed on; this only changes how the header cell is drawn.
@@ -767,15 +741,39 @@ function _cnPlainName(cl) {
     return String(cl.name || "").replace(/[<>&\t]/g, "")
 }
 
-function _createAdapterOutput(libraryMap, screeningCellLine) {
+// Which rows are controls rather than genes anyone asked for.
+//
+// A non-targeting or safe-targeting control announces itself: its symbol is
+// CutCtrl or NegCtrl and no gene is called that. An essential gene does not.
+// RAN, RPS8 and PLK1 sit in the list looking exactly like the genes under
+// study, and someone reading the file a month later has no way to tell that
+// the app put them there as a positive control.
+function _controlRole(symbol, essentialAdded) {
+    const kind = (typeof LIB_controlKind === "function") ? LIB_controlKind(symbol) : null
+    if (kind === "safeTargeting") return "safe-targeting control"
+    if (kind === "nonTargeting") return "non-targeting control"
+    const up = String(symbol || "").toUpperCase()
+    if (essentialAdded && essentialAdded.some(g => String(g).toUpperCase() === up)) return "positive control"
+    return ""
+}
+
+function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
     const date = new Date()
-    // The warning column only appears when a screening cell line was picked,
-    // so the file keeps its familiar three-column shape otherwise.
+    // Each extra column appears only when it has something to say, so a plain
+    // run keeps the familiar three-column shape.
     const cl = screeningCellLine || null
     const synonymMap = (typeof _library !== "undefined" && _library && _library.synonymMap) ? _library.synonymMap : null
+    const roles = {}
+    var anyRole = false
+    for (const symbol of Object.keys(libraryMap)) {
+        roles[symbol] = _controlRole(symbol, essentialAdded)
+        if (roles[symbol]) anyRole = true
+    }
+
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
     if (cl) out = out + _cnColumnNote(cl) + "\n"
-    var out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" + (cl ? `\t${_cnColumnHeading(cl)}\n` : "\n")
+    out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" +
+          (anyRole ? "\tAdded as" : "") + (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
         // One lookup per symbol rather than per guide — otherwise a large
@@ -784,8 +782,8 @@ function _createAdapterOutput(libraryMap, screeningCellLine) {
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
-            out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` + (cl ? `\t${flag}\n` : "\n")
-
+            out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` +
+                  (anyRole ? `\t${roles[symbol]}` : "") + (cl ? `\t${flag}` : "") + "\n"
         }
     }
     return out
@@ -2340,7 +2338,6 @@ function CN_handleScreeningCellLineInput() {
         // stripped form (DepMap uses "A-375" / "A375" — both are correct).
         const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
         const row = document.getElementById("cnAnnotationOutputRow")
-        _outLabelAdapter(match || null)
         if (match) {
             _cnState.screeningCellLines = [match]
             if (status) {

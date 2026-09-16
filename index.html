@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=7.4">
+    <link rel="stylesheet" media="all" href="index.css?v=7.5">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=7.4" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=7.5" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=7.4" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=7.5" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -546,15 +546,16 @@ Download all bundles them into one zip.">i</span></h2>
             <div class="plateContent">
                 <table id="outputTable">
                     <tr class="design-only">
-                        <!-- The last line is written by _outLabelAdapter(): the file gains a
-                             copy-number column once a screening cell line is picked, and the
-                             label has to say so or that column is found by accident. -->
-                        <td class="outLabel" id="outLabelAdapter">Oligos to<br>order<span class="infoDot"
+                        <!-- The third line is always there. This output carries more than the
+                             oligos in every case — what other libraries hold each guide, a
+                             button into the genomic context — and a copy-number column as well
+                             once a screening cell line is picked. The info dot lists them. -->
+                        <td class="outLabel" id="outLabelAdapter"><span>Oligos to<br>order<span class="infoDot"
                             title="The ready-to-order list: gene symbol, guide ID and the full oligo with whatever adapters you entered, one row per guide.
 
 Pick a screening cell line and it gains a column flagging genes whose copy number in that line makes them awkward to screen — deleted genes, whose guides cannot report anything, and amplified ones, which can drop out from the cutting alone.
 
-Shown on screen it carries two more: how many other libraries of the same species pick each guide, and a button for the genomic sequence around it.">i</span></td>
+Shown on screen it carries two more: how many other libraries of the same species pick each guide, and a button for the genomic sequence around it.">i</span></span><span class="outLabelAdd">+ additional information</span></td>
                         <td><button class="dlBtn" onclick="DL_open('adapter')">Download</button><a href="" id="adapterDownload" class="dlHidden"></a></td>
                         <td><button data-show="adapter" onclick="showAdapterOutput()">Show</button></td>
                     </tr>
@@ -634,23 +635,23 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=7.4"></script>
-    <script type="text/javascript" src="settings.js?v=7.4"></script>
-    <script type="text/javascript" src="grnaService.js?v=7.4"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=7.4"></script>
-    <script type="text/javascript" src="validate.js?v=7.4"></script>
-    <script type="text/javascript" src="upset.js?v=7.4"></script>
-    <script type="text/javascript" src="cnService.js?v=7.4"></script>
-    <script type="text/javascript" src="index.js?v=7.4"></script>
-    <script type="text/javascript" src="fileHandler.js?v=7.4"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=7.4"></script>
-    <script type="text/javascript" src="helpPopout.js?v=7.4"></script>
-    <script type="text/javascript" src="methods.js?v=7.4"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=7.4"></script>
-    <script type="text/javascript" src="gcontext.js?v=7.4"></script>
-    <script type="text/javascript" src="gcexport.js?v=7.4"></script>
-    <script type="text/javascript" src="gcai.js?v=7.4"></script>
-    <script type="text/javascript" src="gclibraries.js?v=7.4"></script>
+    <script type="text/javascript" src="library.js?v=7.5"></script>
+    <script type="text/javascript" src="settings.js?v=7.5"></script>
+    <script type="text/javascript" src="grnaService.js?v=7.5"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=7.5"></script>
+    <script type="text/javascript" src="validate.js?v=7.5"></script>
+    <script type="text/javascript" src="upset.js?v=7.5"></script>
+    <script type="text/javascript" src="cnService.js?v=7.5"></script>
+    <script type="text/javascript" src="index.js?v=7.5"></script>
+    <script type="text/javascript" src="fileHandler.js?v=7.5"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=7.5"></script>
+    <script type="text/javascript" src="helpPopout.js?v=7.5"></script>
+    <script type="text/javascript" src="methods.js?v=7.5"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=7.5"></script>
+    <script type="text/javascript" src="gcontext.js?v=7.5"></script>
+    <script type="text/javascript" src="gcexport.js?v=7.5"></script>
+    <script type="text/javascript" src="gcai.js?v=7.5"></script>
+    <script type="text/javascript" src="gclibraries.js?v=7.5"></script>
 
 </body>
 
