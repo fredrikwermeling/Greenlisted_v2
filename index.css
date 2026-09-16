@@ -33,7 +33,7 @@
        button labels are the smallest bold text in the app. Open Sans stays
        for everything that is read rather than clicked. */
     --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
-               Roboto, "Helvetica Neue", Arial, sans-serif;
+               "Liberation Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
 
     --monoFont: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
         "Liberation Mono", monospace;
@@ -195,10 +195,11 @@ button {
     font-size: 14px;
     font-weight: 600;
     font-family: var(--ui-font);
-    /* A hair of tracking. Small bold text sets tight, and on a display that
-       is not rendering at an exact 2x the stems of adjacent letters blur into
-       each other before the letters themselves do. */
-    letter-spacing: 0.01em;
+    /* No letter-spacing. 0.01em is a fraction of a pixel, and on a display
+       drawing one device pixel per CSS pixel that fraction pushes each glyph
+       a little further off the pixel grid than the last. It helps on a
+       retina panel and hurts on an ordinary one, and an ordinary one is the
+       harder case. */
     padding: 8px 18px;
     /* Named properties, not `all`. With `all` the browser has to be ready to
        animate transform and filter too, which promotes the button to its own
@@ -435,9 +436,13 @@ a:hover {
     border: 1px solid #e5e7eb;
     border-radius: var(--inputRadius);
     font-family: var(--monoFont);
-    font-size: 0.72rem;
+    /* Whole pixels, and no tracking. 0.72rem is 11.52 px, and a fractional
+       size plus a fractional letter-spacing puts every glyph in this readout
+       at a different sub-pixel offset. On a display drawing one device pixel
+       per CSS pixel that is the difference between a sequence you can read
+       base by base and one you cannot. */
+    font-size: 12px;
     line-height: 1.55;
-    letter-spacing: 0.01em;
     overflow-wrap: anywhere;
     /* Left-aligned: a wrapped sequence centered on the last line leaves a
        stranded fragment that reads as a separate string. */
@@ -732,11 +737,11 @@ body.validate-mode #validateButton {
     color: white;
 }
 
-/* 13px, not 12. These labels are bold and short, which is the hardest case
-   for a screen to render cleanly, and one extra pixel of body buys more
-   legibility here than anywhere else on the page. */
+/* 14px. These labels are bold and short, which is the hardest case for a
+   screen to render cleanly, and on a display with one device pixel per CSS
+   pixel a whole pixel of body is worth more here than anywhere else. */
 .validate-btn {
-    font-size: 13px;
+    font-size: 14px;
     white-space: nowrap;
     padding: 6px 12px;
 }
@@ -1188,7 +1193,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 .gcBtn {
-    font-size: 13px;
+    font-size: 14px;
     padding: 4px 10px;
     white-space: nowrap;
 }
