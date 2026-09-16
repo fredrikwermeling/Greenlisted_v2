@@ -170,15 +170,18 @@ function LIBX_columnFor(spacerOf) {
             const hits = LIBX_lookup(spacer, species, mine)
             if (!hits || !hits.length) {
                 return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">` +
-                       `no other ${species === "human" ? "human" : "mouse"} library</span>`
+                       `no other ${species} library</span>`
             }
             const names = hits.map(h => h.library).join(", ")
-            // Naming the species in the cell, not just in the tooltip: "2 of
-            // 7 libraries" reads as though it were counting every library the
-            // app knows, mouse ones included, which would make the comparison
-            // meaningless. The index is per species and only ever holds one.
+            // No denominator. "1 of 7" invited the question of whether the
+            // library being designed from was inside the 7 or outside it, and
+            // the answer changed nothing: what matters is how many other
+            // designs independently arrived at this guide, not the size of the
+            // field they were drawn from. "other" carries the exclusion, and
+            // the species stays in the cell because a count that silently
+            // mixed human and mouse libraries would mean nothing.
             return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>` +
-                   `<span class="libxOf"> of ${total} ${species} ${total === 1 ? "library" : "libraries"}</span>`
+                   `<span class="libxOf"> other ${species} ${hits.length === 1 ? "library" : "libraries"}</span>`
         }
     }
 }
