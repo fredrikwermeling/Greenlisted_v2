@@ -288,6 +288,15 @@ input {
     background: var(--inputColor);
     border: 1px solid var(--outlineColor);
     border-radius: var(--inputRadius);
+    /* A field asked to fill its panel has to mean the panel, not the panel
+       plus its own padding and border. Without this the cell-line box ran
+       8px past the edge of the box it sits in. */
+    box-sizing: border-box;
+}
+
+select,
+textarea {
+    box-sizing: border-box;
 }
 
 
