@@ -684,17 +684,6 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
-            // The gene itself opens in Correlate, where the same gene has its
-            // effect across the whole DepMap panel. Only in the symbol column,
-            // only for real genes — a safe-targeting control is not one — and
-            // only for human libraries, since that is the panel Correlate
-            // holds.
-            if (j === starCol && _geneLinkable(cols[j])) {
-                const sym = String(cols[j]).trim()
-                cell = `<a class="geneLink" href="${_correlateGeneUrl(sym.toUpperCase())}" target="_blank" ` +
-                       `rel="noopener noreferrer" title="Open ${_escapeHtml(sym)} in Correlate: its gene effect across ` +
-                       `the DepMap cell lines">${cell}</a>`
-            }
             if (j === starCol) {
                 const line = _hotCellLine()
                 const variant = line ? HOT_variant(line, cols[j]) : null

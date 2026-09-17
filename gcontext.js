@@ -247,7 +247,16 @@ function _gcButton(symbol, spacer, id) {
     // tool searches. Sits beside Context because both answer "is this the
     // guide I should order?".
     const libs = (typeof LIBX_button === "function") ? LIBX_button(symbol, clean, id) : ""
-    return context + libs
+    // The same gene across the DepMap panel, in Correlate. A button rather
+    // than an underlined symbol: the symbol column is read as data, and a
+    // column of underlines is the loudest thing in the table.
+    const ge = (typeof _geneLinkable === "function" && _geneLinkable(symbol) &&
+                typeof _correlateGeneUrl === "function")
+        ? `<a class="gcBtn gcBtnLink" href="${_correlateGeneUrl(String(symbol).trim().toUpperCase())}" ` +
+          `target="_blank" rel="noopener noreferrer" ` +
+          `title="Open ${_escapeHtml(symbol)} in Correlate: every DepMap cell line ranked by how much it depends on this gene.">Gene effect</a>`
+        : ""
+    return context + libs + ge
 }
 
 function GC_openFromButton(btn) {

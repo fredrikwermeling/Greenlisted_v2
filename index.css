@@ -2183,12 +2183,28 @@ textarea::placeholder {
     color: var(--gray-500);
 }
 
-/* "Find in genome" leaves the app, so it is an anchor rather than a button,
-   and has to be dressed as one to sit level with Libraries beside it. */
+/* "Find in genome" and "Gene effect" leave the app, so they are anchors rather
+   than buttons, and have to be dressed as buttons to sit level with Context
+   and Libraries beside them. */
 a.gcBtnLink {
     display: inline-block;
     text-decoration: none;
-    color: inherit;
+    /* The chrome the base rule gives a <button>, which does not reach an
+       anchor: without it these two sat in the row as bare text beside the
+       buttons they belong with. */
+    border-radius: var(--inputRadius);
+    font-weight: 600;
+    font-family: var(--ui-font);
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border: 1px solid var(--gray-200);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+a.gcBtnLink:hover,
+a.gcBtnLink:focus-visible {
+    background: var(--gray-200);
+    color: var(--gray-700);
 }
 
 /* The result tables set every cell to nowrap, so a wide one cannot shrink to
@@ -2832,19 +2848,4 @@ body.modal-open {
 .gcHotNote {
     color: var(--gray-500);
     font-size: 0.92em;
-}
-
-/* A gene in the output table opens in Correlate. Set in the table's own colour
-   rather than link blue: every row would otherwise be a line of blue, and the
-   table is read as data first. The underline on hover is the affordance. */
-.geneLink {
-    color: inherit;
-    text-decoration: none;
-    border-bottom: 1px dotted var(--gray-400);
-}
-
-.geneLink:hover,
-.geneLink:focus-visible {
-    color: var(--mainColor);
-    border-bottom-color: var(--mainColor);
 }
