@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=11.0">
+    <link rel="stylesheet" media="all" href="index.css?v=11.3">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=11.0" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=11.3" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=11.0" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=11.3" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -451,23 +451,23 @@ Use these settings to thin the guide list, add control guides, attach the adapte
                         <tr>
                             <td class="ctrlTick"><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
                             <td class="ctrlName"><label for="includeSafeTargeting">Safe-targeting</label></td>
-                            <td class="ctrlCount"><input type="number" id="safeTargetingCount" min="1"
+                            <td class="ctrlCount"><span class="gcStepper ctrlStepper"><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('safeTargetingCount', -10)" title="Fewer" tabindex="-1">&minus;</button><input type="number" id="safeTargetingCount" min="1" step="10"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()"
-                                       title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
+                                       title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('safeTargetingCount', 10)" title="More" tabindex="-1">+</button></span></td>
                         </tr>
                         <tr>
                             <td class="ctrlTick"><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
                             <td class="ctrlName"><label for="includeNonTargeting">Non-targeting</label></td>
-                            <td class="ctrlCount"><input type="number" id="nonTargetingCount" min="1"
+                            <td class="ctrlCount"><span class="gcStepper ctrlStepper"><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('nonTargetingCount', -10)" title="Fewer" tabindex="-1">&minus;</button><input type="number" id="nonTargetingCount" min="1" step="10"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()"
-                                       title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
+                                       title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('nonTargetingCount', 10)" title="More" tabindex="-1">+</button></span></td>
                         </tr>
                         <tr>
                             <td class="ctrlTick"><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
                             <td class="ctrlName"><label for="includeEssential">Essential genes</label></td>
-                            <td class="ctrlCount"><input type="number" id="essentialCount" min="1" max="9"
+                            <td class="ctrlCount"><span class="gcStepper ctrlStepper"><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('essentialCount', -1)" title="Fewer" tabindex="-1">&minus;</button><input type="number" id="essentialCount" min="1" max="9" step="1"
                                        oninput="_controlCountEdited(this)" onchange="changeSettings()"
-                                       title="How many essential genes to add (1-9). Pre-filled with 3; type your own value to override."></td>
+                                       title="How many essential genes to add (1-9). Pre-filled with 3; type your own value to override."><button type="button" class="ctrlStep gcStep" onclick="_ctrlNudge('essentialCount', 1)" title="More" tabindex="-1">+</button></span></td>
                         </tr>
                     </table>
                     <div id="controlsStatus"
@@ -505,11 +505,6 @@ Use these settings to thin the guide list, add control guides, attach the adapte
                 </div>
 
 
-                <!-- Takes up whatever the gene box cannot give back, so the
-                     two column feet still line up once the box is at its
-                     smallest. Set by _alignSymbolColumn(). -->
-                <div id="paramColSpacer" class="colSpacer" aria-hidden="true"></div>
-
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Pick human cell line <span class="titleTail">(optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
 
@@ -523,6 +518,14 @@ The Oligos to order file gains a column warning about genes that are deeply dele
                         <div id="screeningCellLineStatus" style="font-size:0.78rem; color:var(--mainColor); margin-top:3px; min-height:1em;"></div>
                     </div>
                 </div>
+
+                <!-- Takes up whatever the gene box cannot give back, so the
+                     two column feet still line up once the box is at its
+                     smallest. It sits here, between the settings and the
+                     button, because that is where a gap reads as a gap and
+                     not as a hole in the settings. Set by
+                     _alignSymbolColumn(). -->
+                <div id="paramColSpacer" class="colSpacer" aria-hidden="true"></div>
 
                 <div class="smallPlate">
                     <h3 class="smallTitle">Run<span class="infoDot" title="Name the output files, then Run.
@@ -662,24 +665,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=11.0"></script>
-    <script type="text/javascript" src="settings.js?v=11.0"></script>
-    <script type="text/javascript" src="grnaService.js?v=11.0"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=11.0"></script>
-    <script type="text/javascript" src="validate.js?v=11.0"></script>
-    <script type="text/javascript" src="upset.js?v=11.0"></script>
-    <script type="text/javascript" src="cnService.js?v=11.0"></script>
-    <script type="text/javascript" src="index.js?v=11.0"></script>
-    <script type="text/javascript" src="fileHandler.js?v=11.0"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=11.0"></script>
-    <script type="text/javascript" src="helpPopout.js?v=11.0"></script>
-    <script type="text/javascript" src="phone.js?v=11.0"></script>
-    <script type="text/javascript" src="methods.js?v=11.0"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=11.0"></script>
-    <script type="text/javascript" src="gcontext.js?v=11.0"></script>
-    <script type="text/javascript" src="gcexport.js?v=11.0"></script>
-    <script type="text/javascript" src="gcai.js?v=11.0"></script>
-    <script type="text/javascript" src="gclibraries.js?v=11.0"></script>
+    <script type="text/javascript" src="library.js?v=11.3"></script>
+    <script type="text/javascript" src="settings.js?v=11.3"></script>
+    <script type="text/javascript" src="grnaService.js?v=11.3"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=11.3"></script>
+    <script type="text/javascript" src="validate.js?v=11.3"></script>
+    <script type="text/javascript" src="upset.js?v=11.3"></script>
+    <script type="text/javascript" src="cnService.js?v=11.3"></script>
+    <script type="text/javascript" src="index.js?v=11.3"></script>
+    <script type="text/javascript" src="fileHandler.js?v=11.3"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=11.3"></script>
+    <script type="text/javascript" src="helpPopout.js?v=11.3"></script>
+    <script type="text/javascript" src="phone.js?v=11.3"></script>
+    <script type="text/javascript" src="methods.js?v=11.3"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=11.3"></script>
+    <script type="text/javascript" src="gcontext.js?v=11.3"></script>
+    <script type="text/javascript" src="gcexport.js?v=11.3"></script>
+    <script type="text/javascript" src="gcai.js?v=11.3"></script>
+    <script type="text/javascript" src="gclibraries.js?v=11.3"></script>
 
 </body>
 

@@ -12,7 +12,7 @@ var outputTexts = {
 }
 
 
-// "Symbols not found" and "Pick human cell line" sit at the foot of two
+// "Symbols not found" and "Run" sit at the foot of two
 // columns whose content above them differs and reflows independently, so no
 // fixed height lines them up at every window width: measured across nine
 // widths the offset ran from -5px to +19px. The symbol box is the one
@@ -32,7 +32,11 @@ function _alignSymbolColumn() {
     if (document.body.classList.contains("cn-mode")) return
     const titles = [...document.querySelectorAll(".smallTitle")]
     const notFound = titles.find(t => /Symbols not found/i.test(t.textContent))
-    const cellLine = titles.find(t => /Pick human cell line/i.test(t.textContent))
+    // Run, the last panel of the parameters column, against Symbols not
+    // found, the last of the gene column: the two feet of the two columns.
+    // The heading's text runs straight into its info dot ("Runi"), so this
+    // cannot ask for a word boundary after it.
+    const cellLine = titles.find(t => /^Run/i.test(t.textContent.trim()))
     if (!notFound || !cellLine) return
     // Both are visible only in design mode; a hidden element measures zero.
     if (!notFound.getClientRects().length || !cellLine.getClientRects().length) return
@@ -70,11 +74,26 @@ function APP_realign() {
 }
 
 // Layout settles after fonts and images land, so realign on those too.
-window.addEventListener("resize", () => {
-    clearTimeout(window._symboxTimer)
-    window._symboxTimer = setTimeout(_alignSymbolColumn, 120)
-})
+window.addEventListener("resize", APP_realign)
 window.addEventListener("load", () => setTimeout(_alignSymbolColumn, 60))
+
+// Everything else that changes a column's height: the library citation
+// arriving, a control ticked, a curated list added, a status line growing to
+// two lines. Rather than remember to call APP_realign from each of them —
+// and miss one — watch the two columns and let any change ask for it.
+// _alignSymbolColumn does nothing when the feet are already within 2px, so
+// the pass it triggers by resizing the box itself stops after one round.
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof ResizeObserver !== "function") return
+    const plates = [...document.querySelectorAll(".plate")]
+    const watch = plates.filter(p => {
+        const title = p.querySelector(".plateTitle")
+        return title && /^(2\.|3\.)/.test(title.textContent.trim())
+    })
+    if (watch.length < 2) return
+    const ro = new ResizeObserver(APP_realign)
+    for (const p of watch) ro.observe(p)
+})
 
 // Put the cursor where the work starts. The library has a sensible default
 // and the parameters are optional, so the gene box is the first thing anyone
@@ -1618,6 +1637,54 @@ function changeSettings() {
 // suggestion at run time.
 //   dataset.auto: unset = never touched, "1" = tracking the suggestion,
 //                 "0" = user owns it.
+// Put a count away while its control is off, and bring it back when the
+// control is ticked again. Parking rather than clearing keeps a number the
+// user chose, which they would otherwise have to type again after a stray
+// click on the tick box.
+function _ctrlPark(input) {
+    const v = String(input.value || "").trim()
+    if (v) input.dataset.kept = v
+    input.value = ""
+    input.placeholder = ""
+}
+
+function _ctrlRestore(input) {
+    if (input.dataset.auto === "0" && !String(input.value || "").trim() && input.dataset.kept) {
+        input.value = input.dataset.kept
+    }
+}
+
+// A disabled box with live buttons beside it would still change a number
+// nothing is using.
+function _ctrlStepsEnabled(input, on) {
+    const stepper = input.closest(".ctrlStepper")
+    if (!stepper) return
+    stepper.classList.toggle("ctrlStepperOff", !on)
+    for (const b of stepper.querySelectorAll(".ctrlStep")) b.disabled = !on
+}
+
+// The - and + beside a control count. The native spinner arrows are small,
+// appear only on hover and are drawn differently on every browser; these are
+// the same stepper the flank control uses.
+//
+// An empty box is showing the suggestion in its placeholder, so stepping
+// starts from that rather than from zero. Either button makes the number the
+// user's own, which is what typing in the box does too.
+function _ctrlNudge(id, delta) {
+    const input = document.getElementById(id)
+    if (!input || input.disabled) return
+    const from = parseInt(input.value, 10)
+    const base = isNaN(from) ? parseInt(input.placeholder, 10) : from
+    const min = parseInt(input.min, 10)
+    const max = parseInt(input.max, 10)
+    var next = (isNaN(base) ? 0 : base) + delta
+    if (!isNaN(min)) next = Math.max(min, next)
+    if (!isNaN(max)) next = Math.min(max, next)
+    input.value = String(next)
+    input.dataset.auto = "0"
+    changeSettings()
+}
+
 function _controlCountEdited(input) {
     input.dataset.auto = "0"
     changeSettings()
@@ -1702,6 +1769,7 @@ function _updateControlsStatus() {
             cb.checked = false
             cb.disabled = true
             countInput.disabled = true
+            _ctrlStepsEnabled(countInput, false)
             countInput.value = ""
             countInput.placeholder = ""
             delete countInput.dataset.auto
@@ -1712,16 +1780,16 @@ function _updateControlsStatus() {
         const borrowed = source[ui.id].borrowed
         cb.disabled = false
         countInput.disabled = !cb.checked
+        _ctrlStepsEnabled(countInput, cb.checked)
         if (!cb.checked) {
-            // Blank a suggested number while the kind is off, so a disabled
-            // box never shows a figure that isn't being used. A number the
-            // user typed themselves is kept, ready for when they tick again.
-            if (countInput.dataset.auto !== "0") {
-                countInput.value = ""
-                countInput.placeholder = ""
-            }
+            // Nothing in the box while the kind is off: a number beside an
+            // unticked control reads as a number that is being used. One the
+            // user typed is remembered and put back when they tick again,
+            // rather than left on screen to say so.
+            _ctrlPark(countInput)
             continue
         }
+        _ctrlRestore(countInput)
         // Put the suggested number in the box so the user sees a concrete
         // value they can edit. The placeholder carries the same number, so
         // clearing the box still shows what the run will fall back to.
@@ -1746,15 +1814,11 @@ function _updateControlsStatus() {
     const essCount = document.getElementById("essentialCount")
     if (essCb && essCount) {
         essCount.disabled = !essCb.checked
+        _ctrlStepsEnabled(essCount, essCb.checked)
         if (!essCb.checked) {
-            // Same rule as the two spike-in boxes: a suggested number is
-            // blanked while its checkbox is off, so nothing shows a figure
-            // that isn't being used. A number the user typed is kept.
-            if (essCount.dataset.auto !== "0") {
-                essCount.value = ""
-                essCount.placeholder = ""
-            }
+            _ctrlPark(essCount)
         } else if (typeof LIB_essentialPanel === "function") {
+            _ctrlRestore(essCount)
             essCount.placeholder = String(_ESSENTIAL_DEFAULT)
             if (essCount.dataset.auto !== "0") {
                 essCount.value = String(_ESSENTIAL_DEFAULT)
@@ -1820,20 +1884,22 @@ function _updateExampleText() {
     const middle = _applyTrim("SPACER")
     const before = (settings.adapterBefore || "").toLowerCase()
     const after = (settings.adapterAfter || "").toLowerCase()
-    // With no adapters entered the preview would only restate the word
-    // SEQUENCE. It used to hide itself for that reason, but it sits in the
-    // middle of three columns, so appearing and disappearing shifted
-    // everything below it and knocked the columns out of line. It stays put
-    // and says what it is for instead.
+    // With no adapters entered there is nothing to preview, and the box goes
+    // away rather than holding a line of text explaining itself. It used to
+    // stay put because appearing and disappearing knocked this column out of
+    // line with the one beside it; the alignment is measured now, and
+    // measured again here, so the space can be given back.
     const el = document.getElementById("ExampleSequance")
     if (!before && !after) {
-        el.className = "isHint"
-        el.textContent = "Add an adapter to preview a finished oligo."
+        el.className = ""
+        el.textContent = ""
+        if (typeof APP_realign === "function") APP_realign()
         return
     }
     el.className = ""
     el.innerHTML =
         `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
+    if (typeof APP_realign === "function") APP_realign()
 }
 
 // =============================================================================

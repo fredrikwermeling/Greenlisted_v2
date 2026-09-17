@@ -463,10 +463,13 @@ a:hover {
    not wrap on its own — it used to run off both edges of the panel. Wrapping
    it and setting it in a smaller monospace face keeps the whole oligo visible
    however long the adapters are. */
-/* Always present, so its arrival cannot shove the rest of this column down
-   and knock "Pick human cell line" out of line with "Symbols not found"
-   beside it. Before any adapter is typed it carries a line saying what it is
-   for, rather than an empty reserved box. */
+/* Nothing to show until an adapter is typed, and nothing shown: the column
+   feet are lined up by measurement now, so this box appearing costs nothing
+   that has to be paid for with a permanent reserved space. */
+#ExampleSequance:empty {
+    display: none;
+}
+
 #ExampleSequance {
     align-self: center;
     width: 100%;
@@ -2132,15 +2135,6 @@ textarea::placeholder {
 }
 
 
-/* The preview before there is anything to preview: a sentence, not a
-   sequence, so it is set in the reading face. */
-#ExampleSequance.isHint {
-    font-family: var(--sans-font);
-    font-size: 0.75rem;
-    font-style: italic;
-    letter-spacing: normal;
-    color: var(--gray-500);
-}
 
 /* The symbol box's set height must mean the same thing as its measured
    height, or the routine that lines the two columns up overshoots by the
@@ -2707,8 +2701,26 @@ body.modal-open {
     padding-left: 10px;
 }
 
-#controlsTable td.ctrlCount input {
-    width: 4.5em;
+/* The count, with - and + beside it instead of the native spinner arrows,
+   which are small, appear only on hover and are drawn differently on every
+   browser. Same control as the flank stepper in the context panel. */
+#controlsTable td.ctrlCount .ctrlStepper input[type="number"] {
+    width: 3.2em;
+    font-size: 0.85rem;
+    height: auto;
+}
+
+#controlsTable .ctrlStep {
+    padding: 0 9px;
+    font-size: 14px;
+}
+
+.ctrlStepperOff {
+    opacity: 0.5;
+}
+
+.ctrlStepperOff .ctrlStep {
+    cursor: default;
 }
 
 /* Height set by _alignSymbolColumn(); nothing of its own to show. */
