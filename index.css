@@ -2816,3 +2816,13 @@ body.modal-open {
 .gcaiPick input[type="file"] {
     display: none;
 }
+
+/* The ** on a gene that carries a known hotspot mutation in the chosen cell
+   line. Amber rather than green: unlike the essential *, this one is about the
+   experiment being different from the one intended. */
+.hotMark {
+    color: #b45309;
+    font-weight: 700;
+    margin-left: 3px;
+    cursor: help;
+}

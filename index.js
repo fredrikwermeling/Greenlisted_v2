@@ -397,6 +397,69 @@ async function runValidation() {
 // `rowExtra` appends columns after the data: one { header, cell(cols) }, or an
 // array of them, where cell returns HTML for that row. The adapter and full
 // views use it for the per-guide buttons and the cross-library count.
+// Hotspot mutations in the chosen cell line.
+//
+// A gene that already carries an activating hotspot in the line being screened
+// is not the same experiment as the same gene wild-type: knocking out mutant
+// BRAF in A-375 asks what that cell depends on, and the answer is not what a
+// wild-type knockout would give. And a guide whose spacer or PAM happens to
+// cover the mutated codon may not cut that allele at all.
+//
+// DepMap's hotspot calls, with the variant named where DepMap names it. About
+// 60 KB, fetched only when a cell line has been picked.
+var _hotspots = { data: null, loading: null }
+
+function HOT_loadIfNeeded() {
+    if (_hotspots.data) return Promise.resolve(_hotspots.data)
+    if (_hotspots.loading) return _hotspots.loading
+    _hotspots.loading = fetch("hotspotMutations.json")
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+            _hotspots.data = json || { genes: [], byCellLine: {}, named: {}, source: "" }
+            return _hotspots.data
+        })
+        .catch(e => {
+            console.warn("Hotspot list unavailable:", e)
+            _hotspots.data = { genes: [], byCellLine: {}, named: {}, source: "" }
+            return _hotspots.data
+        })
+    return _hotspots.loading
+}
+
+// The one cell line the design is annotated against, or null. The copy-number
+// lookup mode can hold several at once, and a mark that means "in one of these
+// lines" means nothing.
+function _hotCellLine() {
+    if (typeof _cnState === "undefined" || !_cnState) return null
+    if (_cnState.isMode) return null
+    const picked = _cnState.screeningCellLines
+    return (picked && picked.length === 1) ? picked[0] : null
+}
+
+// "" when the gene carries a hotspot DepMap does not name, the variant when it
+// does, and null when it carries none.
+function HOT_variant(cellLine, symbol) {
+    const d = _hotspots.data
+    if (!d || !cellLine || !symbol) return null
+    const idx = d.byCellLine[cellLine.id]
+    if (!idx || !idx.length) return null
+    var name = String(symbol).trim().toUpperCase()
+    // The library may spell the gene differently from DepMap; the same
+    // resolver the copy-number column uses knows the aliases.
+    if (typeof CN_resolveSymbol === "function" && typeof CN_isLoaded === "function" && CN_isLoaded()) {
+        const map = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
+        const r = CN_resolveSymbol(name, map)
+        if (r && r.resolved) name = r.resolved
+    }
+    for (const i of idx) {
+        if (d.genes[i] === name) {
+            const named = d.named[cellLine.id]
+            return (named && named[name]) || ""
+        }
+    }
+    return null
+}
+
 // Sorting the output table by clicking a heading.
 //
 // The file's own order means something — the guides for a gene come out best
@@ -511,6 +574,17 @@ function ESS_loadIfNeeded() {
 // think it means essential for their experiment.
 const _ESS_COLUMN = "Broadly essential (in nearly every cell line)"
 
+// The hotspot column, and the value in it. Named after the cell line, since
+// this is a fact about that line and not about the gene.
+function _hotColumn(cl) {
+    return `Hotspot mutation in ${_cnPlainName(cl)} cells`
+}
+
+function _hotFlag(cl, symbol) {
+    const v = (typeof HOT_variant === "function") ? HOT_variant(cl, symbol) : null
+    return v === null ? "" : (v || "yes")
+}
+
 function ESS_flag(symbol) {
     return ESS_isEssential(symbol) ? "yes" : ""
 }
@@ -575,6 +649,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     // from them.
     const starCol = Math.min(...italicCols, Infinity)
     var starred = false
+    const hotSeen = new Map()
     // Gene symbols, guide IDs and sequences never contain a space, so a cell
     // that does is prose and may wrap. Everything else stays on one line,
     // where a break would make it unreadable. Without this the longest
@@ -585,7 +660,12 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     // on the symbol, which costs no width in a table that already has more
     // columns than a phone can hold.
     const hiddenCols = new Set()
-    headers.forEach((h, j) => { if (h.trim() === _ESS_COLUMN) hiddenCols.add(j) })
+    headers.forEach((h, j) => {
+        if (h.trim() === _ESS_COLUMN) hiddenCols.add(j)
+        // Same reasoning as the essential column: on screen the ** and the
+        // line under the table say it, in none of the width.
+        if (/^Hotspot mutation in /.test(h.trim())) hiddenCols.add(j)
+    })
     // The rows are built first: whether an appended column can be sorted
     // depends on what its cells turn out to hold, and the heading that says so
     // is written above them.
@@ -604,6 +684,15 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
+            if (j === starCol) {
+                const line = _hotCellLine()
+                const variant = line ? HOT_variant(line, cols[j]) : null
+                if (variant !== null) {
+                    cell += `<span class="hotMark" title="Known hotspot mutation in ${_escapeHtml(line.name)}` +
+                            `${variant ? ": " + _escapeHtml(variant) : ""}">**</span>`
+                    hotSeen.set(String(cols[j]).trim(), variant)
+                }
+            }
             if (j === starCol && ESS_isEssential(cols[j])) {
                 // The * is a link: the next question about a gene that drops
                 // out everywhere is what it actually looks like across the
@@ -645,6 +734,19 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
                 `>${_escapeHtml(x.header)}${sortable ? '<span class="sortMark"></span>' : ""}</th>`
     })
     html += '</tr></thead><tbody>' + bodyHtml + '</tbody></table>'
+    if (hotSeen.size) {
+        const line = _hotCellLine()
+        // Named in the line itself, so the variant is readable without a
+        // hover, which a phone does not have.
+        const shown = [...hotSeen.entries()].slice(0, 6)
+            .map(([g, v]) => _escapeHtml(g) + (v ? " " + _escapeHtml(v) : ""))
+        const more = hotSeen.size - shown.length
+        html += `<p class="essLegend">** Carries a known hotspot mutation in ` +
+                `${_escapeHtml(line ? line.name : "this cell line")} cells: ${shown.join(", ")}` +
+                `${more > 0 ? ` and ${more} more` : ""}. Knocking out a gene that is already mutated is a different ` +
+                `experiment from knocking out the wild-type, and a guide whose spacer or PAM covers the mutated site may ` +
+                `not cut that allele. Source: ${_escapeHtml((_hotspots.data && _hotspots.data.source) || "DepMap")}.</p>`
+    }
     if (starred) {
         html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
                 `whatever the experiment was asking. Press a * to see that gene across the DepMap panel in ` +
@@ -846,6 +948,9 @@ async function runScreening() {
         // files and a * in the table, so it has to be here before either is
         // built.
         if (typeof ESS_loadIfNeeded === "function") await ESS_loadIfNeeded()
+        // Only when a cell line is in play: it is 60 KB, and it says nothing
+        // without one.
+        if (screeningCl.length === 1 && typeof HOT_loadIfNeeded === "function") await HOT_loadIfNeeded()
         const fullOutput = _createFullTxtOutput(searchOutput.filteredLibraryMap, searchOutput.headers)
         const notFoundOutput = _createSymbolNotFound(searchOutput.usedSynonyms)
         const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null, searchOutput.essentialAdded)
@@ -1138,6 +1243,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
                            String(settings.adapterAfter || "").trim())
     out = out + `Symbol\tSymbol_ID\t${hasAdapters ? "spacer + adapters" : "spacer"}` +
           (anyRole ? "\tAdded as" : "") + `\t${_ESS_COLUMN}` +
+          (cl ? `\t${_hotColumn(cl)}` : "") +
           (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
@@ -1145,12 +1251,13 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
         // design redoes the same resolve-and-lookup three or four times a row.
         const flag = cl ? _cnAdapterFlag(symbol, cl, synonymMap) : ""
         const essential = ESS_flag(symbol)
+        const hot = cl ? _hotFlag(cl, symbol) : ""
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
             out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` +
                   (anyRole ? `\t${roles[symbol]}` : "") + `\t${essential}` +
-                  (cl ? `\t${flag}` : "") + "\n"
+                  (cl ? `\t${hot}` : "") + (cl ? `\t${flag}` : "") + "\n"
         }
     }
     return out
@@ -1267,11 +1374,15 @@ function _createFullTxtOutput(libraryMap, headers) {
         out += `# On-Target Efficacy Score: RS3seq-Chen2013+RS3target (higher = better). Range in library: -1.7 to 2.2. Guides ranked by Pick Order.\n`
         out += `# Aggregate CFD Score: cumulative off-target activity (lower = fewer off-targets). Range in library: 0 to 4.8 (design cutoff).\n`
     }
-    var out = out + headers.join("\t") + `\t${_ESS_COLUMN}\n` //the original headers are placed att the top of the output
+    const hotLine = (typeof _hotCellLine === "function") ? _hotCellLine() : null
+    var out = out + headers.join("\t") + `\t${_ESS_COLUMN}` +
+              (hotLine ? `\t${_hotColumn(hotLine)}` : "") + "\n" //the original headers are placed att the top of the output
     for (var symbol of Object.keys(libraryMap)) {
         const essential = ESS_flag(symbol)
+        const hot = hotLine ? _hotFlag(hotLine, symbol) : null
         libraryMap[symbol].forEach(row => {
-            out = out + `${row.map(_spreadsheetSafe).join("\t")}\t${essential}\n`
+            out = out + `${row.map(_spreadsheetSafe).join("\t")}\t${essential}` +
+                  (hotLine ? `\t${hot}` : "") + "\n"
         })
     }
     return out
