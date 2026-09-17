@@ -615,7 +615,16 @@ function _gcaiShortlist(annotated, sanger) {
         for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]
         return 0
     })
+    const out = annotated.length - usable.length
     return {
+        // Said in words, because an empty notUsable is easy to read past and
+        // easier still to fill in from somewhere else: an assistant answering
+        // three of these files in one sitting reported two pairs of this one
+        // as disqualified for a repeat, having taken the exclusions from a
+        // different file. Nothing in the file said "nothing is excluded".
+        summary: out === 0
+            ? `No pair is disqualified. All ${annotated.length} clear every hard requirement, and bestFirst is simply the order to prefer them in.`
+            : `${out} of ${annotated.length} pairs ${out === 1 ? "is" : "are"} disqualified, listed under notUsable with the reason. The rest are in bestFirst.`,
         bestFirst: usable.map(a => a.pair),
         howThisWasOrdered: sanger
             ? "Pairs that clear every hard requirement, ordered by closeness of the two melting temperatures (in half-degree bands, since a tenth of a degree decides nothing), then by 3' self-complementarity, then by how near the cut sits to 250 bases from the primer it would be read with."
