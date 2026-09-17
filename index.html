@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=10.2">
+    <link rel="stylesheet" media="all" href="index.css?v=10.3">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=10.2" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=10.3" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=10.2" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=10.3" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -504,7 +504,7 @@ Use these settings to thin the guide list, add control guides, attach the adapte
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Pick human cell line <span class="titleTail">(optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
 
-The Oligos to order file gains a column warning about genes that are deeply deleted in that line (their guides cannot report anything) or amplified (many simultaneous cuts can kill cells regardless of the gene, a classic false positive). A separate per-gene copy-number file is produced alongside it.">i</span></span></h3>
+The Oligos to order file gains a column warning about genes that are deeply deleted in that line (their guides cannot report anything) or amplified (one cut per copy, and the DNA damage response to that many breaks depletes the cells whatever the gene does, a classic false positive). A separate per-gene copy-number file is produced alongside it.">i</span></span></h3>
                     <div class="plateContent">
                         <input type="text" id="screeningCellLineInput" list="screeningCellLineList"
                                placeholder="Type to search&hellip;" autocomplete="off"
@@ -653,24 +653,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=10.2"></script>
-    <script type="text/javascript" src="settings.js?v=10.2"></script>
-    <script type="text/javascript" src="grnaService.js?v=10.2"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=10.2"></script>
-    <script type="text/javascript" src="validate.js?v=10.2"></script>
-    <script type="text/javascript" src="upset.js?v=10.2"></script>
-    <script type="text/javascript" src="cnService.js?v=10.2"></script>
-    <script type="text/javascript" src="index.js?v=10.2"></script>
-    <script type="text/javascript" src="fileHandler.js?v=10.2"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=10.2"></script>
-    <script type="text/javascript" src="helpPopout.js?v=10.2"></script>
-    <script type="text/javascript" src="phone.js?v=10.2"></script>
-    <script type="text/javascript" src="methods.js?v=10.2"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=10.2"></script>
-    <script type="text/javascript" src="gcontext.js?v=10.2"></script>
-    <script type="text/javascript" src="gcexport.js?v=10.2"></script>
-    <script type="text/javascript" src="gcai.js?v=10.2"></script>
-    <script type="text/javascript" src="gclibraries.js?v=10.2"></script>
+    <script type="text/javascript" src="library.js?v=10.3"></script>
+    <script type="text/javascript" src="settings.js?v=10.3"></script>
+    <script type="text/javascript" src="grnaService.js?v=10.3"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=10.3"></script>
+    <script type="text/javascript" src="validate.js?v=10.3"></script>
+    <script type="text/javascript" src="upset.js?v=10.3"></script>
+    <script type="text/javascript" src="cnService.js?v=10.3"></script>
+    <script type="text/javascript" src="index.js?v=10.3"></script>
+    <script type="text/javascript" src="fileHandler.js?v=10.3"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=10.3"></script>
+    <script type="text/javascript" src="helpPopout.js?v=10.3"></script>
+    <script type="text/javascript" src="phone.js?v=10.3"></script>
+    <script type="text/javascript" src="methods.js?v=10.3"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=10.3"></script>
+    <script type="text/javascript" src="gcontext.js?v=10.3"></script>
+    <script type="text/javascript" src="gcexport.js?v=10.3"></script>
+    <script type="text/javascript" src="gcai.js?v=10.3"></script>
+    <script type="text/javascript" src="gclibraries.js?v=10.3"></script>
 
 </body>
 
