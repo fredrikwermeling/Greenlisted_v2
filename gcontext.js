@@ -974,6 +974,22 @@ function _gcShow() {
         `<label title="${tx ? "The sequence is written along the gene's own strand, so exons run in reading order. A guide on the opposite strand then appears as its reverse complement, with the PAM (CCN) ahead of the spacer." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to write along."}"${tx ? "" : ' class="gcDisabled"'}>` +
         `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene 5'&rarr;3'</label></span>` +
         `</div>` +
+        // Whether the two choices differ at all. About half of all guides sit
+        // on the gene's own strand, and for those the two options show the
+        // same sequence and the control does nothing — which reads as a
+        // broken setting unless it is said. For the other half they are
+        // reverse complements of each other, and that is the single fact
+        // needed to make sense of a PAM that appears before the spacer.
+        `<div class="gcCtrlRow gcPresetNote">` +
+        `<span class="gcCtrlLabel"></span>` +
+        `<span class="gcHint">${
+            !tx ? "No transcript here, so there is no gene strand to compare with."
+            : cur.site.strand === tx.strand
+                ? `The guide is on the gene's own strand (${strandWord(tx.strand)}), so both choices show the same sequence.`
+                : `The guide runs against the gene: guide on the ${strandWord(cur.site.strand)} strand, ` +
+                  `gene on the ${strandWord(tx.strand)}. The two choices are reverse complements of each other.`
+        }</span>` +
+        `</div>` +
         // How the edit will be read decides how long the PCR product should be,
         // which is the setting people most often need to change and the one
         // that was hidden inside the collapsed panel.
