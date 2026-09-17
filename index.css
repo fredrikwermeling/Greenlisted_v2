@@ -152,6 +152,14 @@ header nav {
 .centerContent {
     margin-left: auto;
     margin-right: auto;
+    /* A flex item is as wide as its content unless told otherwise, and its
+       content here is the logo, whose own max-width is a percentage of THIS
+       element. So the two agreed on 945 px between them and never consulted
+       the screen: on a phone the lockup sat centred in a box wider than the
+       viewport and was cropped on both sides, and the links under it went
+       with it. Pinned to the header's width, the percentage means the screen. */
+    width: 100%;
+    min-width: 0;
 }
 
 nav {

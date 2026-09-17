@@ -141,11 +141,8 @@ async function LIBX_loadAndRefresh() {
 function LIBX_prefetchWhenIdle() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species) || _libxState.loading) return
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
-    if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) {
-        console.log("sgRNA index prefetch skipped: metered or slow connection")
-        return
-    }
+    // Same test the copy-number matrix uses; see APP_prefetchAllowed.
+    if (typeof APP_prefetchAllowed === "function" && !APP_prefetchAllowed("sgRNA index")) return
     const start = () => {
         if (_libxLoaded(species) || _libxState.loading) return
         LIBX_load(species).then(ok => {

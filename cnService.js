@@ -92,14 +92,17 @@ async function CN_loadIfNeeded() {
         const stream = binRes.body.pipeThrough(counter).pipeThrough(new DecompressionStream("gzip"))
         const buf = await new Response(stream).arrayBuffer()
         _cnEmitProgress("decoding", received, total, performance.now() - tDl)
-        const int16 = new Int16Array(buf)
-        const sf = _CN_STATE.metadata.scaleFactor
-        const na = _CN_STATE.metadata.naValue
-        const out = new Float32Array(int16.length)
-        for (let i = 0; i < int16.length; i++) {
-            out[i] = (int16[i] === na) ? NaN : int16[i] / sf
-        }
-        _CN_STATE.data = out
+        // Kept as the 16-bit integers the file holds, and turned into a
+        // value only when one is read. It used to be copied into a Float32
+        // array here, which doubled the resident size to 153 MB and, for the
+        // length of the copy, held both at once: about 230 MB for a matrix
+        // that is 76 MB. A phone tab that reaches that while the sgRNA index
+        // is also being parsed gets killed by the OS, which is what "the app
+        // crashes when I add a cell line" was. Two functions read this array
+        // and both do the division themselves.
+        _CN_STATE.data = new Int16Array(buf)
+        _CN_STATE.scale = _CN_STATE.metadata.scaleFactor
+        _CN_STATE.na = _CN_STATE.metadata.naValue
         _CN_STATE.loaded = true
         _cnEmitProgress("done", received, total, performance.now() - tDl)
         // Synonym index loads in parallel — it's small (~10 MB text but
@@ -122,11 +125,34 @@ async function CN_loadIfNeeded() {
 // mobile data should pay for 62 MB of a feature they may never open. Errors
 // are swallowed, since a failed prefetch must not disturb the main flow —
 // the real load path will surface any problem when the user asks for it.
+// Whether a background download of tens of megabytes is a reasonable thing
+// to start without being asked.
+//
+// The old test looked only at navigator.connection, which reports a metered
+// or slow link — and which Safari does not implement at all, on iPhone or
+// anywhere else. So on the one class of device where an unasked-for 100 MB
+// and a few hundred megabytes of heap matter most, the guard never fired.
+// Now: not on a touch screen, not on a narrow viewport, not on a device
+// reporting little memory, and not on a metered or slow link where that is
+// reported. Everything still loads on demand when a feature asks for it.
+function APP_prefetchAllowed(what) {
+    const why = (() => {
+        try {
+            if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return "touch screen"
+            if (window.innerWidth <= 900) return "narrow viewport"
+            if (navigator.deviceMemory != null && navigator.deviceMemory <= 4) return "low device memory"
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+            if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) return "metered or slow connection"
+        } catch (e) { /* treat an error as permission */ }
+        return null
+    })()
+    if (why) console.log(`${what} prefetch skipped: ${why}`)
+    return !why
+}
+
 function CN_prefetchWhenIdle() {
     if (_CN_STATE.loaded || _CN_STATE.loading) return
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
-    if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) {
-        console.log("CN prefetch skipped: metered or slow connection")
+    if (!APP_prefetchAllowed("Copy-number matrix")) {
         return
     }
     const start = () => {
@@ -228,8 +254,8 @@ function CN_lookup(cellLineId, geneSymbol) {
     const ci = _CN_STATE.cellLineIndex.get(cellLineId)
     if (gi === undefined || ci === undefined) return null
     const nCL = _CN_STATE.metadata.nCellLines
-    const v = _CN_STATE.data[gi * nCL + ci]
-    return isNaN(v) ? null : v
+    const raw = _CN_STATE.data[gi * nCL + ci]
+    return raw === _CN_STATE.na ? null : raw / _CN_STATE.scale
 }
 
 // Extract full gene columns for a set of cell lines — the backbone of the
@@ -244,7 +270,7 @@ function CN_matrixColumns(cellLineIds) {
     const genes = _CN_STATE.metadata.genes
     const nG = genes.length
     const nCL = _CN_STATE.metadata.nCellLines
-    const data = _CN_STATE.data
+    const data = _CN_STATE.data, sf = _CN_STATE.scale, na = _CN_STATE.na
     const values = new Map()
     for (const id of cellLineIds) {
         const ci = _CN_STATE.cellLineIndex.get(id)
@@ -252,7 +278,10 @@ function CN_matrixColumns(cellLineIds) {
         if (ci === undefined) {
             col.fill(NaN)
         } else {
-            for (let gi = 0; gi < nG; gi++) col[gi] = data[gi * nCL + ci]
+            for (let gi = 0; gi < nG; gi++) {
+                const raw = data[gi * nCL + ci]
+                col[gi] = raw === na ? NaN : raw / sf
+            }
         }
         values.set(id, col)
     }
