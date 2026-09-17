@@ -799,48 +799,55 @@ function _cnColumnHeading(cl) {
     const doubled = cl.wgd === true
     // The unit, by example. "Copy number (A-375)" over a column of "1.4x" left
     // the reader to work out 1.4 of what, and the likeliest guess — copies —
-    // is wrong. "1.0x = the A-375 average" says it in the heading, where it is
-    // read at the same moment as the number.
-    const base = `Copy number, 1.0x = an average gene in ${name}`
+    // is wrong. "1.0x = an average gene in A-375 cells" says it in the
+    // heading, where it is read at the same moment as the number.
+    const base = `Copy number, 1.0x = an average gene in ${name} cells`
     const plain = base + (doubled ? ", genome doubled" : "")
-    // One flowing line rather than forced breaks: it wraps to the column and
-    // the doubling, which is the part that inverts how every number below is
-    // read, falls at the end where the colour carries it.
-    _headerHtml[plain] = `Copy number, <span class="cnHeadSub">1.0x = an average gene in ${_escapeHtml(name)}` +
-        (doubled ? `, <span class="cnHeadWgd">genome doubled</span>` : "") + `</span>`
+    // Three deliberate lines rather than one sentence left to wrap: a heading
+    // this narrow broke wherever it ran out of room, and "A-375" came apart
+    // across two rows. Each line is now a whole thought, and the cell line
+    // itself cannot be split.
+    _headerHtml[plain] = `<span class="cnHeadTop">Copy number</span>` +
+        `<span class="cnHeadSub">1.0x = an average gene in ` +
+        `<span class="cnHeadName">${_escapeHtml(name)} cells</span></span>` +
+        (doubled ? `<span class="cnHeadWgd">genome doubled</span>` : "")
     return plain
 }
 
-// The sentence the heading used to carry, put above the table where there is
-// a full line to write on. It has to say what a blank cell means, or an empty
-// column reads as missing data, which is a thing the column says in words when
-// it is what it means.
 function _cnColumnNote(cl) {
     const bits = []
     if (cl.ploidy != null && !isNaN(cl.ploidy)) bits.push(`${Number(cl.ploidy).toFixed(1)}n`)
     if (cl.wgd === true) bits.push("whole-genome doubled")
     else if (cl.wgd === false) bits.push("no whole-genome doubling")
-    const line = bits.length ? `${_cnPlainName(cl)} is ${bits.join(", ")}` : `${_cnPlainName(cl)}`
-    // Short. It was three times this length and had a sentence in it about
-    // why the figures are rounded, which is a decision about the design and
-    // no business of the person reading a result. What is left is the
-    // baseline, what a blank cell means, and why either extreme matters.
+    const name = _cnPlainName(cl)
+    const line = bits.length ? `${name} cells are ${bits.join(", ")}` : `${name} cells`
+    // Short, and in two matched sentences. What the two extremes do to a
+    // screen was one sentence with a semicolon in it, which made the reader
+    // hold both halves at once to learn two separate things.
     const plain = `Copy number: ${line}. 1.0x is an average gene in this line, and a blank cell means no change. ` +
-                  `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out ` +
-                  `from the cutting alone, which reads as a hit that is not one.`
+                  `Guides for a deleted gene have nothing to cut. Guides for an amplified gene cut many times at ` +
+                  `once, which can kill the cell on its own and look like a hit.`
     // The cell line and its ploidy are the part every number below is read
     // against, and set in the same grey as the rest of the paragraph they were
-    // lost in it.
+    // lost in it. The name also links to Correlate, where the same line has a
+    // page of its own.
     _headerHtml[plain] = `<b class="cnNoteLine">Copy number: ${_escapeHtml(line)}.</b> ` +
         `1.0x is an average gene in this line, and a blank cell means no change. ` +
-        `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out ` +
-        `from the cutting alone, which reads as a hit that is not one.`
+        `Guides for a deleted gene have nothing to cut. Guides for an amplified gene cut many times at once, ` +
+        `which can kill the cell on its own and look like a hit. ` +
+        `<a class="cnNoteLink" href="${_CORRELATE_CELL_URL}" target="_blank" rel="noopener noreferrer">` +
+        `Look up ${_escapeHtml(name)} in Correlate</a>`
     return plain
 }
 
 // Cell-line names come from DepMap, and the lines above a rendered table are
 // inserted as markup rather than escaped, so nothing that could be read as a
 // tag goes into one.
+// Correlate's cell-line browser, where every DepMap line has a page with its
+// mutations, fusions, signatures and a wiki write-up. #cell is the route that
+// opens the browser directly.
+const _CORRELATE_CELL_URL = "https://correlate.cmm.se/#cell"
+
 function _cnPlainName(cl) {
     return String(cl.name || "").replace(/[<>&\t]/g, "")
 }
@@ -2651,16 +2658,17 @@ function CN_handleScreeningCellLineInput() {
             }
             const list = CN_listCellLines()
             if (dl) {
-                // Emit both the DepMap canonical form ("A-375") AND the
-                // hyphen-stripped form ("A375") when they differ — typing
-                // either gets an autocomplete suggestion.
+                // One row per cell line, carrying the DepMap name. The
+                // hyphen-stripped spelling used to be a second row of its own,
+                // so PGA-1 and PGA1 read as two different lines when they are
+                // one; it is now part of the row's description, which the
+                // browser matches on as well, so typing either spelling still
+                // finds it and what gets filled in is the real name.
                 const opts = []
                 for (const c of list) {
+                    const alias = (c.stripped && c.stripped !== c.name) ? c.stripped + " · " : ""
                     const ann = [c.disease, c.lineage].filter(Boolean).join(" · ")
-                    opts.push(`<option value="${c.name}">${ann}</option>`)
-                    if (c.stripped && c.stripped !== c.name) {
-                        opts.push(`<option value="${c.stripped}">${c.name} &mdash; ${ann}</option>`)
-                    }
+                    opts.push(`<option value="${_escapeHtml(c.name)}">${_escapeHtml(alias + ann)}</option>`)
                 }
                 dl.innerHTML = opts.join("")
             }
@@ -2672,9 +2680,16 @@ function CN_handleScreeningCellLineInput() {
             ? _cnState.fullCatalog : CN_listCellLines()
         // Match the user's input against either the canonical name or the
         // stripped form (DepMap uses "A-375" / "A375" — both are correct).
-        const match = list.find(c => c.name === val || (c.stripped && c.stripped === val))
+        const key = val.toLowerCase()
+        const match = list.find(c => c.name.toLowerCase() === key ||
+                                     (c.stripped && c.stripped.toLowerCase() === key))
         const row = document.getElementById("cnAnnotationOutputRow")
         if (match) {
+            // Put the DepMap spelling in the field. Typing "a375" or "A375"
+            // finds the same line, but the name it is published under is
+            // A-375, and that is the one to carry into an output file or a
+            // methods section.
+            if (val !== match.name) inp.value = match.name
             _cnState.screeningCellLines = [match]
             if (status) {
                 const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""

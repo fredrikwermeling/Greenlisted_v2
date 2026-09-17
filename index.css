@@ -2258,14 +2258,28 @@ a.gcBtnLink {
     overflow-x: auto;
 }
 
-/* The second line of the copy-number heading: which cell line the numbers are
-   read against, and whether its genome is doubled. */
-.cnHeadSub {
+/* The copy-number heading, in three lines: what the column is, what the unit
+   means, and whether the genome is doubled. Left to wrap on its own it broke
+   wherever it ran out of room, which split "A-375" across two rows. */
+.cnHeadTop,
+.cnHeadSub,
+.cnHeadWgd {
     /* The reset at the top of this file sets a font on every element via `*`,
        which beats inheritance, so a span inside a monospace cell comes out in
        the sans face unless it says otherwise. */
     font-family: var(--monoFont);
+    display: block;
+}
+
+.cnHeadSub,
+.cnHeadWgd {
     font-weight: 400;
+}
+
+/* The cell line is a name, so it never breaks in the middle. */
+.cnHeadName {
+    font-family: inherit;
+    white-space: nowrap;
 }
 
 /* Whole-genome doubling in red. It is not a warning about the cell line, it
@@ -2275,6 +2289,12 @@ a.gcBtnLink {
    below means the opposite of what it appears to. */
 .cnHeadWgd {
     color: #b91c1c;
+}
+
+/* Through to the same cell line in Correlate, which has a page per line. */
+.cnNoteLink {
+    color: #1d4ed8;
+    white-space: nowrap;
 }
 
 /* The line the first output's label gains once a screening cell line is
