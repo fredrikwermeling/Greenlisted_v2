@@ -684,6 +684,17 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
+            // The gene itself opens in Correlate, where the same gene has its
+            // effect across the whole DepMap panel. Only in the symbol column,
+            // only for real genes — a safe-targeting control is not one — and
+            // only for human libraries, since that is the panel Correlate
+            // holds.
+            if (j === starCol && _geneLinkable(cols[j])) {
+                const sym = String(cols[j]).trim()
+                cell = `<a class="geneLink" href="${_correlateGeneUrl(sym.toUpperCase())}" target="_blank" ` +
+                       `rel="noopener noreferrer" title="Open ${_escapeHtml(sym)} in Correlate: its gene effect across ` +
+                       `the DepMap cell lines">${cell}</a>`
+            }
             if (j === starCol) {
                 const line = _hotCellLine()
                 const variant = line ? HOT_variant(line, cols[j]) : null
@@ -694,12 +705,10 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
                 }
             }
             if (j === starCol && ESS_isEssential(cols[j])) {
-                // The * is a link: the next question about a gene that drops
-                // out everywhere is what it actually looks like across the
-                // panel, and that is a page in Correlate.
-                const sym = String(cols[j]).trim().toUpperCase()
-                cell += `<a class="essStar" href="${_correlateGeneUrl(sym)}" target="_blank" rel="noopener noreferrer" ` +
-                        `title="Essential in nearly every cell line. Open ${_escapeHtml(sym)} in Correlate">*</a>`
+                // A marker again rather than a link: the symbol beside it now
+                // goes to the same page, and two links to one place in one
+                // cell is one too many.
+                cell += `<span class="essStar" title="Essential in nearly every cell line">*</span>`
                 starred = true
             }
             bodyHtml += `<td${cls}>${cell}</td>`
@@ -749,8 +758,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     }
     if (starred) {
         html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
-                `whatever the experiment was asking. Press a * to see that gene across the DepMap panel in ` +
-                `Correlate. Source: ${_escapeHtml(_essential.data.source)}.</p>`
+                `whatever the experiment was asking. Source: ${_escapeHtml(_essential.data.source)}.</p>`
     }
     return html
 }
@@ -1173,6 +1181,17 @@ function _correlateCellUrl(name) {
 // Correlate again, this time for one gene: #gene=<symbol> fills the gene box
 // and runs, so the link lands on the gene's effect across the panel rather
 // than on a form.
+// Is this cell a gene that Correlate would know? Controls are not genes, and
+// Correlate's panel is human, so a mouse symbol would land on a search that
+// finds nothing.
+function _geneLinkable(value) {
+    const sym = String(value == null ? "" : value).trim()
+    if (!sym || /\s/.test(sym)) return false
+    if (typeof _gcIsControl === "function" && _gcIsControl(sym)) return false
+    if (typeof _setsSpecies === "function" && _setsSpecies() !== "Human") return false
+    return /^[A-Za-z][A-Za-z0-9._-]{0,20}$/.test(sym)
+}
+
 function _correlateGeneUrl(symbol) {
     return "https://correlate.cmm.se/#gene=" + encodeURIComponent(String(symbol || "").trim())
 }
