@@ -420,7 +420,7 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
         return Object.assign({}, p, {
             insideAnAnnotatedRepeat: { forwardPrimer: fRep, reversePrimer: rRep },
             // Worked out here because it is the comparison most often made by
-            // eye across ten pairs, and most often got wrong: one reply named
+            // eye across the candidate pairs, and most often got wrong: one reply named
             // a pair as having the closest-matched melting temperatures of
             // those that qualified when another pair was three times closer.
             tmDifference: (p.forward.tm != null && p.reverse.tm != null)
@@ -723,7 +723,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "Neither primer may lie inside an annotated repeat. This file says which ones do.",
             "A pair can be read from either end. If the forward primer is close to the minimum clearance, sequencing the same product with the reverse primer puts the cut deep inside a clean read instead, and it costs one extra reaction.",
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere in the genome gives a mixed trace that looks like editing.",
-            "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity. The difference between the two temperatures is given for each pair; do not work it out across ten pairs by eye.",
+            "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity. The difference between the two temperatures is given for each pair; do not work it out by eye across the pairs.",
             "A second choice is only worth naming if it uses different primer sites. Primer-BLAST offers the same site again shifted by a base or two, and each pair says which others are the same two sites as itself. A fallback that shares both of them fails for every reason the first one does."
         ],
 

@@ -63,7 +63,7 @@ const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
 // an older version is dropped rather than merged, so a new default is not
 // silently overridden by the previous default sitting in localStorage.
-const _GC_PB_VERSION = 4
+const _GC_PB_VERSION = 5
 
 var _GC = {
     locus: new Map(),     // genome|symbol|spacer -> locate result
@@ -97,7 +97,10 @@ const _GC_PB_DEFAULTS = {
     tmMin: "", tmOpt: "", tmMax: "", tmDiff: "",
     sizeMin: "", sizeOpt: "", sizeMax: "",
     gcMin: "", gcMax: "",
-    numReturn: "",
+    // Primer-BLAST returns 10 pairs by default. Choosing between ten is slower
+    // to run and slower to read, and the pairs past the first few are variations
+    // on the same two or three sites. Five is enough to have a choice.
+    numReturn: 5,
     db: "PRIMERDB/genome_selected_species"
 }
 
@@ -1385,7 +1388,7 @@ function _gcPbSettingsHtml(v) {
     return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
         `<summary>Primer-BLAST settings${changed ? " (customized)" : ""}</summary>` +
         `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) and this window's genomic position, so it checks specificity against the genome and goes straight to designing rather than first asking you which hit was the intended target. ` +
-        `Three things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp; the maximum, set to the length of this window instead of 1000 so a pair may span all of it; and the primer windows, worked out from the cut. ` +
+        `Four things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp; the maximum, set to the length of this window instead of 1000 so a pair may span all of it; the primer windows, worked out from the cut; and the number of pairs returned, 5 rather than 10, which is quicker to run and to read. ` +
         `Every other box is left blank on purpose — Primer-BLAST fills those with its own documented defaults, shown in gray inside each box. ` +
         `That meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Anything you type here is remembered in this browser.</p>` +
         `<div class="gcPbGrid">` +
