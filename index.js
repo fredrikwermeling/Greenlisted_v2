@@ -1132,12 +1132,28 @@ function _cnColumnHeading(cl) {
 }
 
 function _cnColumnNote(cl) {
-    const bits = []
-    if (cl.ploidy != null && !isNaN(cl.ploidy)) bits.push(`${Number(cl.ploidy).toFixed(1)}n`)
-    if (cl.wgd === true) bits.push("whole-genome doubled")
-    else if (cl.wgd === false) bits.push("no whole-genome doubling")
     const name = _cnPlainName(cl)
-    const line = bits.length ? `${name} cells are ${bits.join(", ")}` : `${name} cells`
+    // "2.9n" is how the field writes it and means nothing to anyone else. What
+    // the number says is how many copies of an ordinary gene the cells carry,
+    // against the two a normal cell has, so that is what it says.
+    const ploidy = (cl.ploidy != null && !isNaN(cl.ploidy)) ? Number(cl.ploidy) : null
+    var line
+    if (ploidy == null) {
+        line = `${name} cells`
+    } else {
+        const copies = Math.round(ploidy)
+        const same = copies === 2
+        line = `${name} cells carry about ${copies} ${copies === 1 ? "copy" : "copies"} of an average gene` +
+               (same ? ", the same as an ordinary cell" : ", where an ordinary cell has 2") +
+               (cl.wgd === true
+                   ? (copies < 4
+                       // Doubling makes four; a line sitting below that has
+                       // given some of it back, and saying so explains why the
+                       // number is not the four the reader expects.
+                       ? ": the whole genome was doubled at some point and parts of it have been lost since"
+                       : ": the whole genome was doubled at some point")
+                   : "")
+    }
     // Two short sentences, one per extreme, and the amplified one names the
     // cause: the damage from the cuts, not the gene.
     const plain = `Copy number: ${line}. 1.0x is an average gene in this line, and a blank cell means no change. ` +
