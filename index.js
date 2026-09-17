@@ -1524,11 +1524,37 @@ function _guideRowExtras(which) {
             if (col) extras.push(col)
         }
     }
+    const symbolOf = (which === "adapter")
+        ? (cols => cols[0])
+        : (cols => cols[(settings && settings.symbolColumn ? settings.symbolColumn : 1) - 1])
+    extras.push(_geneColumnFor(symbolOf))
     const ctx = (which === "adapter")
         ? (typeof GC_rowExtraAdapter === "function" ? GC_rowExtraAdapter() : null)
         : (typeof GC_rowExtraFull === "function" ? GC_rowExtraFull() : null)
     if (ctx) extras.push(ctx)
     return extras
+}
+
+// A column of its own for the gene, rather than a third button crowded in
+// beside Context and Libraries, where it moved left and right from row to row
+// depending on whether the Libraries button was there. Once per gene, not once
+// per guide: it opens the same page for all three rows of a gene.
+function _geneColumnFor(symbolOf) {
+    const seen = new Set()
+    return {
+        header: "Gene",
+        cell: cols => {
+            const sym = String(symbolOf(cols) || "").replace(/^'/, "").trim()
+            if (!sym || !_geneLinkable(sym)) return ""
+            const key = sym.toLowerCase()
+            if (seen.has(key)) return ""
+            seen.add(key)
+            return `<a class="gcBtn gcBtnLink" href="${_correlateGeneUrl(sym.toUpperCase())}" ` +
+                   `target="_blank" rel="noopener noreferrer" ` +
+                   `title="Open ${_escapeHtml(sym)} in Correlate: every DepMap cell line ranked by how much it ` +
+                   `depends on this gene.">Gene effect</a>`
+        }
+    }
 }
 
 // The clean spacer for a row of the adapter view. The sequence in the row has
