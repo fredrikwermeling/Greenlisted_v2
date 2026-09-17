@@ -93,7 +93,12 @@ var _GC = {
 // settings are entered once.
 const _GC_PB_DEFAULTS = {
     minDist: 150,
-    productMin: 500, productMax: "",
+    // The same numbers as the Sanger preset, because that is the readout the
+    // panel opens on. They were kept in two places and drifted: the preset
+    // gained a maximum and this did not, so a user who never pressed a preset
+    // button — which is everyone, since Sanger is already selected — carried
+    // on sending no maximum at all.
+    productMin: 500, productMax: 800,
     tmMin: "", tmOpt: "", tmMax: "", tmDiff: "",
     sizeMin: "", sizeOpt: "", sizeMax: "",
     gcMin: "", gcMax: "",
