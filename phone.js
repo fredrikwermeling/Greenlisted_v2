@@ -167,6 +167,36 @@ function _phoneOutputs(on) {
         const want = on ? label.dataset.wideHtml.replace(/<br\s*\/?>/gi, " ") : label.dataset.wideHtml
         if (label.innerHTML !== want) label.innerHTML = want
     }
+    // The title is the control on a phone, so it carries the tap. The Show
+    // button it stands in for is still the thing clicked, so every code path
+    // behind it — the active marker, the pane switching — is unchanged.
+    for (const label of table.querySelectorAll(".outLabel")) {
+        if (label.dataset.phoneTap) continue
+        label.dataset.phoneTap = "1"
+        label.addEventListener("click", e => {
+            if (!table.classList.contains("phone-outputs")) return
+            if (e.target.closest(".infoDot")) return
+            const btn = label.parentElement.querySelector("button[data-show]")
+            if (!btn) return
+            btn.click()
+            // Chosen from a grid that sits above the table, so the answer is
+            // below the fold the moment it is drawn.
+            // Not inside requestAnimationFrame: a frame callback can be held
+            // back indefinitely, and the scroll then never happens at all.
+            // The table is already in the document by the time click()
+            // returns, so there is nothing to wait for.
+            if (typeof APP_scrollIntoView === "function") {
+                APP_scrollIntoView(document.getElementById("fileContentContainer"))
+            }
+        })
+        label.setAttribute("role", "button")
+        label.setAttribute("tabindex", "0")
+        label.addEventListener("keydown", e => {
+            if (e.key !== "Enter" && e.key !== " ") return
+            e.preventDefault()
+            label.click()
+        })
+    }
     table.classList.toggle("phone-outputs", on)
     if (!on) table.classList.remove("phone-outputs-open")
     more.hidden = !on

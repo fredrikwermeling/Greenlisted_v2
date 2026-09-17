@@ -82,6 +82,16 @@
     --greenColor: green;
 }
 
+/* iOS inflates the text of any block it decides is too wide to read, which
+   is how one column of a results table came out half again the size of the
+   one beside it: the table is wider than a phone, so Safari "helpfully" grew
+   the longest column. The table scrolls sideways on purpose and needs no
+   help. */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 * {
     font-family: var(--sans-font);
     padding: 0px;
@@ -2195,6 +2205,14 @@ a.gcBtnLink {
    missing data rather than as a gene at the cell line's own ploidy. Blue
    rather than the amber of the run banner, which is a warning; this is a
    key to the column. */
+/* The cell line and its ploidy, inside the copy-number note. Every figure in
+   the column is read against these, and in the same weight as the sentences
+   around them they were lost. */
+.cnNoteLine {
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
 .cnNote {
     margin: 4px 0 10px 0;
     padding: 8px 12px;
@@ -2363,21 +2381,50 @@ a.gcBtnLink {
     #outputTable.phone-outputs tr:has(#outLabelAdapter),
     #outputTable.phone-outputs.phone-outputs-open tr { display: flex; }
 
-    /* The oligo list is on screen already — it is what the section opens on —
-       so its Show button says nothing. It comes back when the other outputs
-       are open, because then there is somewhere else to have been. */
-    #outputTable.phone-outputs tr:has(#outLabelAdapter) button[data-show] { display: none; }
-    #outputTable.phone-outputs.phone-outputs-open tr:has(#outLabelAdapter) button[data-show] { display: inline-block; }
+    /* The outputs as a grid of tappable titles, two to a row.
+       A title over a Show button is two rows of screen for one choice, and
+       with seven outputs that ran to a column several screens long. The title
+       is the button now — it already names the thing — and the Show buttons
+       are hidden. phone.js makes the titles tappable and scrolls to the table
+       once one is chosen. */
+    #outputTable.phone-outputs button[data-show] { display: none; }
 
-    /* A label wrapped for three desktop columns has a whole phone row to
-       itself, and the fixed height that keeps those columns level has nothing
-       to line up with. */
+    /* Download all is a download and nothing else, so with the downloads
+       hidden its title would be a tile that does nothing when tapped. */
+    #outputTable.phone-outputs tr:not(:has(button[data-show])) { display: none; }
+
+    #outputTable.phone-outputs > * {
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-start;
+    }
+    #outputTable.phone-outputs tr {
+        flex: 1 1 calc(50% - 3px);
+        min-width: 0;
+        padding: 0;
+    }
     #outputTable.phone-outputs .outLabel {
         height: auto;
-        min-height: 0;
-        padding: 6px 4px;
+        min-height: 44px;
+        padding: 8px 6px;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--inputRadius);
+        background: var(--gray-100);
+        color: var(--gray-700);
+        font-size: 0.82rem;
+        line-height: 1.25;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
     }
-    #outputTable.phone-outputs tr { padding-bottom: 4px; }
+    /* Which one is on screen, so the grid says where you are. */
+    #outputTable.phone-outputs tr:has(button.show-active) .outLabel {
+        background: var(--green-50);
+        border-color: var(--green-600);
+        color: var(--green-800);
+        font-weight: 600;
+    }
+    #outputTable.phone-outputs .outLabelAdd { font-size: 0.72rem; }
     .phoneMoreOutputs {
         order: 99;
         text-align: center;

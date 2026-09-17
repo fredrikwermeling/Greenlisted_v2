@@ -344,10 +344,11 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             // this file is, and the copy-number line says why most of a column
             // is empty — a reader who misses it reads blank cells as missing
             // data. Both are drawn as callouts; everything else stays quiet.
+            const rich = _headerHtml[displayText.trim()] || displayText
             infoHtml += /^THIS RUN:/.test(displayText)
                 ? `<p class="runBanner">${displayText}</p>`
                 : /^Copy number:/.test(displayText)
-                ? `<p class="cnNote">${displayText}</p>`
+                ? `<p class="cnNote">${rich}</p>`
                 : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
             dataStart = i + 1
         } else {
@@ -653,6 +654,26 @@ async function runScreening() {
     _scrollToOutput()
 }
 
+// Scroll something into view and make sure it actually happened.
+//
+// A smooth scroll is a request, not an instruction: browsers decline it in a
+// background tab, under reduced-motion settings, and in some embedded
+// contexts, and when they do, scrollIntoView moves nothing at all and says
+// nothing about it. That turns "take me to the answer" into silence. So the
+// smooth one is asked for, and if the page has not moved a moment later it is
+// done outright.
+function APP_scrollIntoView(el) {
+    if (!el) return
+    const before = window.scrollY
+    try { el.scrollIntoView({ behavior: "smooth", block: "start" }) }
+    catch (e) { el.scrollIntoView(true) }
+    setTimeout(() => {
+        if (Math.abs(window.scrollY - before) > 4) return   // it took
+        const top = window.scrollY + el.getBoundingClientRect().top
+        window.scrollTo(0, Math.max(0, Math.round(top)))
+    }, 350)
+}
+
 // The results are at the foot of a page that is three columns on a desktop
 // and one long column on a phone, so on a phone pressing Run left the user
 // looking at the button they had just pressed with the answer several screens
@@ -665,9 +686,8 @@ function _scrollToOutput() {
     const table = document.getElementById("outputTable")
     if (!table) return
     requestAnimationFrame(() => {
-        const top = table.getBoundingClientRect().top
-        if (top < window.innerHeight * 0.75) return
-        table.scrollIntoView({ behavior: "smooth", block: "start" })
+        if (table.getBoundingClientRect().top < window.innerHeight * 0.75) return
+        APP_scrollIntoView(table)
     })
 }
 
@@ -764,12 +784,22 @@ function _cnColumnNote(cl) {
     if (cl.ploidy != null && !isNaN(cl.ploidy)) bits.push(`${Number(cl.ploidy).toFixed(1)}n`)
     if (cl.wgd === true) bits.push("whole-genome doubled")
     else if (cl.wgd === false) bits.push("no whole-genome doubling")
-    const tail = bits.length ? ` is ${bits.join(", ")}` : " is the baseline"
-    return `Copy number: ${_cnPlainName(cl)}${tail}, and the column lists only genes that depart from it. Values are relative to that ` +
-           `baseline: 1.0x is what an average gene in this line has, 0.5x is half as many copies and 2.0x is twice as many. ` +
-           `The figures are rounded, since what matters is which way a gene departs and roughly how far. A blank cell means no change. ` +
-           `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out from the cutting alone, ` +
-           `which reads as a hit that is not one. The Copy number per gene output carries the same values with the copies worked out.`
+    const line = bits.length ? `${_cnPlainName(cl)} is ${bits.join(", ")}` : `${_cnPlainName(cl)}`
+    // Short. It was three times this length and had a sentence in it about
+    // why the figures are rounded, which is a decision about the design and
+    // no business of the person reading a result. What is left is the
+    // baseline, what a blank cell means, and why either extreme matters.
+    const plain = `Copy number: ${line}. 1.0x is an average gene in this line, and a blank cell means no change. ` +
+                  `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out ` +
+                  `from the cutting alone, which reads as a hit that is not one.`
+    // The cell line and its ploidy are the part every number below is read
+    // against, and set in the same grey as the rest of the paragraph they were
+    // lost in it.
+    _headerHtml[plain] = `<b class="cnNoteLine">Copy number: ${_escapeHtml(line)}.</b> ` +
+        `1.0x is an average gene in this line, and a blank cell means no change. ` +
+        `A deleted gene is not there to be cut, so its guides report nothing; an amplified one can drop out ` +
+        `from the cutting alone, which reads as a hit that is not one.`
+    return plain
 }
 
 // Cell-line names come from DepMap, and the lines above a rendered table are
