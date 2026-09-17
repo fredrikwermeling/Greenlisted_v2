@@ -605,7 +605,12 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
             if (j === starCol && ESS_isEssential(cols[j])) {
-                cell += `<span class="essStar" title="Essential in nearly every cell line">*</span>`
+                // The * is a link: the next question about a gene that drops
+                // out everywhere is what it actually looks like across the
+                // panel, and that is a page in Correlate.
+                const sym = String(cols[j]).trim().toUpperCase()
+                cell += `<a class="essStar" href="${_correlateGeneUrl(sym)}" target="_blank" rel="noopener noreferrer" ` +
+                        `title="Essential in nearly every cell line. Open ${_escapeHtml(sym)} in Correlate">*</a>`
                 starred = true
             }
             bodyHtml += `<td${cls}>${cell}</td>`
@@ -642,7 +647,8 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     html += '</tr></thead><tbody>' + bodyHtml + '</tbody></table>'
     if (starred) {
         html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
-                `whatever the screen was asking. Source: ${_escapeHtml(_essential.data.source)}.</p>`
+                `whatever the experiment was asking. Press a * to see that gene across the DepMap panel in ` +
+                `Correlate. Source: ${_escapeHtml(_essential.data.source)}.</p>`
     }
     return html
 }
@@ -1057,6 +1063,13 @@ function _cnColumnNote(cl) {
 // id alike, so the published name here is enough.
 function _correlateCellUrl(name) {
     return "https://correlate.cmm.se/#cell=" + encodeURIComponent(String(name || "").trim())
+}
+
+// Correlate again, this time for one gene: #gene=<symbol> fills the gene box
+// and runs, so the link lands on the gene's effect across the panel rather
+// than on a form.
+function _correlateGeneUrl(symbol) {
+    return "https://correlate.cmm.se/#gene=" + encodeURIComponent(String(symbol || "").trim())
 }
 
 function _cnPlainName(cl) {

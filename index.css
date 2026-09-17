@@ -2636,7 +2636,14 @@ body.modal-open {
     color: var(--mainColor);
     font-weight: 700;
     margin-left: 2px;
-    cursor: help;
+    text-decoration: none;
+    /* A single character is a small thing to hit, so the target is padded out
+       around it. */
+    padding: 0 3px;
+}
+
+.essStar:hover {
+    text-decoration: underline;
 }
 
 .essLegend {
