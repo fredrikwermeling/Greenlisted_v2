@@ -633,8 +633,16 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
         // coming, so it is stated per pair rather than left in the section above.
         const fRep = _gcaiInRepeat(v, p.forward.start, p.forward.end)
         const rRep = _gcaiInRepeat(v, rLo, rHi)
-        if (fRep) notes.push(`The forward primer lies inside an annotated repeat, ${fRep}. Expect it to prime elsewhere in the genome as well.`)
-        if (rRep) notes.push(`The reverse primer lies inside an annotated repeat, ${rRep}. Expect it to prime elsewhere in the genome as well.`)
+        // Sitting in a repeat is a reason to look, not a verdict. RepeatMasker
+        // annotates ancient and diverged elements as readily as recent ones,
+        // and a primer inside a worn-out L1 fragment is often unique — while
+        // Primer-BLAST, which does test that, returned this pair. Written as a
+        // disqualification it threw away every candidate for guides whose
+        // flank happens to end in a repeat, which is common: one report had
+        // all five pairs rejected on that ground alone.
+        const repeatNote = " That is a reason to check where else it could prime, not a fault in itself: old repeats are often unique enough to prime one place only, and Primer-BLAST's genome search, which is the test of it, returned this pair anyway. The specificity report on its results page settles it, and this file carries that report when the whole page is pasted in."
+        if (fRep) notes.push(`The forward primer lies inside an annotated repeat, ${fRep}.` + repeatNote)
+        if (rRep) notes.push(`The reverse primer lies inside an annotated repeat, ${rRep}.` + repeatNote)
         const same = sameSites[pi]
         if (same.length) {
             notes.push(`Pair${same.length === 1 ? "" : "s"} ${same.join(", ")} ` +
@@ -721,8 +729,6 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
 function _gcaiDisqualify(p, spansCut, fRep, rRep, product, sanger, fwdLeadIn, revLeadIn, rHi, cut) {
     const out = []
     if (!spansCut) out.push("the product does not span the cut site, so it cannot report the edit")
-    if (fRep) out.push("the forward primer lies inside an annotated repeat, so it will prime elsewhere in the genome")
-    if (rRep) out.push("the reverse primer lies inside an annotated repeat, so it will prime elsewhere in the genome")
     if (sanger) {
         const fwdOk = _gcaiFitsTide(fwdLeadIn, Math.max(0, rHi - cut))
         const revOk = _gcaiFitsTide(revLeadIn, Math.max(0, cut - p.forward.start + 1))
@@ -755,6 +761,10 @@ function _gcaiShortlist(annotated, sanger) {
         // up for that. Unknown counts as zero rather than as bad, so a run
         // without the report ranks exactly as it did before.
         const offTargets = (a.specificity && a.specificity.ofThoseWithACleanThreePrimeEndOnBothPrimers) || 0
+        // No longer disqualifying, but still a reason to prefer a pair that
+        // sits on ordinary sequence when there is one.
+        const inRepeat = (a.insideAnAnnotatedRepeat.forwardPrimer ? 1 : 0) +
+                         (a.insideAnAnnotatedRepeat.reversePrimer ? 1 : 0)
         const tm = a.tmDifference == null ? 9 : Math.round(a.tmDifference * 2) / 2   // half-degree bands
         const self3 = Math.max(a.forward.self3Complementarity || 0, a.reverse.self3Complementarity || 0)
         const rel = a.relativeToCutSite
@@ -766,7 +776,7 @@ function _gcaiShortlist(annotated, sanger) {
                 Math.abs(rel.basesFromCutToReversePrimer - 250)))
             // Under the ceiling, a longer product is safer, so this counts down.
             : -(a.productLength || 0)
-        return [offTargets, tm, self3, geometry, a.pair]
+        return [offTargets, inRepeat, tm, self3, geometry, a.pair]
     }
     const usable = annotated.filter(a => a.usable).sort((x, y) => {
         const a = key(x), b = key(y)
@@ -785,8 +795,8 @@ function _gcaiShortlist(annotated, sanger) {
             : `${out} of ${annotated.length} pairs ${out === 1 ? "is" : "are"} disqualified, listed under notUsable with the reason. The rest are in bestFirst.`,
         bestFirst: usable.map(a => a.pair),
         howThisWasOrdered: (annotated.some(a => a.specificity)
-                ? "Pairs that clear every hard requirement, ordered first by how many off-target products Primer-BLAST reported with a clean 3' end on both primers, since a pair that primes elsewhere gives a mixed result that no melting temperature makes up for, then "
-                : "Pairs that clear every hard requirement, ordered ") +
+                ? "Pairs that clear every hard requirement, ordered first by how many off-target products Primer-BLAST reported with a clean 3' end on both primers, since a pair that primes elsewhere gives a mixed result that no melting temperature makes up for, then by whether a primer sits in an annotated repeat, then "
+                : "Pairs that clear every hard requirement, ordered first by whether a primer sits in an annotated repeat, then ") +
             (sanger
                 ? "by closeness of the two melting temperatures (in half-degree bands, since a tenth of a degree decides nothing), then by 3' self-complementarity, then by how near the cut sits to 250 bases from the primer it would be read with."
                 : "by closeness of the two melting temperatures (in half-degree bands), then by 3' self-complementarity, then by product length, longest first, since a longer amplicon under the merge ceiling loses fewer large deletions."),
@@ -1127,7 +1137,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "The product has to be short enough for the paired reads to overlap and merge. About 280 bp is the ceiling on a 2x150 run, about 450 bp on a 2x250 run.",
             "Within that ceiling, longer is better, not worse. A deletion that reaches a primer site destroys the amplicon, that allele vanishes from the data rather than being counted as edited, and the result is biased toward looking unedited.",
             "Neither primer should sit within about 50 bp of the cut, and CRISPResso2 ignores the outermost 15 bp of the amplicon, so the cut has to sit well inside the product.",
-            "Neither primer may lie inside an annotated repeat. This file says which ones do.",
+            "A primer inside an annotated repeat is worth a second look but is not disqualified: Primer-BLAST's genome search is the test of whether it is unique, and it returned the pair.",
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere gives a mixture of products and the counts become meaningless.",
             "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity."
         ] : [
@@ -1135,7 +1145,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "Neither primer should sit within about 150 bp of the cut. An indel under a primer stops it annealing, and the alleles carrying the biggest deletions are then the ones you fail to amplify, which biases the result toward looking unedited.",
             "The first 20-50 bases of a Sanger read are unreliable, so the distance from the sequencing primer to the cut needs to be comfortably more than that. Around 150-250 bp is the usual target.",
             "There must be enough clean sequence after the cut as well, since ICE and TIDE both infer the indel spectrum from the mixed trace downstream of it. Longer helps when deletions are large.",
-            "Neither primer may lie inside an annotated repeat. This file says which ones do.",
+            "A primer inside an annotated repeat is worth a second look but is not disqualified: RepeatMasker marks diverged elements as readily as recent ones, Primer-BLAST's genome search is the test of whether a primer is unique, and it returned the pair. Where the specificity report was pasted in, judge it on that instead.",
             "A pair is read from ONE end, so say which. The file judges each direction separately and names one in sequenceThisProductWith; a pair can be unusable one way and ideal the other, and a recommendation that does not say which primer to sequence with is incomplete.",
             "A Sanger read is not reliable much past 700 bases, so a cut further than that from the sequencing primer cannot be read from that end however good the pair is.",
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere in the genome gives a mixed trace that looks like editing.",
