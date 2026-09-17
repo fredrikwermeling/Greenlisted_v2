@@ -377,11 +377,7 @@ function _gcaiInRepeat(v, from, to) {
 // Primer-BLAST positions everything relative to the template it was handed and
 // has no idea where the cut is. This adds that, in both reading directions,
 // plus a verdict against the ICE and TIDE guidance.
-function _gcaiAnnotatePairs(pairs, v, readout) {
-    const cut = v.cutAfter                 // last base before the cut, 1-based
-    const n = v.n
-    const sanger = readout !== "ngs"
-    // A Sanger trace is unreadable for the first ~30 bases and stays reliable for
+// A Sanger trace is unreadable for the first ~30 bases and stays reliable for
 // roughly 700 after the primer, so the cut has to fall inside that window, and
 // there has to be clean template beyond it for the indel spectrum to be read
 // from. Both ICE and TIDE work this way; they differ in how much room they ask
@@ -424,7 +420,11 @@ function _gcaiReadFrom(fwdLeadIn, revLeadIn) {
     return "neither: the cut is out of reach of a single Sanger read from either primer"
 }
 
-// Which pairs are the same amplicon as which.
+function _gcaiAnnotatePairs(pairs, v, readout) {
+    const cut = v.cutAfter                 // last base before the cut, 1-based
+    const n = v.n
+    const sanger = readout !== "ngs"
+    // Which pairs are the same amplicon as which.
     //
     // Primer-BLAST returns near-duplicates: the same site offered again
     // shifted a base or two. They look like ten choices and are not, and a
@@ -438,6 +438,27 @@ function _gcaiReadFrom(fwdLeadIn, revLeadIn) {
         .map((q, j) => ({ q: q, j: j }))
         .filter(o => o.j !== i && overlaps(span(p).f, span(o.q).f) && overlaps(span(p).r, span(o.q).r))
         .map(o => o.q.pair != null ? o.q.pair : o.j + 1))
+    // The same information as one grouping rather than as a list on each pair.
+    // A per-pair list has to be assembled in the reader's head to see the
+    // groups, and that is where it went wrong: an assistant reading "pair 3 is
+    // the same sites as 2 and 4" still offered pair 2 as the independent
+    // fallback to pair 3.
+    const groupOf = new Array(pairs.length).fill(0)
+    var nextGroup = 0
+    for (var gi = 0; gi < pairs.length; gi++) {
+        if (groupOf[gi]) continue
+        nextGroup++
+        const queue = [gi]
+        while (queue.length) {
+            const k = queue.pop()
+            if (groupOf[k]) continue
+            groupOf[k] = nextGroup
+            for (var gj = 0; gj < pairs.length; gj++) {
+                if (!groupOf[gj] && overlaps(span(pairs[k]).f, span(pairs[gj]).f) &&
+                    overlaps(span(pairs[k]).r, span(pairs[gj]).r)) queue.push(gj)
+            }
+        }
+    }
     return pairs.map((p, pi) => {
         const fEnd = p.forward.end               // forward primer 3' end
         const rLo = p.reverse.threePrimeEnd      // reverse primer 3' end (lower coord)
@@ -483,6 +504,9 @@ function _gcaiReadFrom(fwdLeadIn, revLeadIn) {
             tmDifference: (p.forward.tm != null && p.reverse.tm != null)
                 ? Number(Math.abs(p.forward.tm - p.reverse.tm).toFixed(2)) : null,
             sameTwoPrimerSitesAs: sameSites[pi],
+            // Pairs sharing a number here are the same two primer sites over
+            // again. A fallback has to come from a different one.
+            primerSiteGroup: groupOf[pi],
             relativeToCutSite: {
                 cutIsBetweenTemplatePositions: [cut, cut + 1],
                 productSpansCutSite: spansCut,
@@ -524,9 +548,87 @@ function _gcaiReadFrom(fwdLeadIn, revLeadIn) {
                 ampliconNgs: product != null && product >= 200 && product <= 280
                      && fwdLeadIn >= 50 && revLeadIn >= 50
             },
-            notes: notes
+            notes: notes,
+            // A pair either can be used for this readout or cannot, and the
+            // reasons it cannot are facts already in this file rather than a
+            // judgement. Spelled out because assistants reading the earlier
+            // version dropped the disqualified pairs silently: a reader then
+            // has no answer to "why not pair 1, its melting temperatures are
+            // perfect?", which is exactly the question a list like this
+            // invites.
+            usable: _gcaiDisqualify(p, spansCut, fRep, rRep, product, sanger, fwdLeadIn, revLeadIn, rHi, cut).length === 0,
+            disqualifiedBecause: _gcaiDisqualify(p, spansCut, fRep, rRep, product, sanger, fwdLeadIn, revLeadIn, rHi, cut)
         })
     })
+}
+
+// The hard failures, in the order a reader would raise them. Anything left
+// here is a reason not to order the pair at all, as against the soft notes,
+// which are things to know about one that can still be used.
+function _gcaiDisqualify(p, spansCut, fRep, rRep, product, sanger, fwdLeadIn, revLeadIn, rHi, cut) {
+    const out = []
+    if (!spansCut) out.push("the product does not span the cut site, so it cannot report the edit")
+    if (fRep) out.push("the forward primer lies inside an annotated repeat, so it will prime elsewhere in the genome")
+    if (rRep) out.push("the reverse primer lies inside an annotated repeat, so it will prime elsewhere in the genome")
+    if (sanger) {
+        const fwdOk = _gcaiFitsTide(fwdLeadIn, Math.max(0, rHi - cut))
+        const revOk = _gcaiFitsTide(revLeadIn, Math.max(0, cut - p.forward.start + 1))
+        const fwdIce = _gcaiFitsIce(fwdLeadIn, Math.max(0, rHi - cut))
+        const revIce = _gcaiFitsIce(revLeadIn, Math.max(0, cut - p.forward.start + 1))
+        if (!fwdOk && !revOk && !fwdIce && !revIce) {
+            out.push("the cut cannot be reached by a single Sanger read from either primer")
+        }
+    } else {
+        if (product != null && product > 280) out.push(`the product is ${product} bp, too long for the reads of a 2x150 run to overlap and merge`)
+        if (fwdLeadIn < 50) out.push(`the forward primer is only ${fwdLeadIn} bp from the cut, so a deletion can reach its site and that allele disappears from the counts`)
+        if (revLeadIn < 50) out.push(`the reverse primer is only ${revLeadIn} bp from the cut, so a deletion can reach its site and that allele disappears from the counts`)
+    }
+    return out
+}
+
+// The pairs worth choosing between, in order, and the ones that are not.
+//
+// The file carried every number needed to rank them and left the ranking to
+// the reader, which is the step that went wrong: one assistant chose the pair
+// with the worst-matched melting temperatures of the set, 1.6 C apart, with a
+// 0.1 C pair sitting beside it in the same file and the difference already
+// worked out on both. So the order is stated, with the rule that produced it,
+// and the reader is free to disagree in writing.
+function _gcaiShortlist(annotated, sanger) {
+    if (!annotated || !annotated.length) return null
+    const key = a => {
+        const tm = a.tmDifference == null ? 9 : Math.round(a.tmDifference * 2) / 2   // half-degree bands
+        const self3 = Math.max(a.forward.self3Complementarity || 0, a.reverse.self3Complementarity || 0)
+        const rel = a.relativeToCutSite
+        const geometry = sanger
+            // How far the cut sits from the primer it will be read with, against
+            // the 250 or so where a trace is at its best.
+            ? Math.abs(Math.min(
+                Math.abs(rel.basesFromForwardPrimerToCut - 250),
+                Math.abs(rel.basesFromCutToReversePrimer - 250)))
+            // Under the ceiling, a longer product is safer, so this counts down.
+            : -(a.productLength || 0)
+        return [tm, self3, geometry, a.pair]
+    }
+    const usable = annotated.filter(a => a.usable).sort((x, y) => {
+        const a = key(x), b = key(y)
+        for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]
+        return 0
+    })
+    return {
+        bestFirst: usable.map(a => a.pair),
+        howThisWasOrdered: sanger
+            ? "Pairs that clear every hard requirement, ordered by closeness of the two melting temperatures (in half-degree bands, since a tenth of a degree decides nothing), then by 3' self-complementarity, then by how near the cut sits to 250 bases from the primer it would be read with."
+            : "Pairs that clear every hard requirement, ordered by closeness of the two melting temperatures (in half-degree bands), then by 3' self-complementarity, then by product length, longest first, since a longer amplicon under the merge ceiling loses fewer large deletions.",
+        notUsable: annotated.filter(a => !a.usable).map(a => ({ pair: a.pair, because: a.disqualifiedBecause })),
+        // Written out as sets, so a second choice can be read off rather than
+        // assembled from the per-pair lists.
+        independentPrimerSiteGroups: [...new Set(annotated.map(a => a.primerSiteGroup))].sort()
+            .map(g => ({ group: g, pairs: annotated.filter(a => a.primerSiteGroup === g).map(a => a.pair) })),
+        aSecondChoiceMustComeFromADifferentGroup:
+            "Pairs in one group are the same two primer sites shifted by a base or two. Whatever stops one stops the rest, so a fallback taken from the same group is not a fallback. If every usable pair is in one group, say that there is no independent second choice.",
+        note: "An order, not a verdict. Every number behind it is in the pair entries; disagree with it if you can say what you are weighing instead."
+    }
 }
 
 // The parts of the brief that only apply to some exports.
@@ -655,6 +757,11 @@ function GC_aiBuild(pairs, question, csvWarning) {
                   "SAY WHICH PRIMER TO SEQUENCE WITH. One trace is read from one end, the file judges each direction separately, and " +
                   "sequenceThisProductWith names the end to use; a pair that is out of reach one way is often ideal the other way, so a " +
                   "recommendation without that sentence is incomplete. " +
+                  "THE SHORTLIST IS ORDERED. shortlist.bestFirst holds the pairs that clear every hard requirement, in order, by the rule " +
+                  "written beside it. Recommend the first of them unless you can say what you are weighing instead; picking further down " +
+                  "without a reason usually means a comparison was made by eye that the file had already made. " +
+                  "ACCOUNT FOR THE ONES YOU LEAVE OUT in a clause each: shortlist.notUsable says why each is out, and a pair with perfect " +
+                  "numbers that cannot report the edit is exactly the one the reader will ask about. " +
                   "Name a second choice that uses different primer sites from the first, and say what would make you switch to it: a pair " +
                   "that is the same two sites shifted by a base is not a fallback, and each pair says which others those are. " +
                   "Mention a real risk if there is one, and say plainly when there is not.\n\n"
@@ -764,6 +871,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
         } : null,
 
         primerCandidates: annotated,
+        shortlist: annotated ? _gcaiShortlist(annotated, readout !== "ngs") : null,
         // Stated in the file, not only enforced in the dialog. A reader has no
         // other way to tell a pair that belongs to this guide from one that
         // belongs to another, because both look equally reasonable.
@@ -801,6 +909,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere in the genome gives a mixed trace that looks like editing.",
             "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity. The difference between the two temperatures is given for each pair; do not work it out by eye across the pairs.",
             "fitsGuidance is per direction. Do not report that a pair fails unless it fails in both directions, and do not treat a false in one direction as a reason to reject a pair whose other direction is fine.",
+            "usable and disqualifiedBecause on each pair are the hard pass or fail; notes are things to know about a pair that can still be used. Do not write that there are no risks in the same answer as a note or a disqualification.",
             "A second choice is only worth naming if it uses different primer sites. Primer-BLAST offers the same site again shifted by a base or two, and each pair says which others are the same two sites as itself. A fallback that shares both of them fails for every reason the first one does."
         ],
 
