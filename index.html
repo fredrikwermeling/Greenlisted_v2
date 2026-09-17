@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=15.2">
+    <link rel="stylesheet" media="all" href="index.css?v=15.3">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -50,7 +50,7 @@
          else — a new host, a colleague's machine, a local folder — says it is
          a test rather than silently passing for the real thing. -->
     <div id="testBanner" hidden>
-        <b>Test version.</b> Features here may be unfinished or change without notice.
+        <b>Test version<span id="testBannerVersion"></span>.</b> Features here may be unfinished or change without notice.
         The live app is at <a href="https://greenlisted.cmm.se/">greenlisted.cmm.se</a>.
     </div>
     <script>
@@ -59,6 +59,17 @@
             if (LIVE.indexOf(location.hostname) === -1) {
                 document.getElementById("testBanner").hidden = false;
                 document.title = "Green Listed (test)";
+                // Which build this is, so a report about the test site can say
+                // which one it is about and a change can be told apart from a
+                // cached copy of the one before it. Read off the cache-busting
+                // number the scripts already carry, so there is no second
+                // place to remember to bump. The live site shows nothing: the
+                // banner it sits in is not drawn there at all.
+                // The stylesheet, not index.js: this runs while the document
+                // is still being parsed and the scripts are at the foot of it.
+                var tag = document.querySelector('link[href*="index.css"]');
+                var m = tag && /[?&]v=([\d.]+)/.exec(tag.getAttribute("href") || "");
+                if (m) document.getElementById("testBannerVersion").textContent = " " + m[1];
             }
         })();
     </script>
@@ -83,10 +94,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=15.2" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=15.3" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=15.2" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=15.3" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -665,24 +676,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=15.2"></script>
-    <script type="text/javascript" src="settings.js?v=15.2"></script>
-    <script type="text/javascript" src="grnaService.js?v=15.2"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=15.2"></script>
-    <script type="text/javascript" src="validate.js?v=15.2"></script>
-    <script type="text/javascript" src="upset.js?v=15.2"></script>
-    <script type="text/javascript" src="cnService.js?v=15.2"></script>
-    <script type="text/javascript" src="index.js?v=15.2"></script>
-    <script type="text/javascript" src="fileHandler.js?v=15.2"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=15.2"></script>
-    <script type="text/javascript" src="helpPopout.js?v=15.2"></script>
-    <script type="text/javascript" src="phone.js?v=15.2"></script>
-    <script type="text/javascript" src="methods.js?v=15.2"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=15.2"></script>
-    <script type="text/javascript" src="gcontext.js?v=15.2"></script>
-    <script type="text/javascript" src="gcexport.js?v=15.2"></script>
-    <script type="text/javascript" src="gcai.js?v=15.2"></script>
-    <script type="text/javascript" src="gclibraries.js?v=15.2"></script>
+    <script type="text/javascript" src="library.js?v=15.3"></script>
+    <script type="text/javascript" src="settings.js?v=15.3"></script>
+    <script type="text/javascript" src="grnaService.js?v=15.3"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=15.3"></script>
+    <script type="text/javascript" src="validate.js?v=15.3"></script>
+    <script type="text/javascript" src="upset.js?v=15.3"></script>
+    <script type="text/javascript" src="cnService.js?v=15.3"></script>
+    <script type="text/javascript" src="index.js?v=15.3"></script>
+    <script type="text/javascript" src="fileHandler.js?v=15.3"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=15.3"></script>
+    <script type="text/javascript" src="helpPopout.js?v=15.3"></script>
+    <script type="text/javascript" src="phone.js?v=15.3"></script>
+    <script type="text/javascript" src="methods.js?v=15.3"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=15.3"></script>
+    <script type="text/javascript" src="gcontext.js?v=15.3"></script>
+    <script type="text/javascript" src="gcexport.js?v=15.3"></script>
+    <script type="text/javascript" src="gcai.js?v=15.3"></script>
+    <script type="text/javascript" src="gclibraries.js?v=15.3"></script>
 
 </body>
 
