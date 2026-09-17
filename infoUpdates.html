@@ -27,81 +27,73 @@
             <h3>2026</h3>
 
             <div class="updateEntry">
-                <div class="updateTitle">On a phone</div>
-                <p>The app works on a phone. Settings fold into headings you tap to open, the output section offers the oligo list with the rest one tap away, popouts hold the page still behind them, and the library-overlap plot is drawn to fit the screen. Copy-number data is fetched only when a run needs a number, with the download shown as it arrives. <em>Validate sgRNA</em> still works better on a computer, where a wide table can be read.</p>
+                <div class="updateTitle">Use on a phone</div>
+                <p>The app is updated for use on a phone. Settings and results fold into headings you tap to open, and the layout fits a small screen. <em>Validate sgRNA</em> still works better on a computer, where a wide table can be read.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Spelling suggestions</div>
-                <p><em>Symbols not found</em> now suggests the closest names in the selected library &mdash; <em>To53</em> offers <em>TP53</em>, <em>CDNK2A</em> offers <em>CDKN2A</em>. Press one to put it in the gene box, or take the first suggestion for every symbol at once.</p>
+                <p>When a gene symbol matches nothing, the app suggests the closest names in the selected library. Press one to put it in the gene box.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Which other libraries pick the same guide</div>
-                <p>A <em>Libraries</em> button and a <em>Found in other libraries</em> column on each guide say how many other libraries of the same species chose that sgRNA. A guide several independent designs arrived at has passed several scoring schemes, which is a useful second opinion when deciding what to order. The count leaves out the library you are designing from.</p>
+                <p>Each guide shows how many other libraries of the same species contain the same sgRNA. A guide that several independent designs arrived at has passed several scoring schemes, which is a useful second opinion when deciding what to order.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Genomic context for primer design</div>
-                <p>A <em>Context</em> button on each guide fetches the sequence 500&nbsp;bp either side from the <a target="_blank" rel="noopener noreferrer" href="https://genome.ucsc.edu/">UCSC Genome Browser</a> and marks the spacer, PAM, predicted cut site, exons and repeats &mdash; what you need to design primers for checking an edit. The flank length is adjustable.</p>
-                <p>From there: <em>Open in Primer-BLAST</em> starts NCBI Primer-BLAST with the sequence and the primer windows filled in, sized for Sanger (ICE/TIDE) or amplicon NGS; <em>Copy as text</em>, <em>Download FASTA</em> and <em>Download GenBank</em> take the sequence out (the GenBank file opens in SnapGene or Benchling with its features intact); <em>Export image</em> saves the figure as PDF, SVG, PowerPoint, PNG or TIFF at a width you choose; and <em>Export for AI</em> writes a <em>.json</em> of the guide, its locus and &mdash; if you paste in the Primer-BLAST results &mdash; every candidate pair measured against the cut site, to hand to an assistant.</p>
+                <p>A <em>Context</em> button on each guide fetches the sequence 500&nbsp;bp either side from the <a target="_blank" rel="noopener noreferrer" href="https://genome.ucsc.edu/">UCSC Genome Browser</a> and marks the spacer, PAM, predicted cut site, exons and repeats. The flank length is adjustable.</p>
+                <p>From there you can open NCBI Primer-BLAST with the sequence and primer windows already filled in (sized for Sanger or for amplicon NGS), save the sequence as FASTA or GenBank, export the figure as PDF, SVG, PowerPoint, PNG or TIFF, or write a <em>.json</em> file to hand to an AI assistant when choosing between primer pairs.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Methods text for your manuscript</div>
-                <p>A <em>Methods text</em> row in section 4 writes a Materials &amp; Methods description of the run you just made: a sentence for the main text, a fuller paragraph, and the references for the software and the library. It describes only what the run actually did &mdash; check it against your final protocol.</p>
+                <p>Section 4 writes a Materials and Methods description of the run you just made, with references for the software and the library. It covers only what the run actually did, so check it against your final protocol.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Downloads</div>
-                <p>Each output has one <em>Download</em> button that asks for the format: comma- or tab-separated text, or an <em>.xlsx</em> workbook. Choose the workbook if you will open it in Excel &mdash; a text file lets Excel rewrite gene symbols, so <em>MARCH1</em>, <em>SEPT9</em> and <em>DEC1</em> become dates. Everything at once is offered as a <em>.zip</em> or as one workbook with a sheet per output.</p>
+                <p>Each output has one <em>Download</em> button that asks for the format: <em>.csv</em>, <em>.tsv</em> or an <em>.xlsx</em> workbook. Everything at once is available as a <em>.zip</em> of text files or as one workbook with a sheet per output.</p>
+                <p>Be aware that Excel converts some gene symbols to dates when it opens a .csv or .tsv file, so <em>MARCH1</em>, <em>SEPT9</em> and <em>DEC1</em> arrive as 1-Mar, 9-Sep and 1-Dec. The .xlsx workbook is not affected, so use it if you plan to work in Excel.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Better synonym matching</div>
-                <p>The synonym tables were rebuilt from <a target="_blank" rel="noopener noreferrer" href="https://www.genenames.org/">HGNC</a> and <a target="_blank" rel="noopener noreferrer" href="https://www.informatics.jax.org/">MGI</a>. Matching now checks that a symbol and its match are the same gene, so a search is no longer answered with a different gene that once shared the name: about 1&nbsp;300 more symbols resolved, and wrong matches down by 93%.</p>
+                <p>The synonym tables were rebuilt from <a target="_blank" rel="noopener noreferrer" href="https://www.genenames.org/">HGNC</a> and <a target="_blank" rel="noopener noreferrer" href="https://www.informatics.jax.org/">MGI</a>. A symbol and its match are now checked to be the same gene, so a search is no longer answered with a different gene that once shared the name. About 1&nbsp;300 more symbols resolve, and wrong matches are down by 93%.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Curated gene lists</div>
-                <p>A <em>Curated lists&hellip;</em> link fills the gene box with a ready-made set &mdash; cancer genes, kinases, transcription factors, DNA repair, cell surface, the druggable genome, GPCRs, ion channels and others &mdash; for human or mouse, each drawn from a published source named on its row and checked against the built-in libraries. Add several and duplicates are dropped. They are starting points to edit down, not definitive gene families.</p>
+                <p>A <em>Curated lists&hellip;</em> link fills the gene box with a ready-made set: cancer genes, kinases, transcription factors, DNA repair, cell surface, the druggable genome, GPCRs, ion channels and others, for human or mouse. Each list comes from a published source named in the picker and is checked against the built-in libraries. They are starting points to edit down, not definitive gene families.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Control sgRNAs</div>
-                <p>A <em>Controls</em> box in section 3 adds control guides to your library, so you no longer merge them in by hand. Tick a type and it fills in a suggested number you can edit; guides are drawn at random per run and added after ranking.</p>
-                <div class="updateSubFeature">
-                    <p><span class="subTitle">Safe-targeting</span> (CutCtrl) &mdash; one cut in a gene desert, so they carry the same DNA-damage cost as a real guide and make the more honest baseline.</p>
-                </div>
-                <div class="updateSubFeature">
-                    <p><span class="subTitle">Non-targeting</span> (NegCtrl) &mdash; no match in the genome. A useful second check, but they never cut, so they flatter the baseline.</p>
-                </div>
-                <div class="updateSubFeature">
-                    <p><span class="subTitle">Essential genes</span> &mdash; positive controls that should drop out if the screen worked. Three by default (<em>RAN</em>, <em>RPS8</em>, <em>PLK1</em>), up to nine.</p>
-                </div>
+                <p>A <em>Controls</em> box in section 3 adds control guides to your library, so you no longer merge them in by hand. Safe-targeting guides (CutCtrl) cut once in a gene desert and carry the same DNA damage cost as a real guide, which makes them the more honest baseline. Non-targeting guides (NegCtrl) never cut. Essential genes are positive controls that should drop out if the screen worked, three by default (<em>RAN</em>, <em>RPS8</em>, <em>PLK1</em>).</p>
                 <p>Libraries that ship without a control type borrow it from Jacquere or Julianna, matched to the species, and the run summary names the donor.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Copy number for human cell lines</div>
-                <p>Pick a human cell line in section 3 and the run gains a copy-number column and a per-gene copy-number file: deep deletions, where the gene is effectively absent and its guides report nothing, and amplifications, where Cas9 cuts once per copy and the cell can drop out regardless of gene function &mdash; a classic false positive, as with <em>MYCN</em> in IMR-32.</p>
-                <p>The same data answers a lookup of its own, from the <em>Copy number (human)</em> button at the top: any list of genes across any of the ~1&nbsp;900 DepMap lines, as the relative value and as an estimated copy count using the line&rsquo;s ploidy. Source: DepMap <em>OmicsCNGene</em> (24Q4), restricted to genes at least one built-in library can target.</p>
+                <p>Pick a human cell line in section 3 and the run flags genes that are deeply deleted, where the guides report nothing, or amplified, where Cas9 cuts once per copy and the cell can drop out regardless of gene function. A per-gene copy-number file is produced alongside the other outputs.</p>
+                <p>The <em>Copy number (human)</em> button looks up any list of genes across the roughly 1&nbsp;900 DepMap cell lines, as a relative value and as an estimated number of copies. Data: DepMap <em>OmicsCNGene</em>, 24Q4.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Library overlap</div>
-                <p>A <em>Library overlap</em> button shows an UpSet plot of how sgRNA sequences are shared across the built-in libraries, human and mouse, so you can see which libraries carry unique content.</p>
+                <p>A <em>Library overlap</em> button shows an UpSet plot of how sgRNA sequences are shared across the built-in libraries, human and mouse.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Validate sgRNA</div>
-                <p>Paste any number of sgRNA sequences and find which libraries they come from, with the gene symbol, gene ID and available on- and off-target scores. The index covers widely used knockout libraries from <a target="_blank" href="https://www.addgene.org/pooled-library/#crispr">Addgene</a> and the <a target="_blank" href="https://portals.broadinstitute.org/gpp/public/pool/index">Broad Institute GPP</a> &mdash; Brunello, Brie, GeCKO&nbsp;v2, Gattinara, Gouda, Jacquere, Julianna, VBC, Yusa, TKOv3, mTKO and MinLibCas9 &mdash; with separate indices for human and mouse.</p>
+                <p>Paste any number of sgRNA sequences and see which libraries they come from, with the gene symbol, gene ID and available on- and off-target scores. The index covers widely used knockout libraries from <a target="_blank" href="https://www.addgene.org/pooled-library/#crispr">Addgene</a> and the <a target="_blank" href="https://portals.broadinstitute.org/gpp/public/pool/index">Broad Institute GPP</a>, with separate indices for human and mouse.</p>
             </div>
 
             <div class="updateEntry">
                 <div class="updateTitle">Jacquere (human) and Julianna (mouse) libraries</div>
                 <p>Two new libraries from the Broad Institute/<a target="_blank" href="https://www.broadinstitute.org/bios/john-doench">John Doench</a> lab, designed with the latest on- and off-target scoring (RS3 and CFD), replacing Brunello and Brie as the recommended libraries. Drepanos LM et al. <em>Balancing off-target and on-target considerations for optimized Cas9 CRISPR knockout library design.</em> bioRxiv 2025. doi: 10.1101/2025.08.26.672375 (<a target="_blank" href="https://www.biorxiv.org/content/10.1101/2025.08.26.672375v1">preprint</a>).</p>
-            </div>
+        </div>
 
             <h3>2025</h3>
 
