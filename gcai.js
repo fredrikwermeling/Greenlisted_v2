@@ -242,21 +242,146 @@ function _gcaiVerifyPairs(pairs, v) {
     return { ok: bad.length === 0, bad: bad, checked: pairs.length }
 }
 
+// The specificity report, which only the results page carries.
+//
+// The downloads hold five rows and nothing else; the page holds, under each
+// pair, every place in the genome where both primers could sit close enough
+// together to make a product, with the mismatches drawn against the primer.
+// That is the one piece of evidence the exported file has never had, and the
+// reason it has to say it cannot judge specificity.
+//
+// What decides whether a hit matters is not how many mismatches there are but
+// where they sit: a polymerase extends from the 3' end, so a mismatch in the
+// last two or three bases stops a primer dead, while several at the 5' end are
+// often tolerated. A hit where both primers have a clean 3' end is one to
+// take seriously; the rest are noise, and this report is mostly noise.
+const _GCAI_3P_WINDOW = 5
+
+// Above this many mismatches the duplex is too unstable to anneal at a normal
+// annealing temperature, wherever they sit: four mismatches on a 20-mer costs
+// something like 15-20 C of melting temperature.
+const _GCAI_MAX_TOLERATED_MISMATCHES = 3
+
+function _gcaiPrimerBlocked(mismatchPositions, length) {
+    if (mismatchPositions.length > _GCAI_MAX_TOLERATED_MISMATCHES) return true
+    // Distance from the 3' end, counting the last base as 1. The threshold is
+    // Primer-BLAST's own: it treats a primer as unable to prime an unintended
+    // target when it carries at least two mismatches within the last five
+    // bases. A mismatch on the terminal base or the one before it stops
+    // extension on its own.
+    const fromEnd = mismatchPositions.map(i => length - i + 1)
+    if (fromEnd.some(d => d <= 2)) return true
+    return fromEnd.filter(d => d <= _GCAI_3P_WINDOW).length >= 2
+}
+
+function _gcaiParseSpecificity(text) {
+    const lines = String(text || "").split(/\r?\n/)
+    const out = {}
+    var pair = null, section = null, product = null, pending = null
+    for (const raw of lines) {
+        const l = raw.trim()
+        var m
+        if ((m = /^primer pair\s*(\d+)/i.exec(l))) { pair = Number(m[1]); section = null; product = null; continue }
+        if (/^products on intended/i.test(l)) { section = "intended"; product = null; continue }
+        if (/^products on potentially unintended/i.test(l)) { section = "unintended"; product = null; continue }
+        if (!pair) continue
+        if ((m = /^product length\s*=\s*(\d+)/i.exec(l))) {
+            if (section === "unintended") {
+                product = { length: Number(m[1]), where: null, primers: [] }
+                out[pair] = out[pair] || []
+                out[pair].push(product)
+            } else {
+                product = null
+            }
+            continue
+        }
+        if (product && /^(features associated with|features flanking)/i.test(l)) continue
+        if ((m = /^(forward|reverse) primer\s+1\s+([ACGTacgt]+)\s+\d+$/i.exec(l))) {
+            pending = { which: m[1].toLowerCase(), length: m[2].length }
+            continue
+        }
+        if (pending && (m = /^template\s+\d+\s+([.A-Za-z-]+)\s+\d+$/i.exec(l))) {
+            const align = m[1]
+            const positions = []
+            for (var i = 0; i < align.length; i++) if (align[i] !== ".") positions.push(i + 1)
+            if (product) {
+                product.primers.push({
+                    which: pending.which,
+                    mismatches: positions.length,
+                    mismatchesNearThe3PrimeEnd: positions.filter(x => pending.length - x + 1 <= _GCAI_3P_WINDOW).length,
+                    blocked: _gcaiPrimerBlocked(positions, pending.length)
+                })
+            }
+            pending = null
+            continue
+        }
+    }
+    return out
+}
+
+// What the report says about one pair, in the terms that decide it.
+function _gcaiSpecificitySummary(products) {
+    if (!products) return null
+    // A product needs two primers facing each other. Primer-BLAST also lists
+    // hits where the same primer sits at both ends, which needs that one
+    // primer to prime both strands and is correspondingly unlikely; they are
+    // counted but never called a concern on their own.
+    const scored = products.map(p => {
+        const usable = p.primers.filter(Boolean)
+        // A "product" shorter than the two primers together is the two sites
+        // overlapping, not an amplicon: Primer-BLAST prints those as a product
+        // of 20-odd bases and they are an artefact of the report.
+        const tooShortToBeReal = p.length < 50
+        const bothEndsClean = usable.length >= 2 && usable.every(x => !x.blocked)
+        return { length: p.length, primers: usable, wouldAmplify: bothEndsClean && !tooShortToBeReal }
+    })
+    const concerning = scored.filter(p => p.wouldAmplify)
+    return {
+        unintendedProductsListed: scored.length,
+        ofThoseWithACleanThreePrimeEndOnBothPrimers: concerning.length,
+        theOnesToLookAt: concerning.slice(0, 3).map(p => ({
+            productLength: p.length,
+            primers: p.primers.map(x => `${x.which}: ${x.mismatches} mismatches, ${x.mismatchesNearThe3PrimeEnd} in the last ${_GCAI_3P_WINDOW} bases`)
+        })),
+        howThisIsJudged:
+            "A primer extends from its 3' end: two mismatches within the last five bases stop it, which is Primer-BLAST's own threshold, and so does one on the final base or the one before it. More than three mismatches anywhere stops it too, by melting temperature rather than by geometry. " +
+            "A listed product only matters when neither primer is stopped that way, which is why most of a long report is noise. " +
+            "Counted from the results page, which is the only place Primer-BLAST reports this; the downloadable table does not carry it."
+    }
+}
+
 // Returns { pairs, error }. Tolerates the byte-order mark Primer-BLAST writes,
 // its trailing comma on every row, and blank lines.
 function GC_aiParsePrimerCsv(text) {
     const clean = String(text || "").replace(/^﻿/, "").trim()
     if (!clean) return { pairs: [], error: null }
+    // Only the results page carries the specificity report. When it is there,
+    // every pair gets its own summary of it.
+    const spec = /products on potentially unintended/i.test(clean) ? _gcaiParseSpecificity(clean) : null
 
     // The block layout has no column header, so try it first when the text
     // looks like it.
+    const withSpec = pairs => {
+        if (spec) for (const p of pairs) {
+            const summary = _gcaiSpecificitySummary(spec[p.pair])
+            // A pair the report mentions with no unintended products at all is
+            // worth saying so about, rather than leaving the field missing.
+            p.specificity = summary || {
+                unintendedProductsListed: 0,
+                ofThoseWithACleanThreePrimeEndOnBothPrimers: 0,
+                theOnesToLookAt: [],
+                howThisIsJudged: "Primer-BLAST listed no potential unintended product for this pair."
+            }
+        }
+        return pairs
+    }
     if (/^\s*primer pair\s*\d+/im.test(clean) && /forward primer/i.test(clean)) {
         const blocks = _gcaiParseBlockFormat(clean)
-        if (blocks.length) return { pairs: blocks, error: null }
+        if (blocks.length) return { pairs: withSpec(blocks), error: null }
         // Same opening line, different body: the Text download labels one
         // field per line where the copied table puts a primer on each row.
         const labelled = _gcaiParseLabelFormat(clean)
-        if (labelled.length) return { pairs: labelled, error: null }
+        if (labelled.length) return { pairs: withSpec(labelled), error: null }
     }
 
     const lines = clean.split(/\r?\n/).filter(l => l.trim().length)
@@ -311,7 +436,7 @@ function GC_aiParsePrimerCsv(text) {
         })
     }
     if (!pairs.length) return { pairs: [], error: "No primer rows could be read out of that." }
-    return { pairs: pairs, error: null }
+    return { pairs: withSpec(pairs), error: null }
 }
 
 // =============================================================================
@@ -625,6 +750,11 @@ function _gcaiDisqualify(p, spansCut, fRep, rRep, product, sanger, fwdLeadIn, re
 function _gcaiShortlist(annotated, sanger) {
     if (!annotated || !annotated.length) return null
     const key = a => {
+        // Specificity first when it is known: a pair that also primes
+        // somewhere else gives a mixed trace, and no melting temperature makes
+        // up for that. Unknown counts as zero rather than as bad, so a run
+        // without the report ranks exactly as it did before.
+        const offTargets = (a.specificity && a.specificity.ofThoseWithACleanThreePrimeEndOnBothPrimers) || 0
         const tm = a.tmDifference == null ? 9 : Math.round(a.tmDifference * 2) / 2   // half-degree bands
         const self3 = Math.max(a.forward.self3Complementarity || 0, a.reverse.self3Complementarity || 0)
         const rel = a.relativeToCutSite
@@ -636,7 +766,7 @@ function _gcaiShortlist(annotated, sanger) {
                 Math.abs(rel.basesFromCutToReversePrimer - 250)))
             // Under the ceiling, a longer product is safer, so this counts down.
             : -(a.productLength || 0)
-        return [tm, self3, geometry, a.pair]
+        return [offTargets, tm, self3, geometry, a.pair]
     }
     const usable = annotated.filter(a => a.usable).sort((x, y) => {
         const a = key(x), b = key(y)
@@ -654,9 +784,12 @@ function _gcaiShortlist(annotated, sanger) {
             ? `No pair is disqualified. All ${annotated.length} clear every hard requirement, and bestFirst is simply the order to prefer them in.`
             : `${out} of ${annotated.length} pairs ${out === 1 ? "is" : "are"} disqualified, listed under notUsable with the reason. The rest are in bestFirst.`,
         bestFirst: usable.map(a => a.pair),
-        howThisWasOrdered: sanger
-            ? "Pairs that clear every hard requirement, ordered by closeness of the two melting temperatures (in half-degree bands, since a tenth of a degree decides nothing), then by 3' self-complementarity, then by how near the cut sits to 250 bases from the primer it would be read with."
-            : "Pairs that clear every hard requirement, ordered by closeness of the two melting temperatures (in half-degree bands), then by 3' self-complementarity, then by product length, longest first, since a longer amplicon under the merge ceiling loses fewer large deletions.",
+        howThisWasOrdered: (annotated.some(a => a.specificity)
+                ? "Pairs that clear every hard requirement, ordered first by how many off-target products Primer-BLAST reported with a clean 3' end on both primers, since a pair that primes elsewhere gives a mixed result that no melting temperature makes up for, then "
+                : "Pairs that clear every hard requirement, ordered ") +
+            (sanger
+                ? "by closeness of the two melting temperatures (in half-degree bands, since a tenth of a degree decides nothing), then by 3' self-complementarity, then by how near the cut sits to 250 bases from the primer it would be read with."
+                : "by closeness of the two melting temperatures (in half-degree bands), then by 3' self-complementarity, then by product length, longest first, since a longer amplicon under the merge ceiling loses fewer large deletions."),
         notUsable: annotated.filter(a => !a.usable).map(a => ({ pair: a.pair, because: a.disqualifiedBecause })),
         // Written out as sets, so a second choice can be read off rather than
         // assembled from the per-pair lists.
@@ -778,7 +911,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
         "repeatsAndAwkwardSequence — which parts of that template are repetitive, and how much room is left for a primer"
     ]
     const absent = []
-    if (annotated) present.push(`primerCandidates — ${annotated.length} primer pairs from NCBI Primer-BLAST, each re-expressed relative to the cut site`)
+    const haveSpecificity = !!(annotated && annotated.some(a => a.specificity))
+    if (annotated) present.push(`primerCandidates — ${annotated.length} primer pairs from NCBI Primer-BLAST, each re-expressed relative to the cut site` +
+        (haveSpecificity ? ", with what the specificity report says about each one" : ""))
     else absent.push("primerCandidates — none were supplied with this export, so there are no primer pairs in this file to choose between")
     // Only when a cell line has been chosen in the tool and DepMap names a
     // hotspot for this gene in it. For every other export there is nothing to
@@ -1014,7 +1149,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
             thisFileDoesNotKnow: [
                 "Whether a primer sits on a common SNP in the cell line or strain being used, which can cause allele dropout. Repeats and long homopolymers ARE in this file, under repeatsAndAwkwardSequence; SNPs are not.",
                 "Whether the cell line carries a mutation under the spacer or the PAM, which would stop the guide cutting that allele.",
-                "Where else in the genome a primer would prime. Primer-BLAST searches for that and lists any potential unintended products under each pair on its results page, with the mismatches marked — but it reports them rather than withholding the pair, and none of that detail is in the downloadable table, so nothing in this file knows which pairs had any. Judge it on the results page: a pair is usually sound when the intended product is a perfect match to both primers and the unintended ones carry several mismatches, particularly in the last few bases at the 3' end, which is where a mismatch actually stops a primer extending.",
+                (haveSpecificity
+                    ? "Nothing about specificity is missing here: the results page was pasted in, so each pair carries what Primer-BLAST reported — how many potential unintended products it listed, and how many of those have a clean 3' end on both primers, which are the only ones that would actually amplify."
+                    : "Where else in the genome a primer would prime. Primer-BLAST searches for that and lists any potential unintended products under each pair on its results page, with the mismatches marked — but it reports them rather than withholding the pair, and only the results page carries that detail, not the downloadable table. If it matters, export again with the whole results page pasted in and this file will carry it."),
                 "The polymerase, cycling conditions or sequencing provider, so annealing temperature is not tuned to a protocol.",
                 "Anything about the actual edited sample, such as its clonality or the editing efficiency."
             ],
@@ -1060,9 +1197,11 @@ function GC_aiExport() {
         `Attach it to an assistant and ask which pair to order.</p>` +
 
         `<label class="gcaiLabel" for="gcaiCsv">Primer-BLAST results <span class="gcaiNeed">paste these in</span></label>` +
-        `<p class="gcaiHint"><b>Do this first.</b> Press <i>Open in Primer-BLAST</i>, run it, and on the results page either select the ` +
-        `primer table and copy it or use any of the links under <i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and ` +
-        `<b>Tabular</b> all work. Paste it here, or drop the file on this box.</p>` +
+        `<p class="gcaiHint"><b>Do this first.</b> Press <i>Open in Primer-BLAST</i> and run it. Then either select the whole results ` +
+        `page and copy it, or use any of the links under <i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and <b>Tabular</b> ` +
+        `all work. <b>The whole page is worth the extra second:</b> the downloads hold the five primer pairs and nothing else, while the ` +
+        `page also carries the specificity report, and pasting it puts into the file how many off-target products each pair has and ` +
+        `which of them could actually amplify.</p>` +
         `<p class="gcaiHint"><label class="gcaiPick"><input type="file" id="gcaiFile" accept=".csv,.tsv,.txt,text/plain,text/csv" ` +
         `onchange="GC_aiPickFile(this)">Choose the downloaded file&hellip;</label> or paste it in the box below.</p>` +
         `<p class="gcaiHint">Without it there is nothing to choose between and no assistant can fill the gap: picking primers needs ` +

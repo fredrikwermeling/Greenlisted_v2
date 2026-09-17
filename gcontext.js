@@ -63,7 +63,7 @@ const _GC_PB_STORE = "greenlisted.primerBlastSettings"
 // Bumped whenever the defaults below change meaning. A store written under
 // an older version is dropped rather than merged, so a new default is not
 // silently overridden by the previous default sitting in localStorage.
-const _GC_PB_VERSION = 5
+const _GC_PB_VERSION = 6
 
 var _GC = {
     locus: new Map(),     // genome|symbol|spacer -> locate result
@@ -131,8 +131,15 @@ const _GC_PB_STOCK = {
 const _GC_PB_PRESETS = {
     sanger: {
         label: "Sanger — ICE / TIDE",
-        note: "One long read across the cut. Primers well clear of the edit, product 500 bp or more.",
-        values: { minDist: 150, productMin: 500, productMax: "" }
+        note: "One long read across the cut, with the edit about a third of the way in. Primers well clear of it, product 500 to 800 bp.",
+        // The maximum matters as much as the minimum. Left open, Primer-BLAST
+        // has no reason to keep the product short and takes the primers to the
+        // ends of the windows: on a 1,020 bp template that put the cut 455 and
+        // 475 bases from the two primers, readable but past the part of the
+        // trace where a read is at its best. Capped at 800 — ICE asks for
+        // 400-800, TIDE for 500-1500, so 500-800 satisfies both — the cut
+        // lands 250-400 bases in from whichever primer it is read with.
+        values: { minDist: 150, productMin: 500, productMax: 800 }
     },
     ngs: {
         label: "Amplicon NGS",
@@ -1494,7 +1501,7 @@ function _gcPbSettingsHtml(v) {
     return `<details class="gcPb" ${(_GC.pbOpen || changed) ? "open" : ""} ontoggle="_GC.pbOpen = this.open">` +
         `<summary>Primer-BLAST settings${changed ? " (customized)" : ""}</summary>` +
         `<p class="gcPbNote">Sent along with the sequence when you open Primer-BLAST, together with the organism (${_escapeHtml(_GC_GENOMES[_GC.current.species].organism)}) and this window's genomic position, so it checks specificity against the genome and goes straight to designing rather than first asking you which hit was the intended target. ` +
-        `Four things depart from Primer-BLAST's own settings: the minimum product size, raised to 500 bp; the maximum, set to the length of this window instead of 1000 so a pair may span all of it; the primer windows, worked out from the cut; and the number of pairs returned, 5 rather than 10, which is quicker to run and to read. ` +
+        `Four things depart from Primer-BLAST's own settings: the product size, 500 to 800 bp for a Sanger readout so the cut lands where a trace reads best rather than at the far end of a long product; the primer windows, worked out from the cut; the number of pairs returned, 5 rather than 10, which is quicker to run and to read; and, if you clear the maximum, it becomes the length of this window rather than Primer-BLAST's 1000, so a pair may span all of it. ` +
         `Every other box is left blank on purpose — Primer-BLAST fills those with its own documented defaults, shown in gray inside each box. ` +
         `That meets the ICE (400–800 bp, primers ≥150 bp from the cut) and TIDE (500–1500 bp, cut ~200 bp into the read) guidance. Anything you type here is remembered in this browser.</p>` +
         `<div class="gcPbGrid">` +
