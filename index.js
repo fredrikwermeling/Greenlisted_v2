@@ -397,6 +397,81 @@ async function runValidation() {
 // `rowExtra` appends columns after the data: one { header, cell(cols) }, or an
 // array of them, where cell returns HTML for that row. The adapter and full
 // views use it for the per-guide buttons and the cross-library count.
+// Sorting the output table by clicking a heading.
+//
+// The file's own order means something — the guides for a gene come out best
+// first — so sorting is a third state rather than a mode: click once for
+// ascending, again for descending, a third time to put the file's order back.
+// Each row remembers its position for that last step.
+//
+// The rows themselves are moved rather than the table rebuilt, so the Context
+// and Libraries buttons in the last column travel with the row they belong to.
+function _sortTable(table, col) {
+    const body = table.tBodies[0]
+    if (!body) return
+    const rows = [...body.rows]
+    if (rows.length < 2) return
+
+    const th = table.tHead.rows[0].cells[col]
+    const was = th.dataset.sort || ""
+    const dir = was === "asc" ? "desc" : was === "desc" ? "" : "asc"
+    for (const cell of table.tHead.rows[0].cells) {
+        delete cell.dataset.sort
+        const mark = cell.querySelector(".sortMark")
+        if (mark) mark.textContent = ""
+    }
+
+    if (!dir) {
+        // Back to the order the file is written in.
+        rows.sort((a, b) => (+a.dataset.row) - (+b.dataset.row))
+        for (const r of rows) body.appendChild(r)
+        return
+    }
+    th.dataset.sort = dir
+    const mark = th.querySelector(".sortMark")
+    if (mark) mark.textContent = dir === "asc" ? " \u25b2" : " \u25bc"
+
+    const text = row => (row.cells[col] ? row.cells[col].textContent.trim() : "")
+    // A column counts as numeric when every value in it that is not blank
+    // reads as a number. "none" in the library-count column and the wording in
+    // the copy-number column make those text, which is what they are.
+    const values = rows.map(text).filter(v => v !== "")
+    const numeric = values.length > 0 && values.every(v => /^-?[\d.]+$/.test(v.replace(/,/g, "")))
+    const sign = dir === "asc" ? 1 : -1
+
+    // Stable, and blanks last whichever way it is sorted: an empty cell is a
+    // missing value, not the smallest one.
+    const decorated = rows.map((row, i) => ({ row, i, v: text(row) }))
+    decorated.sort((a, b) => {
+        if (a.v === "" || b.v === "") {
+            if (a.v === b.v) return a.i - b.i
+            return a.v === "" ? 1 : -1
+        }
+        const d = numeric
+            ? parseFloat(a.v.replace(/,/g, "")) - parseFloat(b.v.replace(/,/g, ""))
+            : a.v.localeCompare(b.v, undefined, { numeric: true, sensitivity: "base" })
+        return d !== 0 ? sign * d : a.i - b.i
+    })
+    for (const d of decorated) body.appendChild(d.row)
+}
+
+document.addEventListener("click", e => {
+    const th = e.target.closest ? e.target.closest("th.sortable") : null
+    if (!th) return
+    const table = th.closest("table.sortTable")
+    if (!table) return
+    _sortTable(table, th.cellIndex)
+})
+
+document.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return
+    const th = e.target.closest ? e.target.closest("th.sortable") : null
+    if (!th) return
+    e.preventDefault()
+    const table = th.closest("table.sortTable")
+    if (table) _sortTable(table, th.cellIndex)
+})
+
 // Genes that are essential in nearly every cell line. Marked with a * in the
 // output table, because they behave the same way in any screen: their guides
 // drop out whatever the experiment was asking, so a hit among them is usually
@@ -481,7 +556,6 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
 
     if (dataStart >= lines.length) return infoHtml + "<p>No tabular data</p>"
 
-    var html = infoHtml + '<table class="validationResultsTable"><thead><tr>'
     const headers = lines[dataStart].split(delimiter)
     // Italicize cells in gene-symbol columns to follow the standard
     // nomenclature convention (HUGO: human genes uppercase italic;
@@ -512,14 +586,11 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     // columns than a phone can hold.
     const hiddenCols = new Set()
     headers.forEach((h, j) => { if (h.trim() === _ESS_COLUMN) hiddenCols.add(j) })
-    for (let j = 0; j < headers.length; j++) {
-        if (hiddenCols.has(j)) continue
-        const h = headers[j]
-        const rich = _headerHtml[h.trim()]
-        html += `<th${_wrappable(h) ? ' class="wrapCell"' : ""}>${rich || _escapeHtml(h)}</th>`
-    }
-    for (const x of extras) html += `<th${_wrappable(x.header) ? ' class="wrapCell"' : ""}>${_escapeHtml(x.header)}</th>`
-    html += '</tr></thead><tbody>'
+    // The rows are built first: whether an appended column can be sorted
+    // depends on what its cells turn out to hold, and the heading that says so
+    // is written above them.
+    const extraHasControls = extras.map(() => false)
+    var bodyHtml = ""
     for (var i = dataStart + 1; i < lines.length; i++) {
         const cols = lines[i].split(delimiter)
         // Pad short rows out to the header. A row ending in an empty field
@@ -527,7 +598,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         // from the last row, which used to shift every appended column left
         // by one on that row alone.
         while (cols.length < headers.length) cols.push("")
-        html += '<tr>'
+        bodyHtml += `<tr data-row="${i - dataStart - 1}">`
         for (let j = 0; j < cols.length; j++) {
             if (hiddenCols.has(j)) continue
             const safe = _escapeHtml(cols[j])
@@ -537,19 +608,38 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
                 cell += `<span class="essStar" title="Essential in nearly every cell line">*</span>`
                 starred = true
             }
-            html += `<td${cls}>${cell}</td>`
+            bodyHtml += `<td${cls}>${cell}</td>`
         }
-        for (const x of extras) {
+        extras.forEach((x, k) => {
             const cell = x.cell(cols) || ""
+            const hasControls = /<button|<a /.test(cell)
+            if (hasControls) extraHasControls[k] = true
             // Same rule as the data columns: a phrase can wrap, a button row
             // cannot. Buttons carry no spaces outside their markup, so the
             // test looks at the text the cell will actually show.
             const text = cell.replace(/<[^>]*>/g, " ").trim()
-            html += `<td class="gcCell${/<button|<a /.test(cell) ? "" : (_wrappable(text) ? " wrapCell" : "")}">${cell}</td>`
-        }
-        html += '</tr>'
+            bodyHtml += `<td class="gcCell${hasControls ? "" : (_wrappable(text) ? " wrapCell" : "")}">${cell}</td>`
+        })
+        bodyHtml += '</tr>'
     }
-    html += '</tbody></table>'
+
+    var html = infoHtml + '<table class="validationResultsTable sortTable"><thead><tr>'
+    for (let j = 0; j < headers.length; j++) {
+        if (hiddenCols.has(j)) continue
+        const h = headers[j]
+        const rich = _headerHtml[h.trim()]
+        html += `<th class="sortable${_wrappable(h) ? " wrapCell" : ""}" tabindex="0" ` +
+                `title="Sort by this column">${rich || _escapeHtml(h)}<span class="sortMark"></span></th>`
+    }
+    // An appended column of values sorts like any other; one holding the
+    // Context and Libraries buttons has nothing to sort by.
+    extras.forEach((x, k) => {
+        const sortable = !extraHasControls[k]
+        html += `<th class="${sortable ? "sortable " : ""}${_wrappable(x.header) ? "wrapCell" : ""}"` +
+                (sortable ? ' tabindex="0" title="Sort by this column"' : "") +
+                `>${_escapeHtml(x.header)}${sortable ? '<span class="sortMark"></span>' : ""}</th>`
+    })
+    html += '</tr></thead><tbody>' + bodyHtml + '</tbody></table>'
     if (starred) {
         html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
                 `whatever the screen was asking. Source: ${_escapeHtml(_essential.data.source)}.</p>`

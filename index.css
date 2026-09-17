@@ -2737,3 +2737,25 @@ body.modal-open {
     height: 0;
     flex: none;
 }
+
+/* Sortable output headings. The cue is deliberately quiet: the heading is
+   already the loudest thing in the table, and an arrow on every column would
+   read as data. */
+.sortTable th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortTable th.sortable:hover {
+    background: var(--green-50);
+}
+
+.sortTable th.sortable:focus-visible {
+    outline: 2px solid var(--green-500);
+    outline-offset: -2px;
+}
+
+.sortMark {
+    color: var(--mainColor);
+    font-size: 0.85em;
+}
