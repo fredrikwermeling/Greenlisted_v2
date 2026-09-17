@@ -644,6 +644,28 @@ async function runScreening() {
     // Default the preview to "Oligos to order" once the run
     // completes — saves the user a click for the most-used output.
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
+    // The output rows are shown for the first time here, so the phone's
+    // treatment of them has to be applied now rather than at load.
+    if (typeof PHONE_apply === "function") PHONE_apply()
+    _scrollToOutput()
+}
+
+// The results are at the foot of a page that is three columns on a desktop
+// and one long column on a phone, so on a phone pressing Run left the user
+// looking at the button they had just pressed with the answer several screens
+// below. Scrolled into view once the table is drawn.
+//
+// Only when the outputs are actually below the fold: on a wide screen they
+// often are not, and moving the page under someone who can already see the
+// answer is worse than doing nothing.
+function _scrollToOutput() {
+    const table = document.getElementById("outputTable")
+    if (!table) return
+    requestAnimationFrame(() => {
+        const top = table.getBoundingClientRect().top
+        if (top < window.innerHeight * 0.75) return
+        table.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
 }
 
 // Copy-number warning for one gene in the screening cell line. Only the
@@ -785,7 +807,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
 
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
     if (cl) out = out + _cnColumnNote(cl) + "\n"
-    out = out + "Symbol\tSymbol_ID\tsgRNA + adapter(s)" +
+    out = out + "Symbol\tSymbol_ID\tspacer + adapters" +
           (anyRole ? "\tAdded as" : "") + (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
@@ -955,16 +977,15 @@ function _applyTrim(text) {
     return newText
 }
 
+// Adapters in lower case, spacer in upper. DNA is case-insensitive to a
+// synthesiser, so this is presentation: it is how a finished oligo is set out,
+// and it is the only thing in the string that says where the vector's own
+// sequence stops and the guide begins. The boxes keep whatever case was typed,
+// because that is the user's text; the oligo built from them does not.
 function _applyAdapter(text) {
-    if (settings.adapterAfter.lenth == 0) {
-        adaptoerAfter = ""
-    }
-    if (settings.adapterBefore.lenth == 0) {
-        adapterBefore = ""
-    }
-    text = settings.adapterBefore + text + settings.adapterAfter
-    return text
-
+    const before = String(settings.adapterBefore || "").toLowerCase()
+    const after = String(settings.adapterAfter || "").toLowerCase()
+    return before + String(text).toUpperCase() + after
 }
 
 // show/hide lightbox - used to cover screen when running search
@@ -1610,8 +1631,8 @@ function _updateExampleText() {
     // Assembled from the parts rather than by searching the finished string,
     // so the guide stays highlighted even when a trim setting eats into it.
     const middle = _applyTrim("SPACER")
-    const before = settings.adapterBefore || ""
-    const after = settings.adapterAfter || ""
+    const before = (settings.adapterBefore || "").toLowerCase()
+    const after = (settings.adapterAfter || "").toLowerCase()
     // With no adapters entered the preview would only restate the word
     // SEQUENCE. It used to hide itself for that reason, but it sits in the
     // middle of three columns, so appearing and disappearing shifted

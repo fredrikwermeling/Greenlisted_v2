@@ -127,6 +127,43 @@ function _phoneClampLibraryInfo(on) {
     if (worth && !info.classList.contains("phone-clamp-open")) more.textContent = "Show the full reference"
 }
 
+// The output section on a phone.
+//
+// Nobody downloads a file to a phone, so the Download buttons and the format
+// picker behind them are hidden there — the buttons stay in the page so every
+// other code path that populates them still works, they are simply not shown.
+// And the seven outputs stacked one per row made the section taller than four
+// screens before the first table. Only the oligo list is offered; the rest are
+// behind a line you tap.
+function _phoneOutputs(on) {
+    const table = document.getElementById("outputTable")
+    if (!table) return
+    const rows = [...table.querySelectorAll("tr")]
+    const first = rows.find(r => r.querySelector("#outLabelAdapter"))
+    const others = rows.filter(r => r !== first && r.querySelector(".outLabel"))
+    if (!first || !others.length) return
+
+    var more = document.getElementById("phoneMoreOutputs")
+    if (!more) {
+        more = document.createElement("button")
+        more.id = "phoneMoreOutputs"
+        more.className = "phoneMore phoneMoreOutputs"
+        more.type = "button"
+        more.addEventListener("click", () => {
+            const open = table.classList.toggle("phone-outputs-open")
+            more.textContent = open ? "Hide the other outputs" : "Other outputs"
+        })
+        // Inside the table's own flex container, so it sits with the rows
+        // rather than beside them.
+        const host = table.querySelector("tbody") || table
+        host.appendChild(more)
+    }
+    table.classList.toggle("phone-outputs", on)
+    if (!on) table.classList.remove("phone-outputs-open")
+    more.hidden = !on
+    if (on && !table.classList.contains("phone-outputs-open")) more.textContent = "Other outputs"
+}
+
 function PHONE_apply() {
     const on = _phoneOn()
     for (const plate of document.querySelectorAll(".smallPlate")) {
@@ -150,6 +187,7 @@ function PHONE_apply() {
         }
     }
     _phoneClampLibraryInfo(on)
+    _phoneOutputs(on)
 }
 
 document.addEventListener("DOMContentLoaded", () => {

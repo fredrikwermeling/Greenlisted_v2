@@ -2337,6 +2337,38 @@ a.gcBtnLink {
         text-align: left;
     }
     .phoneMore[hidden] { display: none; }
+
+    /* Nobody saves a file to a phone. The buttons stay in the page so the
+       code that fills them after every run still works; they are not shown,
+       and neither is the format picker behind them. */
+    #outputTable.phone-outputs .dlBtn,
+    #outputTable.phone-outputs .dlHidden { display: none; }
+
+    /* Seven outputs, each a label over two buttons, stacked one per row: four
+       screens of scrolling before the first table. Only the oligo list is
+       offered, and the rest wait behind the line under it. */
+    #outputTable.phone-outputs tr { display: none; }
+    #outputTable.phone-outputs tr:has(#outLabelAdapter),
+    #outputTable.phone-outputs.phone-outputs-open tr { display: flex; }
+    .phoneMoreOutputs {
+        order: 99;
+        text-align: center;
+        border-top: 1px solid var(--gray-200);
+        margin-top: 6px;
+    }
+
+    /* A popout is the whole screen here, and the tables inside it hold a
+       column of scores that cannot wrap. Full width, and the body scrolls. */
+    .upset-modal-box {
+        max-width: 100vw;
+        width: 100%;
+        border-radius: 0;
+    }
+    .upset-modal-box[style] { max-width: 100vw !important; }
+    #libxBody, .upset-modal-body { overflow-x: auto; }
+    #libxBody .validationResultsTable { font-size: 0.72rem; }
+    #libxBody .validationResultsTable th,
+    #libxBody .validationResultsTable td { padding: 4px 6px; }
 }
 
 /* Any touch screen, phone or tablet: nothing interactive may be much
