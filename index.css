@@ -923,6 +923,11 @@ body.modal-open {
     position: fixed;
     width: 100%;
     overflow: hidden;
+    /* border-box, and the width pinned in _modalLockScroll to what the page
+       measured a moment earlier. The body carries 10% padding on each side,
+       so a content width of 100% made the whole box 20% wider than the
+       window: opening a popout pushed the app underneath it 300px wider. */
+    box-sizing: border-box;
 }
 
 .upset-modal-box {
@@ -2469,6 +2474,11 @@ body.modal-open {
     position: fixed;
     width: 100%;
     overflow: hidden;
+    /* border-box, and the width pinned in _modalLockScroll to what the page
+       measured a moment earlier. The body carries 10% padding on each side,
+       so a content width of 100% made the whole box 20% wider than the
+       window: opening a popout pushed the app underneath it 300px wider. */
+    box-sizing: border-box;
 }
 
 .upset-modal-box {

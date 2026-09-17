@@ -2044,11 +2044,21 @@ function _modalLockScroll(lock) {
     if (lock === body.classList.contains("modal-open")) return
     if (lock) {
         _modalScrollY = window.scrollY || window.pageYOffset || 0
+        // Holding the page still means fixing the body, and a fixed body
+        // measures its width against the window rather than the space it was
+        // sitting in. With 10% padding either side that made the whole box 20%
+        // wider than the window, and everything behind the popout jumped out
+        // with it; taking the scrollbar away widened it again. Pinned here to
+        // what the page measured a moment ago, with the rule for the class
+        // treating that as the whole box rather than the content.
+        const width = document.documentElement.clientWidth
         body.style.top = `-${_modalScrollY}px`
+        body.style.width = width + "px"
         body.classList.add("modal-open")
     } else {
         body.classList.remove("modal-open")
         body.style.top = ""
+        body.style.width = ""
         window.scrollTo(0, _modalScrollY)
     }
 }
