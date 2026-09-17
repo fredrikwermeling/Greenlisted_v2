@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=10.7">
+    <link rel="stylesheet" media="all" href="index.css?v=10.8">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=10.7" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=10.8" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=10.7" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=10.8" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -443,26 +443,30 @@ Use these settings to thin the guide list, add control guides, attach the adapte
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Controls <span class="titleTail">(optional)<span class="infoDot"
                         title="Controls set the baseline your genes are measured against. A focused library needs its own, because unlike a genome-wide screen it has no large set of no-effect genes to fall back on.&#10;&#10;Safe-targeting cuts the genome at a harmless site, so it carries the same damage cost as a real guide and makes the more honest baseline. Non-targeting never cuts, so it flatters the baseline and is best used as a second check. Essential genes are positive controls: they should drop out strongly if the screen worked.&#10;&#10;The suggested number is a total across both spike-in types, so ticking both splits it rather than doubling it. It grows with how many genes you screen and how many sgRNAs each gene has, stays between 50 and 120, and never exceeds what the library holds. Type your own number in a box to override it.">i</span></span></h3>
-                    <table class="plateContent">
+                    <!-- One line per control: tick, name, how many. The name
+                         used to sit in a 100px first column, which wrapped
+                         every one of them over two lines and made the panel
+                         twice as tall as it needed to be. -->
+                    <table class="plateContent" id="controlsTable">
                         <tr>
-                            <td><label for="includeSafeTargeting">Safe-targeting</label></td>
-                            <td><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
-                            <td><input type="number" id="safeTargetingCount" min="1"
-                                       oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
+                            <td class="ctrlTick"><input type="checkbox" id="includeSafeTargeting" onchange="changeSettings()"></td>
+                            <td class="ctrlName"><label for="includeSafeTargeting">Safe-targeting</label></td>
+                            <td class="ctrlCount"><input type="number" id="safeTargetingCount" min="1"
+                                       oninput="_controlCountEdited(this)" onchange="changeSettings()"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
                         <tr>
-                            <td><label for="includeNonTargeting">Non-targeting</label></td>
-                            <td><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
-                            <td><input type="number" id="nonTargetingCount" min="1"
-                                       oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
+                            <td class="ctrlTick"><input type="checkbox" id="includeNonTargeting" onchange="changeSettings()"></td>
+                            <td class="ctrlName"><label for="includeNonTargeting">Non-targeting</label></td>
+                            <td class="ctrlCount"><input type="number" id="nonTargetingCount" min="1"
+                                       oninput="_controlCountEdited(this)" onchange="changeSettings()"
                                        title="How many to add. Pre-filled with the suggested number, which keeps tracking your gene list until you type your own value. Clear the box to go back to the suggestion."></td>
                         </tr>
                         <tr>
-                            <td><label for="includeEssential">Essential genes</label></td>
-                            <td><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
-                            <td><input type="number" id="essentialCount" min="1" max="9"
-                                       oninput="_controlCountEdited(this)" onchange="changeSettings()" style="width:4.5em;"
+                            <td class="ctrlTick"><input type="checkbox" id="includeEssential" onchange="changeSettings()"></td>
+                            <td class="ctrlName"><label for="includeEssential">Essential genes</label></td>
+                            <td class="ctrlCount"><input type="number" id="essentialCount" min="1" max="9"
+                                       oninput="_controlCountEdited(this)" onchange="changeSettings()"
                                        title="How many essential genes to add (1-9). Pre-filled with 3; type your own value to override."></td>
                         </tr>
                     </table>
@@ -653,24 +657,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=10.7"></script>
-    <script type="text/javascript" src="settings.js?v=10.7"></script>
-    <script type="text/javascript" src="grnaService.js?v=10.7"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=10.7"></script>
-    <script type="text/javascript" src="validate.js?v=10.7"></script>
-    <script type="text/javascript" src="upset.js?v=10.7"></script>
-    <script type="text/javascript" src="cnService.js?v=10.7"></script>
-    <script type="text/javascript" src="index.js?v=10.7"></script>
-    <script type="text/javascript" src="fileHandler.js?v=10.7"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=10.7"></script>
-    <script type="text/javascript" src="helpPopout.js?v=10.7"></script>
-    <script type="text/javascript" src="phone.js?v=10.7"></script>
-    <script type="text/javascript" src="methods.js?v=10.7"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=10.7"></script>
-    <script type="text/javascript" src="gcontext.js?v=10.7"></script>
-    <script type="text/javascript" src="gcexport.js?v=10.7"></script>
-    <script type="text/javascript" src="gcai.js?v=10.7"></script>
-    <script type="text/javascript" src="gclibraries.js?v=10.7"></script>
+    <script type="text/javascript" src="library.js?v=10.8"></script>
+    <script type="text/javascript" src="settings.js?v=10.8"></script>
+    <script type="text/javascript" src="grnaService.js?v=10.8"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=10.8"></script>
+    <script type="text/javascript" src="validate.js?v=10.8"></script>
+    <script type="text/javascript" src="upset.js?v=10.8"></script>
+    <script type="text/javascript" src="cnService.js?v=10.8"></script>
+    <script type="text/javascript" src="index.js?v=10.8"></script>
+    <script type="text/javascript" src="fileHandler.js?v=10.8"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=10.8"></script>
+    <script type="text/javascript" src="helpPopout.js?v=10.8"></script>
+    <script type="text/javascript" src="phone.js?v=10.8"></script>
+    <script type="text/javascript" src="methods.js?v=10.8"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=10.8"></script>
+    <script type="text/javascript" src="gcontext.js?v=10.8"></script>
+    <script type="text/javascript" src="gcexport.js?v=10.8"></script>
+    <script type="text/javascript" src="gcai.js?v=10.8"></script>
+    <script type="text/javascript" src="gclibraries.js?v=10.8"></script>
 
 </body>
 

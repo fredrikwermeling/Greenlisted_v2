@@ -2669,3 +2669,44 @@ body.modal-open {
 @media (max-width: 640px), (pointer: coarse) {
     .symAmbigBtn { padding: 7px 12px; }
 }
+
+/* Controls: one line per control, read as "tick, name, how many".
+   The name sat in the 100px first column every table here gets, which wrapped
+   "Safe-targeting" and "Essential genes" over two lines and left the panel
+   twice as tall as its three settings. */
+#controlsTable {
+    gap: 2px;
+}
+
+#controlsTable td {
+    padding: 3px 4px;
+    vertical-align: middle;
+}
+
+#controlsTable td.ctrlTick {
+    width: 22px;
+    text-align: center;
+}
+
+#controlsTable td.ctrlName {
+    /* Shrink to the widest name, so the count boxes start just after it
+       instead of at the far edge of the panel. */
+    width: 1%;
+    white-space: nowrap;
+}
+
+#controlsTable td.ctrlName label {
+    cursor: pointer;
+}
+
+/* Takes the slack, so the three boxes line up under each other a step after
+   the longest name. */
+#controlsTable td.ctrlCount {
+    width: auto;
+    text-align: left;
+    padding-left: 10px;
+}
+
+#controlsTable td.ctrlCount input {
+    width: 4.5em;
+}
