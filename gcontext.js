@@ -455,6 +455,76 @@ async function _gcLocate(species, symbol, spacer) {
     return result
 }
 
+// The genomic span of one codon, walking the CDS the same way
+// _gcCodingPosition walks it in the other direction.
+function _gcCodonSpan(tx, codon) {
+    if (!tx || !(tx.cdsStart < tx.cdsEnd) || !(codon > 0)) return null
+    const exons = tx.strand === "+" ? tx.exons : tx.exons.slice().reverse()
+    const want = [(codon - 1) * 3, (codon - 1) * 3 + 1, (codon - 1) * 3 + 2]
+    const pos = []
+    var counted = 0
+    for (const [es, ee] of exons) {
+        const a = Math.max(es, tx.cdsStart), b = Math.min(ee, tx.cdsEnd)
+        if (a >= b) continue
+        const len = b - a
+        for (const w of want) {
+            if (w >= counted && w < counted + len) {
+                const within = w - counted
+                pos.push(tx.strand === "+" ? a + within : b - 1 - within)
+            }
+        }
+        counted += len
+    }
+    return pos.length ? { lo: Math.min(...pos), hi: Math.max(...pos) } : null
+}
+
+// Does this guide sit on the hotspot mutation the chosen cell line carries?
+//
+// Worth asking because the answer is sometimes yes: across the 36 guides the
+// human library holds for the twelve genes DepMap names a hotspot in, two sit
+// on one — both on codon 61 of a RAS gene. Where it lands decides whether it
+// matters. A mismatch in the ten bases next to the PAM usually stops Cas9
+// cutting that allele; one at the far end is usually tolerated; one in the PAM
+// itself stops it outright.
+//
+// Only the variants DepMap names outright can be checked, since only those
+// carry a codon number. Everything else about the cell line's genotype is
+// invisible here.
+function _gcHotspotOnSpacer(v, cellLine) {
+    if (!v || !v.cur || !v.cur.tx || !cellLine) return null
+    if (typeof HOT_variant !== "function") return null
+    const symbol = v.cur.tx.gene || v.cur.symbol
+    const variant = HOT_variant(cellLine, symbol)
+    if (variant === null) return null                     // no hotspot in this line
+    const m = /p\.[A-Za-z](\d+)/.exec(variant || "")
+    if (!m) return { variant: variant, symbol: symbol, codon: null }  // named but not by codon, or unnamed
+    const codon = parseInt(m[1], 10)
+    const span = _gcCodonSpan(v.cur.tx, codon)
+    if (!span) return { variant: variant, symbol: symbol, codon: codon, span: null }
+
+    const site = v.cur.site
+    const L = site.spacer.length
+    // Spacer and PAM as plus-strand intervals.
+    const spacer = { lo: site.spacerStart, hi: site.spacerStart + L - 1 }
+    const pam = site.strand === "+"
+        ? { lo: spacer.hi + 1, hi: spacer.hi + 3 }
+        : { lo: spacer.lo - 3, hi: spacer.lo - 1 }
+    const hitsPam = span.lo <= pam.hi && pam.lo <= span.hi
+    const hitsSpacer = span.lo <= spacer.hi && spacer.lo <= span.hi
+    if (!hitsPam && !hitsSpacer) return { variant: variant, symbol: symbol, codon: codon, where: "outside" }
+
+    // How far the nearest base of the codon is from the PAM end of the spacer:
+    // 1 is the base against the PAM, 20 the far end.
+    const nearest = site.strand === "+"
+        ? L - (Math.min(span.hi, spacer.hi) - spacer.lo)
+        : Math.max(span.lo, spacer.lo) - spacer.lo + 1
+    return {
+        variant: variant, symbol: symbol, codon: codon,
+        where: hitsPam ? "pam" : (nearest <= 10 ? "seed" : "distal"),
+        positionFromPam: hitsPam ? 0 : nearest
+    }
+}
+
 // Transcripts overlapping a window, from the first track that has any.
 async function _gcTranscripts(genome, chrom, start, end) {
     const key = `${genome}|${chrom}|${start}|${end}`
@@ -941,6 +1011,33 @@ function _gcShow() {
     meta.push(["Cut site", `${_gcExonSummary(v.bases, tx)}; between positions ${v.cutAfter} and ${v.cutAfter + 1} below`])
     meta.push(["Spacer", `positions ${v.spacerR.start}–${v.spacerR.end}; PAM ${v.pamR.start}–${v.pamR.end}` +
         (v.viewStrand !== cur.site.strand ? " (shown as the reverse complement, PAM first)" : "")])
+
+    // Whether the guide sits on the mutation the chosen cell line carries in
+    // this gene. Only shown when a line is picked and it has one here: for
+    // every other guide there is nothing to say.
+    const hotLine = (typeof _hotCellLine === "function") ? _hotCellLine() : null
+    const hot = hotLine ? _gcHotspotOnSpacer(v, hotLine) : null
+    if (hot) {
+        const name = _escapeHtml(hotLine.name)
+        const gene = `<i>${_escapeHtml(hot.symbol)}</i>`
+        var text
+        if (!hot.codon) {
+            text = `${name} carries a hotspot mutation in ${gene}. DepMap does not name the position, so whether this guide sits on it cannot be checked here.`
+        } else if (hot.where === "outside") {
+            text = `${name} carries ${_escapeHtml(hot.variant)} in ${gene}, at codon ${hot.codon}. This spacer does not reach it, so it cuts both alleles alike.`
+        } else if (hot.where === "pam") {
+            text = `<b>${name} carries ${_escapeHtml(hot.variant)} in ${gene}, and codon ${hot.codon} falls in this guide's PAM.</b> ` +
+                   `Expect the mutant allele not to be cut at all, leaving the wild-type allele edited and the mutant intact.`
+        } else if (hot.where === "seed") {
+            text = `<b>${name} carries ${_escapeHtml(hot.variant)} in ${gene}, and codon ${hot.codon} falls ${hot.positionFromPam} bases from the PAM, inside the seed.</b> ` +
+                   `A mismatch that close to the PAM usually stops Cas9 cutting that allele.`
+        } else {
+            text = `${name} carries ${_escapeHtml(hot.variant)} in ${gene}, and codon ${hot.codon} touches this spacer ${hot.positionFromPam} bases from the PAM, at the far end. ` +
+                   `A mismatch there is usually tolerated, so both alleles are likely to be cut, but it is worth knowing.`
+        }
+        meta.push(["Mutation here", text +
+            ` <span class="gcHotNote">Only the hotspots DepMap names are checked. Any other variant this line carries, here or anywhere else, is invisible to this.</span>`])
+    }
 
     var html = `<div class="gcMeta">` + meta.map(([k, val]) => `<div class="gcKey">${k}</div><div class="gcVal">${val}</div>`).join("") + `</div>`
 

@@ -769,6 +769,12 @@ function GC_aiBuild(pairs, question, csvWarning) {
     const absent = []
     if (annotated) present.push(`primerCandidates — ${annotated.length} primer pairs from NCBI Primer-BLAST, each re-expressed relative to the cut site`)
     else absent.push("primerCandidates — none were supplied with this export, so there are no primer pairs in this file to choose between")
+    // Only when a cell line has been chosen in the tool and DepMap names a
+    // hotspot for this gene in it. For every other export there is nothing to
+    // say and the section is left out rather than filled with "unknown".
+    const hotLine = (typeof _hotCellLine === "function") ? _hotCellLine() : null
+    const hotOnGuide = (hotLine && typeof _gcHotspotOnSpacer === "function") ? _gcHotspotOnSpacer(v, hotLine) : null
+    if (hotOnGuide) present.push("mutationInTheChosenCellLine — the hotspot this cell line carries in this gene, and whether the guide sits on it")
 
     return {
         _file: "Green Listed — genomic context for one CRISPR sgRNA" + (annotated ? ", with PCR primer candidates" : ""),
@@ -923,6 +929,32 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 : "Neither primer may sit near the cut, or an indel can land under a primer and the Sanger trace has no clean sequence " +
                   "before the edit. ICE asks for at least 150 bp of clearance and a 400-800 bp product; TIDE prefers the cut about 200 bp " +
                   "into the read, needs at least 100 bp before it, and a 500-1500 bp product."
+        } : null,
+
+        // A guide that sits on the mutation the line already carries edits one
+        // allele and not the other, which is not the experiment anyone meant
+        // to set up.
+        mutationInTheChosenCellLine: hotOnGuide ? {
+            cellLine: hotLine.name,
+            gene: hotOnGuide.symbol,
+            variantAsDepMapNamesIt: hotOnGuide.variant || "named only as a hotspot, without a position",
+            codon: hotOnGuide.codon,
+            whereItFallsRelativeToThisGuide:
+                hotOnGuide.where === "pam" ? "inside the PAM"
+                : hotOnGuide.where === "seed" ? `inside the spacer, ${hotOnGuide.positionFromPam} bases from the PAM, in the seed`
+                : hotOnGuide.where === "distal" ? `inside the spacer, ${hotOnGuide.positionFromPam} bases from the PAM, at the far end`
+                : hotOnGuide.where === "outside" ? "outside the spacer and the PAM"
+                : "not known, since DepMap does not give this variant a position",
+            whatThatMeans:
+                hotOnGuide.where === "pam" ? "Expect the mutant allele not to be cut at all: the wild-type allele is edited and the mutant one is left intact, which is the opposite of the intended experiment."
+                : hotOnGuide.where === "seed" ? "A mismatch this close to the PAM usually stops Cas9 cutting that allele, so the mutant copy may survive editing."
+                : hotOnGuide.where === "distal" ? "A mismatch at the far end of the spacer is usually tolerated, so both alleles are likely to be cut. Worth knowing, not a reason to change guide."
+                : hotOnGuide.where === "outside" ? "The guide does not touch the mutation, so it cuts both alleles alike."
+                : "Cannot be judged from what is in this file.",
+            onlyNamedHotspotsAreChecked:
+                "Only the hotspot variants DepMap names outright (KRAS p.G12D, BRAF p.V600E and the like) carry a position and can be checked. " +
+                "Any other variant this cell line carries — in this gene or under a primer — is invisible here, so do not report the guide as clear of mutations, only clear of this one.",
+            source: "DepMap 26Q1 hotspot calls with named variants; codon positions computed against " + (tx ? tx.name : "the transcript in this file")
         } : null,
 
         primerCandidates: annotated,

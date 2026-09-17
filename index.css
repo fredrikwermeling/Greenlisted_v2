@@ -2826,3 +2826,10 @@ body.modal-open {
     margin-left: 3px;
     cursor: help;
 }
+
+/* The caveat on the mutation row in the context panel: true of every line it
+   draws, so it is set quieter than the finding itself. */
+.gcHotNote {
+    color: var(--gray-500);
+    font-size: 0.92em;
+}
