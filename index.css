@@ -2455,6 +2455,23 @@ body.modal-open {
     #libxBody .validationResultsTable td { padding: 4px 6px; }
 }
 
+/* Said only on a phone, where a tool built around pasting and a wide table
+   is worth a word of warning before it is opened. */
+.phoneOnlyNote { display: none; }
+
+@media only screen and (max-width: 640px) {
+    .phoneOnlyNote {
+        display: block;
+        margin: 10px 0 0 0;
+        padding: 8px 10px;
+        background: #fffbeb;
+        border-left: 3px solid #fcd34d;
+        border-radius: 0 3px 3px 0;
+        font-size: 0.82rem;
+        color: var(--gray-700);
+    }
+}
+
 /* Any touch screen, phone or tablet: nothing interactive may be much
    smaller than a fingertip. Scoped by pointer, never by width, so a desktop
    with a mouse never matches. */
@@ -2466,4 +2483,27 @@ body.modal-open {
     /* The info dots are the explanations, and a 14px dot is not a target.
        Wider, with the tap handled in helpPopout.js. */
     .infoDot { width: 24px; height: 24px; font-size: 0.8rem; }
+}
+
+/* Spinner for the cell-line field while the copy-number data downloads.
+   The status text alone gave no sign of life on a phone, where the download
+   is long enough that a still line reads as a hung app. */
+.cnLoadSpin {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 6px;
+    vertical-align: -1px;
+    border: 2px solid var(--outlineColor);
+    border-top-color: var(--mainColor);
+    border-radius: 50%;
+    animation: cnLoadSpin 0.8s linear infinite;
+}
+
+@keyframes cnLoadSpin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cnLoadSpin { animation-duration: 3s; }
 }

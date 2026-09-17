@@ -41,6 +41,9 @@ const _CN_STATE = {
 // a simple module-scope hook so the service stays UI-agnostic.
 let _CN_PROGRESS_LISTENER = null
 function CN_onProgress(fn) { _CN_PROGRESS_LISTENER = fn }
+// Unregister only if the caller is still the one listening, so a panel
+// that finished waiting cannot silence a bar someone else just wired up.
+function CN_offProgress(fn) { if (_CN_PROGRESS_LISTENER === fn) _CN_PROGRESS_LISTENER = null }
 function _cnEmitProgress(phase, received, total, elapsedMs) {
     _CN_STATE.progress = { phase, received, total, elapsedMs }
     if (_CN_PROGRESS_LISTENER) {
@@ -50,11 +53,55 @@ function _cnEmitProgress(phase, received, total, elapsedMs) {
 
 function CN_isLoaded() { return _CN_STATE.loaded }
 
-async function CN_loadIfNeeded() {
-    if (_CN_STATE.loaded) return
-    if (_CN_STATE.loading) return _CN_STATE.loading
-    _CN_STATE.loading = (async () => {
-        const t0 = performance.now()
+// Read a decompressed stream into one ArrayBuffer of a size we already know.
+//
+// The obvious `new Response(stream).arrayBuffer()` keeps every chunk alive in
+// a list and then allocates the full 80 MB result and copies into it, so for
+// the length of that copy the tab holds the matrix twice — about 160 MB, on
+// top of whatever else is in flight. A phone tab does not survive that, which
+// is what "it still crashes when I add a cell line" was. The matrix dimensions
+// come from cn_metadata.json, which has already been parsed by the time we get
+// here, so the destination can be allocated once up front and written into as
+// the chunks arrive: one 80 MB allocation, no copy of the whole thing.
+//
+// If the stream turns out longer than the dimensions promised (a rebuilt
+// cn.bin that shipped without its metadata, say) we grow rather than truncate,
+// so a mismatch is a slow load and not silently wrong numbers.
+async function _cnDrainToInt16(stream, expectedBytes) {
+    const reader = stream.getReader()
+    let out = new Uint8Array(expectedBytes > 0 ? expectedBytes : 1 << 20)
+    let off = 0
+    for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (off + value.length > out.length) {
+            const grown = new Uint8Array(Math.max(out.length * 2, off + value.length))
+            grown.set(out.subarray(0, off))
+            out = grown
+        }
+        out.set(value, off)
+        off += value.length
+    }
+    if (off !== expectedBytes) {
+        console.warn(`CN matrix: expected ${expectedBytes} bytes, got ${off}`)
+    }
+    // A view, not a copy: slicing the buffer to length would put us back to
+    // holding two of it, which is the whole thing this avoids.
+    return new Int16Array(out.buffer, 0, Math.floor(off / 2))
+}
+
+// Everything needed to name, describe and pick a cell line: about 1.5 MB of
+// JSON, and no part of the 62 MB matrix. Picking a line used to pull the whole
+// matrix down before the field would so much as suggest a name, which on a
+// phone meant a long dead pause and often a killed tab for a step the user had
+// not committed to yet. The matrix is now fetched when a result actually needs
+// a number — at Run, or when the copy-number lookup is used.
+function CN_catalogReady() { return !!_CN_STATE.metadata }
+
+async function CN_loadCatalogIfNeeded() {
+    if (_CN_STATE.metadata) return
+    if (_CN_STATE.catalogLoading) return _CN_STATE.catalogLoading
+    _CN_STATE.catalogLoading = (async () => {
         // Slim cell-line metadata (display name / sex / cancer type) loads
         // first since it's small and gates the picker UI.
         const metaRes = await fetch("cellLineMetadata.json")
@@ -68,11 +115,24 @@ async function CN_loadIfNeeded() {
         } catch (e) { console.warn("Could not load globalSignatures.json:", e) }
         // CN metadata (gene list + cell-line list + scale factor).
         const cnMetaRes = await fetch("cn_metadata.json")
-        _CN_STATE.metadata = await cnMetaRes.json()
+        const meta = await cnMetaRes.json()
         _CN_STATE.geneIndex = new Map()
-        _CN_STATE.metadata.genes.forEach((g, i) => _CN_STATE.geneIndex.set(g.toUpperCase(), i))
+        meta.genes.forEach((g, i) => _CN_STATE.geneIndex.set(g.toUpperCase(), i))
         _CN_STATE.cellLineIndex = new Map()
-        _CN_STATE.metadata.cellLines.forEach((cl, i) => _CN_STATE.cellLineIndex.set(cl, i))
+        meta.cellLines.forEach((cl, i) => _CN_STATE.cellLineIndex.set(cl, i))
+        // Set last: CN_catalogReady() reads it, and a half-built index is
+        // worse than none.
+        _CN_STATE.metadata = meta
+    })()
+    return _CN_STATE.catalogLoading
+}
+
+async function CN_loadIfNeeded() {
+    if (_CN_STATE.loaded) return
+    if (_CN_STATE.loading) return _CN_STATE.loading
+    _CN_STATE.loading = (async () => {
+        const t0 = performance.now()
+        await CN_loadCatalogIfNeeded()
         // Binary blob — streamed download with byte-level progress so the
         // UI can show received / total / ETA. The Content-Length header is
         // the gzipped size; the gzip stream is then piped through the
@@ -90,7 +150,8 @@ async function CN_loadIfNeeded() {
             }
         })
         const stream = binRes.body.pipeThrough(counter).pipeThrough(new DecompressionStream("gzip"))
-        const buf = await new Response(stream).arrayBuffer()
+        const matrix = await _cnDrainToInt16(stream,
+            _CN_STATE.metadata.nGenes * _CN_STATE.metadata.nCellLines * 2)
         _cnEmitProgress("decoding", received, total, performance.now() - tDl)
         // Kept as the 16-bit integers the file holds, and turned into a
         // value only when one is read. It used to be copied into a Float32
@@ -100,7 +161,7 @@ async function CN_loadIfNeeded() {
         // is also being parsed gets killed by the OS, which is what "the app
         // crashes when I add a cell line" was. Two functions read this array
         // and both do the division themselves.
-        _CN_STATE.data = new Int16Array(buf)
+        _CN_STATE.data = matrix
         _CN_STATE.scale = _CN_STATE.metadata.scaleFactor
         _CN_STATE.na = _CN_STATE.metadata.naValue
         _CN_STATE.loaded = true
@@ -173,6 +234,18 @@ async function CN_loadSynonymsIfNeeded() {
     if (_CN_STATE.synIndex) return _CN_STATE.synIndex
     if (_CN_STATE.synIndexLoading) return _CN_STATE.synIndexLoading
     _CN_STATE.synIndexLoading = (async () => {
+        // The app loads this same file at startup into _library.synonymMap,
+        // in exactly this shape (lower-cased keys, Set values), and
+        // CN_resolveSymbol is handed that map by every caller. Building a
+        // second index from the same 9 MB of text doubles a structure that
+        // costs tens of megabytes of objects, for nothing — on a phone that
+        // is memory spent next to an 80 MB matrix. Only build it when the
+        // app's own map is missing, which is what it was there for.
+        const appMap = (typeof _library !== "undefined" && _library && _library.synonymMap) || null
+        if (appMap && Object.keys(appMap).length > 0) {
+            _CN_STATE.synIndex = new Map()   // empty: lookups fall through to appMap
+            return _CN_STATE.synIndex
+        }
         try {
             const res = await fetch("libraries/human+mouse synonym.txt")
             if (!res.ok) throw new Error("HTTP " + res.status)

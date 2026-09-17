@@ -223,6 +223,35 @@ var _testSequences = {
     // Mouse: Kras(4 libs), Akt1(Brie only), Akt1(GeCKO only), Braf(Julianna+VBC), Egfr(VBC+mTKO), Akt1(mTKO only)
 }
 
+// The instructions inside the empty input box. They are numbered steps for
+// the mode the app is actually in: in validate mode the design-mode text
+// ("Select a sgRNA library… gene symbols…") described a different job from
+// the one the box was waiting for, and it is the only instruction on screen.
+const _INPUT_PLACEHOLDERS = {
+    design: "1.  Select a sgRNA library (e.g. Jacquere)\n" +
+            "2.  Type or paste one or several gene symbols here\n" +
+            "3.  Set parameters (optional) and press Run\n" +
+            "4.  Collect the results at the foot of the page\n\n" +
+            "(One gene symbol per line, or separated by\ncommas, semicolons, tabs or spaces)",
+    validate: "1.  Paste the sgRNA spacer sequences here\n" +
+              "2.  Press Run\n" +
+              "3.  The results say which libraries each\n" +
+              "     sequence is in, and which gene it targets\n\n" +
+              "(20 nt spacers, A/C/G/T only, without the PAM\n" +
+              "and without adapters. One per line, or separated\n" +
+              "by commas, semicolons, tabs or spaces)",
+    cn: "1.  Type or paste one or several gene symbols here\n" +
+        "2.  Press Run\n" +
+        "3.  The results give each gene's copy number in\n" +
+        "     the cell lines you picked\n\n" +
+        "(One gene symbol per line, or separated by\ncommas, semicolons, tabs or spaces)"
+}
+
+function _setInputPlaceholder(mode) {
+    const box = document.getElementById("searchSymbols")
+    if (box) box.placeholder = _INPUT_PLACEHOLDERS[mode] || _INPUT_PLACEHOLDERS.design
+}
+
 function toggleValidateMode(species) {
     const humanBtn = document.getElementById("validateHumanButton")
     const mouseBtn = document.getElementById("validateMouseButton")
@@ -241,6 +270,7 @@ function toggleValidateMode(species) {
         mouseBtn.classList.remove("validate-btn-active")
         _setSectionTitle("symbolsTitle", "Symbol matching")
         _setSectionTitle("inputPlateTitle", "2. Input symbols")
+        _setInputPlaceholder("design")
         // Reload default settings to restore a clean design-mode state
         init()
         return
@@ -256,6 +286,7 @@ function toggleValidateMode(species) {
 
     _setSectionTitle("symbolsTitle", "Enter sgRNA sequences")
     _setSectionTitle("inputPlateTitle", "2. Input sgRNA")
+    _setInputPlaceholder("validate")
     document.getElementById("searchSymbols").value = ""
     _setStatus("statusSearchSymbolsRows", "")
 }
@@ -581,8 +612,13 @@ async function runScreening() {
         if (screeningCl.length > 0) {
             try {
                 if (!CN_isLoaded()) {
+                    // This is where the 62 MB now arrives, so the run status
+                    // carries the download rather than sitting on one line
+                    // while a phone looks frozen.
                     _setStatus("statusSearch", `Loading copy-number data for ${screeningCl.length} cell line(s)…`)
-                    await CN_loadIfNeeded()
+                    const onProgress = _cnRunProgress()
+                    CN_onProgress(onProgress)
+                    try { await CN_loadIfNeeded() } finally { CN_offProgress(onProgress) }
                 }
                 // CN_loadIfNeeded kicks off the synonym index without
                 // awaiting it, so resolve it explicitly here — otherwise
@@ -2157,6 +2193,24 @@ var _cnState = {
     tsvOutput: ""             // TSV of the results table for download
 }
 
+// The run status line, as a progress readout for the copy-number download.
+// _setStatus animates, which would make every chunk blink, so this writes the
+// element directly.
+function _cnRunProgress() {
+    return p => {
+        const el = document.getElementById("statusSearch")
+        if (!el) return
+        const mbR = (p.received / 1048576).toFixed(1)
+        const mbT = p.total ? (p.total / 1048576).toFixed(1) : "60"
+        const pct = p.total ? Math.round(100 * p.received / p.total) : 0
+        if (p.phase === "downloading") {
+            el.innerHTML = `<span class="cnLoadSpin"></span>Loading copy-number data — ${mbR} / ${mbT} MB (${pct}%)`
+        } else if (p.phase === "decoding") {
+            el.innerHTML = `<span class="cnLoadSpin"></span>Unpacking copy-number data…`
+        }
+    }
+}
+
 async function CN_openModal() {
     // Toggling off — leave CN mode and clear selection.
     if (_cnState.isMode) {
@@ -2165,7 +2219,7 @@ async function CN_openModal() {
     }
     const modal = document.getElementById("cnModal")
     modal.className = "fazeIn upset-modal-overlay"
-    document.getElementById("cnPickerStatus").textContent = "Loading catalog (cell-line metadata + CN matrix)…"
+    document.getElementById("cnPickerStatus").textContent = "Loading the cell-line list…"
     document.getElementById("cnPickerConfirmBtn").disabled = true
     _cnState.selectedCellLines = []
     _updateCnPickerSelectedCount()
@@ -2176,7 +2230,10 @@ async function CN_openModal() {
     const progBar = document.getElementById("cnDownloadBar")
     const progEta = document.getElementById("cnDownloadEta")
     const progLbl = document.getElementById("cnDownloadLabel")
-    if (CN_isLoaded()) {
+    if (CN_isLoaded() || !_CN_STATE.loading) {
+        // No matrix fetch under way: the picker needs only the catalog, so
+        // there is nothing to show a bar for. (A background prefetch that is
+        // already running does light it up.)
         if (progBox) progBox.style.display = "none"
     } else {
         if (progBox) progBox.style.display = "block"
@@ -2210,7 +2267,7 @@ async function CN_openModal() {
         })
     }
     try {
-        await CN_loadIfNeeded()
+        await CN_loadCatalogIfNeeded()
         _cnState.fullCatalog = CN_listCellLines()
         document.getElementById("cnPickerStatus").textContent =
             `${_cnState.fullCatalog.length} human cell lines available. Type to filter; click rows to (de)select.`
@@ -2430,8 +2487,23 @@ function CN_handleScreeningCellLineInput() {
         const status = document.getElementById("screeningCellLineStatus")
         const dl = document.getElementById("screeningCellLineList")
         if (!_screeningDatalistPopulated) {
-            if (status) status.textContent = "Loading cell-line catalog…"
-            await CN_loadIfNeeded()
+            // Only the catalog — names, cancer types, ploidy. Typing here used
+            // to pull the whole 62 MB matrix before the field would suggest
+            // anything, which on a phone was a long dead pause and sometimes a
+            // killed tab, for a step the user had not committed to yet. The
+            // matrix now waits for Run. The spinner stays because even 1.5 MB
+            // is a visible wait on a phone, and a still status line reads as a
+            // hung app.
+            if (status) {
+                status.innerHTML = `<span class="cnLoadSpin"></span>` +
+                    `<span id="screeningCellLineProgress">Loading the cell-line list…</span>`
+            }
+            try {
+                await CN_loadCatalogIfNeeded()
+            } catch (err) {
+                if (status) status.textContent = "Could not load the cell-line list: " + err.message
+                throw err
+            }
             const list = CN_listCellLines()
             if (dl) {
                 // Emit both the DepMap canonical form ("A-375") AND the
@@ -2462,7 +2534,12 @@ function CN_handleScreeningCellLineInput() {
             if (status) {
                 const ploidy = match.knownPloidy ? ` &middot; ${match.ploidy.toFixed(1)}n${match.wgd ? " WGD" : ""}` : ""
                 const cancer = [match.disease, match.lineage].filter(Boolean).join(" · ")
-                status.innerHTML = `<span style="color:var(--mainColor); font-weight:600;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>`
+                // The 62 MB of copy-number values is not fetched until Run,
+                // so say so here rather than letting the first Run look like a
+                // stall.
+                const pending = CN_isLoaded() ? ""
+                    : `<div style="color:#6b7280;">Copy-number values (about 60 MB) load when you press Run.</div>`
+                status.innerHTML = `<span style="color:var(--mainColor); font-weight:600;">✓ ${match.name}${ploidy}${cancer ? " &mdash; " + cancer : ""}</span>` + pending
             }
         } else {
             _cnState.screeningCellLines = []
@@ -2487,6 +2564,7 @@ function _cnEnterMode() {
     _setSectionTitle("symbolsTitle",
         `Gene symbols (CN lookup in ${_cnState.selectedCellLines.length} cell line${_cnState.selectedCellLines.length === 1 ? "" : "s"}: ${_cnState.selectedCellLines.map(c => c.name).slice(0, 5).join(", ")}${_cnState.selectedCellLines.length > 5 ? ", …" : ""})`)
     _setSectionTitle("inputPlateTitle", "2. Input gene symbols")
+    _setInputPlaceholder("cn")
     // If the user came in via a "classic example" chip, the gene list
     // was queued on _cnState.pendingTestGenes — pre-fill the textarea
     // and clear the queue so subsequent entries don't get stale.
@@ -2508,6 +2586,7 @@ function _cnExitMode() {
     const inputPlateTitle = document.getElementById("inputPlateTitle")
     _setSectionTitle("symbolsTitle", "Symbol matching")
     _setSectionTitle("inputPlateTitle", "2. Input symbols")
+    _setInputPlaceholder("design")
     init()
 }
 
@@ -2525,8 +2604,10 @@ async function CN_runLookup() {
             _toggleLigtBox(); statusText.classList.remove("pulse"); return
         }
         if (!CN_isLoaded()) {
-            _setStatus("statusSearch", "Loading CN matrix...")
-            await CN_loadIfNeeded()
+            _setStatus("statusSearch", "Loading copy-number data…")
+            const onProgress = _cnRunProgress()
+            CN_onProgress(onProgress)
+            try { await CN_loadIfNeeded() } finally { CN_offProgress(onProgress) }
         }
         // Hand the active synonym map (loaded by the rest of the app) to
         // the CN service so unmapped symbols can still resolve. Without

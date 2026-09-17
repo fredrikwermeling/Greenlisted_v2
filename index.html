@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=9.4">
+    <link rel="stylesheet" media="all" href="index.css?v=9.6">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=9.4" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=9.6" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=9.4" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=9.6" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -211,6 +211,15 @@
                 </div>
                 <div class="upset-modal-body">
                     <p>Select the genome you want to validate sgRNA sequences against.</p>
+                    <!-- Shown only on a phone. The tool takes a pasted column of
+                         sequences and answers with a wide table, and it fetches a
+                         36 MB index to do it. It works here, but it is not what a
+                         phone is for, and saying so is kinder than letting someone
+                         find out after the download. -->
+                    <p class="phoneOnlyNote">This one is easier on a computer. It works
+                        best with a column of sequences pasted in and a wide table to
+                        read the answer from, and it fetches a 36&nbsp;MB index the
+                        first time you use it.</p>
                     <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
                         <button class="validate-btn" onclick="confirmValidateSpecies('human')">Human</button>
                         <button class="validate-btn" onclick="confirmValidateSpecies('mouse')">Mouse</button>
@@ -637,24 +646,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=9.4"></script>
-    <script type="text/javascript" src="settings.js?v=9.4"></script>
-    <script type="text/javascript" src="grnaService.js?v=9.4"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=9.4"></script>
-    <script type="text/javascript" src="validate.js?v=9.4"></script>
-    <script type="text/javascript" src="upset.js?v=9.4"></script>
-    <script type="text/javascript" src="cnService.js?v=9.4"></script>
-    <script type="text/javascript" src="index.js?v=9.4"></script>
-    <script type="text/javascript" src="fileHandler.js?v=9.4"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=9.4"></script>
-    <script type="text/javascript" src="helpPopout.js?v=9.4"></script>
-    <script type="text/javascript" src="phone.js?v=9.4"></script>
-    <script type="text/javascript" src="methods.js?v=9.4"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=9.4"></script>
-    <script type="text/javascript" src="gcontext.js?v=9.4"></script>
-    <script type="text/javascript" src="gcexport.js?v=9.4"></script>
-    <script type="text/javascript" src="gcai.js?v=9.4"></script>
-    <script type="text/javascript" src="gclibraries.js?v=9.4"></script>
+    <script type="text/javascript" src="library.js?v=9.6"></script>
+    <script type="text/javascript" src="settings.js?v=9.6"></script>
+    <script type="text/javascript" src="grnaService.js?v=9.6"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=9.6"></script>
+    <script type="text/javascript" src="validate.js?v=9.6"></script>
+    <script type="text/javascript" src="upset.js?v=9.6"></script>
+    <script type="text/javascript" src="cnService.js?v=9.6"></script>
+    <script type="text/javascript" src="index.js?v=9.6"></script>
+    <script type="text/javascript" src="fileHandler.js?v=9.6"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=9.6"></script>
+    <script type="text/javascript" src="helpPopout.js?v=9.6"></script>
+    <script type="text/javascript" src="phone.js?v=9.6"></script>
+    <script type="text/javascript" src="methods.js?v=9.6"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=9.6"></script>
+    <script type="text/javascript" src="gcontext.js?v=9.6"></script>
+    <script type="text/javascript" src="gcexport.js?v=9.6"></script>
+    <script type="text/javascript" src="gcai.js?v=9.6"></script>
+    <script type="text/javascript" src="gclibraries.js?v=9.6"></script>
 
 </body>
 

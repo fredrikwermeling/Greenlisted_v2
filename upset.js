@@ -18,21 +18,27 @@ async function UPSET_loadData() {
 }
 
 function UPSET_render(speciesData, container, title) {
-    const MAX_INTERSECTIONS = 40;
+    // On a phone the full plot is 1430px of chart in a 390px window: readable
+    // only by scrolling past the labels, which are the part that says what the
+    // columns are. Fewer intersections and tighter columns bring it to about a
+    // screen and a half. The ones dropped are the smallest, which is where the
+    // tail of this chart is least worth reading.
+    const compact = window.innerWidth <= 640;
+    const MAX_INTERSECTIONS = compact ? 12 : 40;
     const sets = speciesData.sets;
     const intersections = speciesData.intersections.slice(0, MAX_INTERSECTIONS);
     const n = sets.length;
 
     // Layout constants
-    const dotR = 6;
-    const colW = 28;
-    const rowH = 24;
-    const barAreaH = 140;
-    const setBarW = 140;
-    const labelW = 110;
-    const padTop = 30;
+    const dotR = compact ? 5 : 6;
+    const colW = compact ? 22 : 28;
+    const rowH = compact ? 20 : 24;
+    const barAreaH = compact ? 80 : 140;
+    const setBarW = compact ? 52 : 140;
+    const labelW = compact ? 76 : 110;
+    const padTop = compact ? 22 : 30;
     const padRight = 10;
-    const countColW = 42;
+    const countColW = compact ? 32 : 42;
     const gap = 8;
 
     const matrixW = intersections.length * colW;
@@ -92,7 +98,7 @@ function UPSET_render(speciesData, container, title) {
         const label = el("text", {
             x: labelW - 4, y: y + 4,
             "text-anchor": "end",
-            "font-size": "10", fill: "#333"
+            "font-size": compact ? "8" : "10", fill: "#333"
         });
         label.textContent = sets[i].name;
         svg.appendChild(label);
@@ -100,7 +106,7 @@ function UPSET_render(speciesData, container, title) {
         // Bar
         const bw = (sets[i].size / maxSetVal) * setBarW;
         const bar = el("rect", {
-            x: labelW, y: y - 7, width: bw, height: 14,
+            x: labelW, y: y - (compact ? 5 : 7), width: bw, height: compact ? 10 : 14,
             rx: 2, fill: "rgb(120,167,77)", opacity: "0.85"
         });
         addTitle(bar, `${sets[i].name}: ${sets[i].size.toLocaleString()} sgRNAs`);
@@ -109,7 +115,7 @@ function UPSET_render(speciesData, container, title) {
         // Count text (in dedicated column after bar area, never overlaps dots)
         const countLabel = el("text", {
             x: labelW + setBarW + 4, y: y + 3,
-            "font-size": "9", fill: "#666"
+            "font-size": compact ? "8" : "9", fill: "#666"
         });
         countLabel.textContent = _formatCount(sets[i].size);
         svg.appendChild(countLabel);
