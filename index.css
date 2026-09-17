@@ -1364,6 +1364,29 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     flex-wrap: wrap;
     align-items: center;
     gap: 14px;
+    /* The choices, and under them the line that says what the chosen one
+       means. That line used to be a row of its own with an empty label beside
+       it, which read as a sentence belonging to nothing. */
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.gcHintUnder {
+    flex: 1 0 100%;
+    margin-top: -2px;
+    color: var(--gray-500);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* A row whose choices carry a line underneath is two lines tall, and its
+   label belongs to the choices rather than to the middle of the pair. */
+.gcCtrlRow:has(.gcHintUnder) {
+    align-items: flex-start;
+}
+
+.gcCtrlRow:has(.gcHintUnder) .gcCtrlLabel {
+    padding-top: 3px;
 }
 
 .gcOrient label {
@@ -1983,11 +2006,6 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     color: var(--green-800);
 }
 
-
-/* The selected preset's numbers, indented under the choice they describe. */
-.gcPresetNote {
-    margin-top: -4px;
-}
 
 /* The info dot beside a control row opens a document, so it is a click target
    rather than only a hover. */

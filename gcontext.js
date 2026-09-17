@@ -972,23 +972,24 @@ function _gcShow() {
         `<label title="The sequence is written along the strand the sgRNA matches, so the spacer reads 5' to 3' exactly as you ordered it, with the PAM straight after. Positions of the spacer and PAM are then the same for every guide.">` +
         `<input type="radio" name="gcOrient" value="guide" ${cur.orientation === "guide" ? "checked" : ""} onchange="GC_setOrientation('guide')"> sgRNA 5'&rarr;3'</label>` +
         `<label title="${tx ? "The sequence is written along the gene's own strand, so exons run in reading order. A guide on the opposite strand then appears as its reverse complement, with the PAM (CCN) ahead of the spacer." : "Unavailable: no RefSeq transcript overlaps this window, so there is no gene strand to write along."}"${tx ? "" : ' class="gcDisabled"'}>` +
-        `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene 5'&rarr;3'</label></span>` +
-        `</div>` +
+        `<input type="radio" name="gcOrient" value="gene" ${cur.orientation === "gene" ? "checked" : ""} onchange="GC_setOrientation('gene')" ${tx ? "" : "disabled"}> gene 5'&rarr;3'</label>` +
         // Whether the two choices differ at all. About half of all guides sit
         // on the gene's own strand, and for those the two options show the
         // same sequence and the control does nothing — which reads as a
         // broken setting unless it is said. For the other half they are
         // reverse complements of each other, and that is the single fact
         // needed to make sense of a PAM that appears before the spacer.
-        `<div class="gcCtrlRow gcPresetNote">` +
-        `<span class="gcCtrlLabel"></span>` +
-        `<span class="gcHint">${
-            !tx ? "No transcript here, so there is no gene strand to compare with."
+        //
+        // Inside the choices, not on a row of its own: as its own row, with an
+        // empty label beside it, it read as a stray sentence belonging to
+        // nothing in particular.
+        `<span class="gcHintUnder">${
+            !tx ? "No transcript here to compare with."
             : cur.site.strand === tx.strand
-                ? `The guide is on the gene's own strand (${strandWord(tx.strand)}), so both choices show the same sequence.`
-                : `The guide runs against the gene: guide on the ${strandWord(cur.site.strand)} strand, ` +
-                  `gene on the ${strandWord(tx.strand)}. The two choices are reverse complements of each other.`
+                ? `Guide and gene are both on the ${strandWord(tx.strand)} strand, so the two choices show the same sequence.`
+                : `Guide on the ${strandWord(cur.site.strand)} strand, gene on the ${strandWord(tx.strand)}, so the two choices are reverse complements.`
         }</span>` +
+        `</span>` +
         `</div>` +
         // How the edit will be read decides how long the PCR product should be,
         // which is the setting people most often need to change and the one
@@ -1003,17 +1004,13 @@ function _gcShow() {
         (_gcPbActivePreset() === "custom"
             ? `<label class="gcDisabled" title="Your own values, set under Primer-BLAST settings below."><input type="radio" name="gcPreset" checked disabled> custom</label>`
             : "") +
-        `</span>` +
         `<span class="infoDot" onclick="INFO_showModal('infoPrimerReadouts.html','Sanger or amplicon NGS')" ` +
         `title="What each choice sets and why, with links to ICE, TIDE and CRISPResso2. Click to read.">i</span>` +
-        `</div>` +
-        // The selected option's own numbers, on their own line, where they
-        // cannot be mistaken for a caption to whichever radio sits last.
-        `<div class="gcCtrlRow gcPresetNote">` +
-        `<span class="gcCtrlLabel"></span>` +
-        `<span class="gcHint">${_escapeHtml(_gcPbActivePreset() === "custom"
+        // What the chosen option does, under the choices it belongs to.
+        `<span class="gcHintUnder">${_escapeHtml(_gcPbActivePreset() === "custom"
             ? "Your own settings, below."
             : _GC_PB_PRESETS[_gcPbActivePreset()].note)}</span>` +
+        `</span>` +
         `</div>` +
         `</div>`
 
