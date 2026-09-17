@@ -1233,6 +1233,10 @@ async function downloadAllValidation() {
 async function _displayLibraryCitation(libraryCitation) {
     const libraryInfoContainer = document.getElementById("libraryInfo")
     libraryInfoContainer.innerHTML = libraryCitation
+    // The phone clamp measures the text, so it has to be re-measured whenever
+    // the text changes; a citation five lines long and one two lines long
+    // want different treatment.
+    if (typeof PHONE_apply === "function") PHONE_apply()
 }
 
 async function changeLibrary() {
@@ -1600,10 +1604,12 @@ function updateCustomlibrary() {
 function _updateExampleText() {
     // The preview's own height is fixed, but the panels around it are not.
     setTimeout(_alignSymbolColumn, 0)
-    //Displays the text SEQUENCE modified by trim and adapter sequences
+    // Displays the word SPACER between the adapters, trimmed as a spacer
+    // would be. It was SEQUENCE, which named nothing in particular: the whole
+    // line is a sequence, and the part in the middle is the spacer.
     // Assembled from the parts rather than by searching the finished string,
     // so the guide stays highlighted even when a trim setting eats into it.
-    const middle = _applyTrim("SEQUENCE")
+    const middle = _applyTrim("SPACER")
     const before = settings.adapterBefore || ""
     const after = settings.adapterAfter || ""
     // With no adapters entered the preview would only restate the word

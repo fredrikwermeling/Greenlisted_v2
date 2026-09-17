@@ -298,6 +298,30 @@ td>input {
     width: 95%;
 }
 
+/* A checkbox is not a text box. The rules above give every input a 20px
+   height, a white ground, a border, a 6px radius and, in a table cell, 95%
+   of the cell's width. Chrome draws a native checkbox regardless and ignores
+   most of that; iOS takes it literally, and what it drew for the three
+   control checkboxes was a dot a finger could not find. Sized outright, and
+   the same on every device so the two never differ. */
+input[type="checkbox"],
+input[type="radio"],
+td > input[type="checkbox"],
+td > input[type="radio"] {
+    -webkit-appearance: auto;
+    appearance: auto;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    border-radius: 0;
+    vertical-align: middle;
+    accent-color: var(--green-600);
+}
+
 td {
     padding: 5px;
 }
@@ -1903,10 +1927,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     color: #83aa3d;
 }
 
-/* No narrow-screen override. Every size here is a fraction of the lockup's
-   own width, so the three parts shrink together and the strapline stays on
-   one line all the way down; measured at 811, 600, 480, 380 and 320 px with
-   nothing overflowing. An override that let it wrap only broke that. */
+/* No narrow-screen override of the proportions. Every size here is a
+   fraction of the lockup's own width, so the three parts shrink together and
+   the strapline stays on one line all the way down; measured at 811, 600,
+   480, 380 and 320 px with nothing overflowing. An override that let it wrap
+   only broke that. The one thing a phone does drop is the empty column on
+   the left, below: at 390 px it was a fifth of the screen holding nothing. */
 
 /* The quieter of the two Primer-BLAST routes: a sentence under the buttons
    rather than a seventh button competing with them. */
@@ -2231,4 +2257,97 @@ a.gcBtnLink {
     font-weight: 400;
     font-size: 0.86em;
     color: var(--mainColor);
+}
+
+
+/* =========================================================================
+   Phone. Below 640px the three steps already stack; these rules make each
+   step fit a hand. The collapsing itself is done by phone.js, modelled on
+   Correlate's: a heading becomes a row you tap, and what it heads folds away
+   under it, so the settings nobody changes on a phone stop standing between
+   the gene list and the Run button.
+   ========================================================================= */
+@media only screen and (max-width: 640px) {
+    /* The empty column that centres the name over the desktop's three panels
+       is a fifth of a phone's width holding nothing. */
+    .brand::before { flex-basis: 0; }
+    .brand { width: 100%; }
+    .brandText { flex-basis: 79cqw; width: 79cqw; }
+    .brandLeaves { width: 18cqw; margin-left: 3cqw; }
+    .brandTag { font-size: 4.2cqw; }
+
+    /* "(optional)" and its info dot were nowrap, which is right beside a
+       short title and wrong beside a long one: "Sequence modifications
+       (optional)" ran off the right of its panel. */
+    .titleTail { white-space: normal; }
+    .smallTitle { min-height: 0; flex-wrap: wrap; row-gap: 0; }
+
+    /* A collapsed heading is the tap target. Left-aligned so the caret has a
+       fixed home at the right edge, and tall enough for a finger. */
+    .phone-collapsible > .smallTitle {
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        justify-content: space-between;
+        text-align: left;
+        min-height: 44px;
+        padding-right: 12px;
+    }
+    .phone-collapsible.phone-collapsed > .smallTitle {
+        border-bottom: none;
+        border-radius: calc(var(--smallBorderRadius) - 1px);
+    }
+    .phone-caret {
+        font-size: 14px;
+        color: var(--gray-500);
+        margin-left: auto;
+        padding-left: 10px;
+        transition: transform 0.12s;
+        flex: none;
+    }
+    .phone-collapsed .phone-caret { transform: rotate(-90deg); }
+
+    /* The library reference: five lines of citation and a link before the
+       first control. Clamped to the first two lines with a line to open it. */
+    #libraryInfo.phone-clamp {
+        max-height: 3.2em;
+        overflow: hidden;
+        position: relative;
+    }
+    #libraryInfo.phone-clamp::after {
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: 1.4em;
+        background: linear-gradient(rgba(255,255,255,0), #fff);
+        pointer-events: none;
+    }
+    #libraryInfo.phone-clamp.phone-clamp-open { max-height: none; }
+    #libraryInfo.phone-clamp.phone-clamp-open::after { display: none; }
+    .phoneMore {
+        display: block;
+        width: 100%;
+        margin: 2px 0 0 0;
+        padding: 8px 10px;
+        background: none;
+        border: none;
+        color: var(--green-700);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-align: left;
+    }
+    .phoneMore[hidden] { display: none; }
+}
+
+/* Any touch screen, phone or tablet: nothing interactive may be much
+   smaller than a fingertip. Scoped by pointer, never by width, so a desktop
+   with a mouse never matches. */
+@media (pointer: coarse) {
+    button, .validate-btn, .dlBtn { min-height: 38px; }
+    input[type="text"], input[type="number"], select, textarea { min-height: 36px; font-size: 16px; }
+    #searchSymbols { font-size: 16px; }
+    input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; min-width: 22px; }
+    /* The info dots are the explanations, and a 14px dot is not a target.
+       Wider, with the tap handled in helpPopout.js. */
+    .infoDot { width: 24px; height: 24px; font-size: 0.8rem; }
 }

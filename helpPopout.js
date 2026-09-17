@@ -75,8 +75,29 @@ document.addEventListener("DOMContentLoaded", () => {
         hide();
     }, true);
 
+    // On a touch screen there is no hover, so the dots would explain nothing.
+    // A tap on one shows its text; a tap anywhere else, or on the same dot
+    // again, hides it. Scoped by pointer so a mouse keeps the hover path.
+    const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse) {
+        document.addEventListener("click", (e) => {
+            const el = e.target.closest ? e.target.closest(".infoDot, [data-help]") : null;
+            if (!el) { hide(); return; }
+            e.preventDefault();
+            e.stopPropagation();
+            if (el === current) { hide(); return; }
+            hide();
+            const text = el.dataset.help || el.getAttribute("title") || "";
+            if (!text.trim()) return;
+            current = el;
+            if (el.hasAttribute("title")) { el._helpText = el.getAttribute("title"); el.removeAttribute("title"); }
+            show(el, text);
+        }, true);
+    }
+
     // A click means the user has decided; the explanation is just in the way.
-    document.addEventListener("mousedown", hide, true);
+    // (Not on a touch screen, where the click IS how it is asked for.)
+    if (!coarse) document.addEventListener("mousedown", hide, true);
     window.addEventListener("blur", hide);
     document.addEventListener("scroll", hide, true);
 });
