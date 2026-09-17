@@ -2597,3 +2597,75 @@ body.modal-open {
         padding: 7px 12px;
     }
 }
+
+/* The * on a gene that is essential in nearly every cell line. A marker, not
+   part of the name, so it is set apart from the symbol it follows and never
+   reaches the downloaded file. */
+.essStar {
+    color: var(--mainColor);
+    font-weight: 700;
+    margin-left: 2px;
+    cursor: help;
+}
+
+.essLegend {
+    margin: 6px 0 0 0;
+    font-size: 0.78rem;
+    color: var(--gray-500);
+}
+
+/* A name that means several genes, with the genes to choose between. Amber
+   rather than the green of the suggestions below it: this one is a warning,
+   since every one of those genes is in the design until a choice is made. */
+.symAmbig {
+    margin: 8px 0 0 0;
+    padding: 8px 10px;
+    border: 1px solid #fcd34d;
+    border-left: 3px solid #d97706;
+    border-radius: var(--inputRadius);
+    background: #fffbeb;
+    font-size: 0.8rem;
+    color: #78350f;
+}
+
+.symAmbigHead {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.symAmbigRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+}
+
+.symAmbigLead {
+    font-family: monospace;
+}
+
+.symAmbigBtn {
+    font: inherit;
+    padding: 3px 8px;
+    border: 1px solid #d97706;
+    border-radius: 999px;
+    background: #fff;
+    color: #92400e;
+    cursor: pointer;
+}
+
+.symAmbigBtn:hover {
+    background: #d97706;
+    color: #fff;
+}
+
+.symAmbigFoot {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: #92400e;
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+    .symAmbigBtn { padding: 7px 12px; }
+}

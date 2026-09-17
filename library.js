@@ -580,3 +580,10 @@ function LIB_suggestSymbols(searchSymbols, perSymbol) {
     }
     return out
 }
+
+// The spelling the library file uses for one symbol, for anything that shows
+// a library symbol back to the user.
+function LIB_displaySymbol(symbol) {
+    const display = _librarySymbolDisplay()
+    return display.get(String(symbol).toLowerCase()) || String(symbol).toUpperCase()
+}

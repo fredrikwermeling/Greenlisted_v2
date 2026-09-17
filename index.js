@@ -211,6 +211,10 @@ async function insertData(data) {
 
     // update example sequence
     _updateExampleText()
+
+    // 30 KB, and every run wants it. Fetched here so the first run does not
+    // wait for it.
+    if (typeof ESS_loadIfNeeded === "function") ESS_loadIfNeeded()
 }
 
 
@@ -354,6 +358,45 @@ async function runValidation() {
 // `rowExtra` appends columns after the data: one { header, cell(cols) }, or an
 // array of them, where cell returns HTML for that row. The adapter and full
 // views use it for the per-guide buttons and the cross-library count.
+// Genes that are essential in nearly every cell line. Marked with a * in the
+// output table, because they behave the same way in any screen: their guides
+// drop out whatever the experiment was asking, so a hit among them is usually
+// the screen working rather than a result. They are also the genes to look at
+// first when a screen appears to have failed.
+//
+// Human: DepMap's inferred common essentials. Mouse: their orthologues. Built
+// by tools/build_essential_genes.py; about 30 KB, fetched after the first run
+// that needs it and kept for the session.
+var _essential = { data: null, loading: null }
+
+function ESS_loadIfNeeded() {
+    if (_essential.data) return Promise.resolve(_essential.data)
+    if (_essential.loading) return _essential.loading
+    _essential.loading = fetch("essentialGenes.json")
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+            _essential.data = {
+                source: (json && json.source) || "",
+                human: new Set((json && json.human || []).map(s => s.toLowerCase())),
+                mouse: new Set((json && json.mouse || []).map(s => s.toLowerCase()))
+            }
+            return _essential.data
+        })
+        .catch(e => {
+            // A missing list only costs the asterisks.
+            console.warn("Essential-gene list unavailable:", e)
+            _essential.data = { source: "", human: new Set(), mouse: new Set() }
+            return _essential.data
+        })
+    return _essential.loading
+}
+
+function ESS_isEssential(symbol) {
+    if (!_essential.data) return false
+    const set = _setsSpecies() === "Mouse" ? _essential.data.mouse : _essential.data.human
+    return set.has(String(symbol).trim().toLowerCase())
+}
+
 function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     const extras = !rowExtra ? [] : (Array.isArray(rowExtra) ? rowExtra.filter(Boolean) : [rowExtra])
     if (!delimiter) delimiter = "\t"
@@ -403,6 +446,12 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     for (let j = 0; j < headers.length; j++) {
         if (_GENE_HEADER_RE.test(headers[j].trim())) italicCols.add(j)
     }
+    // The * goes on the symbol itself, in the first gene column only. The
+    // file keeps plain symbols: an asterisk inside a gene name would follow
+    // the symbol into MAGeCK, a vendor's order form and every lookup made
+    // from them.
+    const starCol = Math.min(...italicCols, Infinity)
+    var starred = false
     // Gene symbols, guide IDs and sequences never contain a space, so a cell
     // that does is prose and may wrap. Everything else stays on one line,
     // where a break would make it unreadable. Without this the longest
@@ -426,7 +475,12 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         for (let j = 0; j < cols.length; j++) {
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
-            html += `<td${cls}>${italicCols.has(j) ? `<i>${safe}</i>` : safe}</td>`
+            var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
+            if (j === starCol && ESS_isEssential(cols[j])) {
+                cell += `<span class="essStar" title="Essential in nearly every cell line">*</span>`
+                starred = true
+            }
+            html += `<td${cls}>${cell}</td>`
         }
         for (const x of extras) {
             const cell = x.cell(cols) || ""
@@ -439,6 +493,10 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         html += '</tr>'
     }
     html += '</tbody></table>'
+    if (starred) {
+        html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
+                `whatever the screen was asking. Source: ${_escapeHtml(_essential.data.source)}.</p>`
+    }
     return html
 }
 
@@ -678,6 +736,9 @@ async function runScreening() {
     document.getElementById("outputTable").style.display = "flex"
     document.getElementById("outputTable").classList.remove("statusFadeOut")
     document.getElementById("outputTable").classList.add("statusFadeIn")
+    // The essential-gene list decides which rows get a *, and it is read as
+    // the table is built, so it has to be here before the first render.
+    if (typeof ESS_loadIfNeeded === "function") await ESS_loadIfNeeded()
     // Default the preview to "Oligos to order" once the run
     // completes — saves the user a click for the most-used output.
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
@@ -835,7 +896,7 @@ function _cnColumnNote(cl) {
         `1.0x is an average gene in this line, and a blank cell means no change. ` +
         `Guides for a deleted gene have nothing to cut. Guides for an amplified gene cut many times at once, ` +
         `which can kill the cell on its own and look like a hit. ` +
-        `<a class="cnNoteLink" href="${_CORRELATE_CELL_URL}" target="_blank" rel="noopener noreferrer">` +
+        `<a class="cnNoteLink" href="${_correlateCellUrl(name)}" target="_blank" rel="noopener noreferrer">` +
         `Look up ${_escapeHtml(name)} in Correlate</a>`
     return plain
 }
@@ -844,9 +905,12 @@ function _cnColumnNote(cl) {
 // inserted as markup rather than escaped, so nothing that could be read as a
 // tag goes into one.
 // Correlate's cell-line browser, where every DepMap line has a page with its
-// mutations, fusions, signatures and a wiki write-up. #cell is the route that
-// opens the browser directly.
-const _CORRELATE_CELL_URL = "https://correlate.cmm.se/#cell"
+// mutations, fusions, signatures and a wiki write-up. #cell=<name> opens that
+// one line with its wiki on top; Correlate resolves A-375, A375 and the DepMap
+// id alike, so the published name here is enough.
+function _correlateCellUrl(name) {
+    return "https://correlate.cmm.se/#cell=" + encodeURIComponent(String(name || "").trim())
+}
 
 function _cnPlainName(cl) {
     return String(cl.name || "").replace(/[<>&\t]/g, "")
@@ -883,7 +947,12 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
 
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
     if (cl) out = out + _cnColumnNote(cl) + "\n"
-    out = out + "Symbol\tSymbol_ID\tspacer + adapters" +
+    // "+ adapters" only when there are adapters on the sequence. With both
+    // boxes empty the column is the bare spacer, and saying otherwise sends a
+    // reader looking for vector sequence that is not there.
+    const hasAdapters = !!(String(settings.adapterBefore || "").trim() ||
+                           String(settings.adapterAfter || "").trim())
+    out = out + `Symbol\tSymbol_ID\t${hasAdapters ? "spacer + adapters" : "spacer"}` +
           (anyRole ? "\tAdded as" : "") + (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
@@ -1771,6 +1840,63 @@ document.addEventListener("DOMContentLoaded", () => {
     sync()
 })
 
+// Names that mean more than one gene.
+//
+// "p14" is an alias of eight genes in the human table — CDKN2A (p14ARF) is
+// almost certainly the one meant, but CDK2AP2, LAMTOR2, RPP14, S100A9, SF3B6,
+// SUB1 and CTNNBL1 all answer to it too. Matching took every one of them, so
+// a list of one symbol quietly became a design against eight genes, reported
+// as "Symbols found in library: 1 of 1". The ambiguity is now on screen with
+// the genes to choose between, and choosing one replaces the alias in the box
+// with a name that means exactly one thing.
+function _renderAmbiguousSymbols(synonymMap) {
+    const box = document.getElementById("symbolAmbiguous")
+    if (!box) return
+    box.innerHTML = ""
+    box.hidden = true
+    if (!synonymMap || !settings.enableSynonyms) return
+
+    const ambiguous = Object.keys(synonymMap).filter(sym => (synonymMap[sym] || []).length > 1)
+    if (ambiguous.length === 0) return
+
+    const head = document.createElement("div")
+    head.className = "symAmbigHead"
+    head.textContent = ambiguous.length === 1
+        ? "One name, several genes"
+        : `${ambiguous.length} names match several genes each`
+    box.appendChild(head)
+
+    for (const symbol of ambiguous) {
+        const genes = [...synonymMap[symbol]]
+        const row = document.createElement("div")
+        row.className = "symAmbigRow"
+
+        const lead = document.createElement("span")
+        lead.className = "symAmbigLead"
+        lead.textContent = `${symbol} matches ${genes.length} genes:`
+        row.appendChild(lead)
+
+        for (const gene of genes) {
+            const name = (typeof LIB_displaySymbol === "function")
+                ? LIB_displaySymbol(gene) : String(gene).toUpperCase()
+            const btn = document.createElement("button")
+            btn.type = "button"
+            btn.className = "symAmbigBtn"
+            btn.textContent = name
+            btn.title = `Use ${name} only`
+            btn.addEventListener("click", () => _applySymbolReplacements({ [symbol]: name }))
+            row.appendChild(btn)
+        }
+        box.appendChild(row)
+    }
+
+    const foot = document.createElement("div")
+    foot.className = "symAmbigFoot"
+    foot.textContent = "Every one of them is in the design until you pick. Press a gene to use that one on its own."
+    box.appendChild(foot)
+    box.hidden = false
+}
+
 // Spelling suggestions for symbols that matched nothing.
 //
 // A typo is invisible in the current output: "To53" produces "Symbols found in
@@ -1877,6 +2003,7 @@ async function _displaySymbolsNotFound(synonymMap) {
         const synonymsUsed = document.getElementById("displaySynonyms")
         synonymsUsed.value = "Not available"
         _renderSymbolSuggestions([])
+        _renderAmbiguousSymbols(null)
     }
     else {
         const synonymsUsed = document.getElementById("displaySynonyms")
@@ -1899,6 +2026,7 @@ async function _displaySymbolsNotFound(synonymMap) {
         })
         synonymsUsed.value = displayText
         _renderSymbolSuggestions(unmatched)
+        _renderAmbiguousSymbols(synonymMap)
 
     }
 
