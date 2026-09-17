@@ -905,7 +905,7 @@ function _cnColumnNote(cl) {
     // cause: the damage from the cuts, not the gene.
     const plain = `Copy number: ${line}. 1.0x is an average gene in this line, and a blank cell means no change. ` +
                   `Guides for a deleted gene have nothing to cut. Guides for an amplified gene cut many times, ` +
-                  `and the excessive DNA damage can bias the screen.`
+                  `and the excessive DNA damage can affect the cells in ways unrelated to the target gene.`
     // The cell line and its ploidy are the part every number below is read
     // against, and set in the same grey as the rest of the paragraph they were
     // lost in it. The name also links to Correlate, where the same line has a
@@ -913,7 +913,7 @@ function _cnColumnNote(cl) {
     _headerHtml[plain] = `<b class="cnNoteLine">Copy number: ${_escapeHtml(line)}.</b> ` +
         `1.0x is an average gene in this line, and a blank cell means no change. ` +
         `Guides for a deleted gene have nothing to cut. Guides for an amplified gene cut many times, and the ` +
-        `excessive DNA damage can bias the screen. ` +
+        `excessive DNA damage can affect the cells in ways unrelated to the target gene. ` +
         `<a class="cnNoteLink" href="${_correlateCellUrl(name)}" target="_blank" rel="noopener noreferrer">` +
         `Look up ${_escapeHtml(name)} in Correlate</a>`
     return plain
