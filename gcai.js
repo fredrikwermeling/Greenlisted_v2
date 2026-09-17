@@ -401,6 +401,16 @@ function _gcaiFitsTide(toCut, beyondCut) {
     return toCut >= 100 && toCut <= _GCAI_SANGER_READ_LIMIT && beyondCut >= 200
 }
 
+// Which ends this product can be read from at all, as a sentence.
+function _gcaiReadableFrom(fwdLeadIn, revLeadIn, rHi, cut, fStart) {
+    const fwd = _gcaiFitsIce(fwdLeadIn, Math.max(0, rHi - cut)) || _gcaiFitsTide(fwdLeadIn, Math.max(0, rHi - cut))
+    const rev = _gcaiFitsIce(revLeadIn, Math.max(0, cut - fStart + 1)) || _gcaiFitsTide(revLeadIn, Math.max(0, cut - fStart + 1))
+    if (fwd && rev) return "either end: the cut can be reached from the forward primer and from the reverse primer"
+    if (rev) return "the reverse primer only: from the forward primer the cut is out of reach of a Sanger read"
+    if (fwd) return "the forward primer only: from the reverse primer the cut is out of reach of a Sanger read"
+    return "neither end: the cut is out of reach of a single Sanger read from both primers"
+}
+
 // Which end to sequence from: the one that puts the cut inside a readable
 // trace, and where both do, the one that puts it closest to where a trace is
 // at its best. Not simply the furthest: the first 20-50 bases are unreadable
@@ -538,6 +548,13 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
             // reported that every pair failed rather than saying which primer
             // to sequence with.
             fitsGuidance: sanger ? {
+                // The same fact as the four booleans below, in one line. Four
+                // nested true/false values have to be read as a pair of pairs,
+                // and one assistant read them as "both directions satisfy the
+                // criteria" for a pair whose forward direction satisfies
+                // neither. It still followed sequenceThisProductWith, so the
+                // advice held, but the sentence it wrote was wrong.
+                readableFrom: _gcaiReadableFrom(fwdLeadIn, revLeadIn, rHi, cut, p.forward.start),
                 ice: { readingFromTheForwardPrimer: _gcaiFitsIce(fwdLeadIn, Math.max(0, rHi - cut)),
                        readingFromTheReversePrimer: _gcaiFitsIce(revLeadIn, Math.max(0, cut - p.forward.start + 1)) },
                 tide: { readingFromTheForwardPrimer: _gcaiFitsTide(fwdLeadIn, Math.max(0, rHi - cut)),
