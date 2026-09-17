@@ -283,7 +283,12 @@ textarea {
 }
 
 input {
-    height: 20px;
+    /* One height for every text field, and room inside it for the text.
+       This used to be height: 20px, which was the height of the content
+       before these became border-box; as a border-box height it left 8px for
+       a 14px line, and the cell-line box was the worst of them. */
+    min-height: 32px;
+    padding: 4px 8px;
     text-align: center;
     background: var(--inputColor);
     border: 1px solid var(--outlineColor);
@@ -333,6 +338,8 @@ td > input[type="radio"] {
     width: 18px;
     height: 18px;
     min-width: 18px;
+    /* Not the 32px the text fields take. */
+    min-height: 18px;
     padding: 0;
     margin: 0;
     border: none;
@@ -534,13 +541,16 @@ a:hover {
     color: #92400e;
 }
 
+/* Monospace, because these hold bases, but at the size of the fields around
+   them: 0.72rem was two points smaller than every other box in the column and
+   read as a different kind of control. */
 #adapterBefore,
 #adapterAfter {
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
     font-family: var(--monoFont);
-    font-size: 0.72rem;
+    font-size: 0.82rem;
 }
 
 /* Without this the two input cells size to their content and push the row
