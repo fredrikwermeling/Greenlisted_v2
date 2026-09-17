@@ -25,7 +25,9 @@ function _alignSymbolColumn() {
     const box = document.getElementById("searchSymbols")
     if (!box) return
     // Below 900px the three columns stack, so there is nothing to line up.
-    if (window.innerWidth <= 900) { box.style.height = ""; return }
+    const spacer = document.getElementById("paramColSpacer")
+    const clearSpacer = () => { if (spacer) spacer.style.height = "0px" }
+    if (window.innerWidth <= 900) { box.style.height = ""; clearSpacer(); return }
     if (document.body.classList.contains("validate-mode")) return
     if (document.body.classList.contains("cn-mode")) return
     const titles = [...document.querySelectorAll(".smallTitle")]
@@ -39,14 +41,32 @@ function _alignSymbolColumn() {
     // absorbed. One pass therefore lands short. Repeat until it settles, which
     // takes two or three passes, and stop either way so a layout that cannot
     // converge cannot spin.
+    // The spacer is the second half of this and has to start from nothing, or
+    // the pass would measure a gap it put there itself.
+    clearSpacer()
     for (var pass = 0; pass < 5; pass++) {
         const delta = Math.round(cellLine.getBoundingClientRect().top - notFound.getBoundingClientRect().top)
         if (Math.abs(delta) < 2) return
         const current = box.getBoundingClientRect().height
         const next = Math.max(_SYMBOX_MIN, Math.min(_SYMBOX_MAX, Math.round(current + delta)))
-        if (next === Math.round(current)) return        // clamped, cannot do better
+        if (next === Math.round(current)) break         // clamped: pad instead
         box.style.height = next + "px"
     }
+    // Clamped, and the feet still differ. That happens when the parameters
+    // column is the short one — tightening the Controls panel took 120px out
+    // of it, more than the gene box had left to give. Pad the parameters
+    // column rather than shrink the box past readable.
+    if (!spacer) return
+    const left = Math.round(cellLine.getBoundingClientRect().top - notFound.getBoundingClientRect().top)
+    if (left < -1) spacer.style.height = Math.min(240, -left) + "px"
+}
+
+// Anything that adds or removes a panel in the gene column changes its height,
+// and the alignment is measured, not computed, so it has to be measured again.
+// Debounced: several of these land together on one keystroke.
+function APP_realign() {
+    clearTimeout(window._symboxTimer)
+    window._symboxTimer = setTimeout(_alignSymbolColumn, 60)
 }
 
 // Layout settles after fonts and images land, so realign on those too.
@@ -2026,6 +2046,7 @@ async function _displaySymbolsNotFound(synonymMap) {
         synonymsUsed.value = "Not available"
         _renderSymbolSuggestions([])
         _renderAmbiguousSymbols(null)
+        APP_realign()
     }
     else {
         const synonymsUsed = document.getElementById("displaySynonyms")
@@ -2049,6 +2070,7 @@ async function _displaySymbolsNotFound(synonymMap) {
         synonymsUsed.value = displayText
         _renderSymbolSuggestions(unmatched)
         _renderAmbiguousSymbols(synonymMap)
+        APP_realign()
 
     }
 

@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" media="all" href="index.css?v=10.9">
+    <link rel="stylesheet" media="all" href="index.css?v=11.0">
     <link rel="icon" href="favicon.ico">
     <title>Green Listed</title>
     
@@ -83,10 +83,10 @@
                  width. -->
             <div class="brand" role="img" aria-label="Green Listed — a sgRNA design and CRISPR screen tool">
                 <span class="brandText">
-                    <img class="brandWord" src="logo-word.svg?v=10.9" alt="">
+                    <img class="brandWord" src="logo-word.svg?v=11.0" alt="">
                     <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a sgRNA&nbsp;design/CRISPR&nbsp;screen tool</span>
                 </span>
-                <img class="brandLeaves" src="logo-leaves.png?v=10.9" alt="">
+                <img class="brandLeaves" src="logo-leaves.png?v=11.0" alt="">
             </div>
             <nav>
                 <a href="javascript:void(0)" onclick="INFO_showModal('infoUpdates.html','Updates')">Updates</a>
@@ -505,6 +505,11 @@ Use these settings to thin the guide list, add control guides, attach the adapte
                 </div>
 
 
+                <!-- Takes up whatever the gene box cannot give back, so the
+                     two column feet still line up once the box is at its
+                     smallest. Set by _alignSymbolColumn(). -->
+                <div id="paramColSpacer" class="colSpacer" aria-hidden="true"></div>
+
                 <div class="smallPlate design-only">
                     <h3 class="smallTitle">Pick human cell line <span class="titleTail">(optional)<span class="infoDot" title="Adds copy-number context for one human cell line, from DepMap's ~1900-line panel.
 
@@ -657,24 +662,24 @@ Use the .xlsx if you plan to open the result in Excel: opening a text file lets 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
     </script>
-    <script type="text/javascript" src="library.js?v=10.9"></script>
-    <script type="text/javascript" src="settings.js?v=10.9"></script>
-    <script type="text/javascript" src="grnaService.js?v=10.9"></script>
-    <script type="text/javascript" src="screeningHandler.js?v=10.9"></script>
-    <script type="text/javascript" src="validate.js?v=10.9"></script>
-    <script type="text/javascript" src="upset.js?v=10.9"></script>
-    <script type="text/javascript" src="cnService.js?v=10.9"></script>
-    <script type="text/javascript" src="index.js?v=10.9"></script>
-    <script type="text/javascript" src="fileHandler.js?v=10.9"></script>
-    <script type="text/javascript" src="xlsxWriter.js?v=10.9"></script>
-    <script type="text/javascript" src="helpPopout.js?v=10.9"></script>
-    <script type="text/javascript" src="phone.js?v=10.9"></script>
-    <script type="text/javascript" src="methods.js?v=10.9"></script>
-    <script type="text/javascript" src="downloadPicker.js?v=10.9"></script>
-    <script type="text/javascript" src="gcontext.js?v=10.9"></script>
-    <script type="text/javascript" src="gcexport.js?v=10.9"></script>
-    <script type="text/javascript" src="gcai.js?v=10.9"></script>
-    <script type="text/javascript" src="gclibraries.js?v=10.9"></script>
+    <script type="text/javascript" src="library.js?v=11.0"></script>
+    <script type="text/javascript" src="settings.js?v=11.0"></script>
+    <script type="text/javascript" src="grnaService.js?v=11.0"></script>
+    <script type="text/javascript" src="screeningHandler.js?v=11.0"></script>
+    <script type="text/javascript" src="validate.js?v=11.0"></script>
+    <script type="text/javascript" src="upset.js?v=11.0"></script>
+    <script type="text/javascript" src="cnService.js?v=11.0"></script>
+    <script type="text/javascript" src="index.js?v=11.0"></script>
+    <script type="text/javascript" src="fileHandler.js?v=11.0"></script>
+    <script type="text/javascript" src="xlsxWriter.js?v=11.0"></script>
+    <script type="text/javascript" src="helpPopout.js?v=11.0"></script>
+    <script type="text/javascript" src="phone.js?v=11.0"></script>
+    <script type="text/javascript" src="methods.js?v=11.0"></script>
+    <script type="text/javascript" src="downloadPicker.js?v=11.0"></script>
+    <script type="text/javascript" src="gcontext.js?v=11.0"></script>
+    <script type="text/javascript" src="gcexport.js?v=11.0"></script>
+    <script type="text/javascript" src="gcai.js?v=11.0"></script>
+    <script type="text/javascript" src="gclibraries.js?v=11.0"></script>
 
 </body>
 

@@ -2710,3 +2710,9 @@ body.modal-open {
 #controlsTable td.ctrlCount input {
     width: 4.5em;
 }
+
+/* Height set by _alignSymbolColumn(); nothing of its own to show. */
+.colSpacer {
+    height: 0;
+    flex: none;
+}
