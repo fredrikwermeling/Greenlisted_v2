@@ -459,3 +459,124 @@ function LIB_statusScreening() {
 function LIB_statusLibrarySymbols() {
     return _library.libraryStatus
 }
+
+// ---------------------------------------------------------------------------
+// Did-you-mean, for symbols that matched nothing.
+//
+// A typo puts the gene in "Symbols not found" with no hint of what went wrong:
+// "to53" is one key away from TP53 and the app said only that it found 0 of 1.
+// The Correlate app answers this the same way, and this is its ranking:
+// prefix matches first (a short entry like "USP" is usually someone reaching
+// for a family, so the family comes back in natural order), then spellings
+// within two edits, transpositions counted as one — CDNK2A is one slip from
+// CDKN2A, and plain Levenshtein scores that the same as two unrelated
+// substitutions.
+//
+// Suggestions are drawn from the selected library, so every one of them is a
+// name that would actually return guides.
+
+// Letters and digits, with everything of a kind written the same way, so two
+// candidates can be compared on the shape of the symbol rather than its
+// characters.
+function _symShape(s) {
+    return String(s).replace(/[0-9]/g, "9").replace(/[^0-9]/g, "A")
+}
+
+// Damerau-Levenshtein, capped: anything beyond 2 edits is not a typo we want
+// to guess at, so the distance only has to be exact up to that.
+function _symEditDistance(a, b) {
+    if (a.length === 0) return b.length
+    if (b.length === 0) return a.length
+    if (Math.abs(a.length - b.length) > 2) return 3
+
+    const m = a.length, n = b.length
+    let prev2 = new Array(n + 1).fill(0)
+    let prev = new Array(n + 1)
+    let curr = new Array(n + 1)
+    for (let j = 0; j <= n; j++) prev[j] = j
+
+    for (let i = 1; i <= m; i++) {
+        curr[0] = i
+        for (let j = 1; j <= n; j++) {
+            curr[j] = a[i - 1] === b[j - 1]
+                ? prev[j - 1]
+                : 1 + Math.min(prev[j - 1], prev[j], curr[j - 1])
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                curr[j] = Math.min(curr[j], prev2[j - 2] + 1)
+            }
+        }
+        const spare = prev2
+        prev2 = prev
+        prev = curr
+        curr = spare
+    }
+    return prev[n]
+}
+
+// The library's symbols in the spelling the library file uses, so a suggestion
+// reads as TP53 rather than tp53. Built once per library.
+function _librarySymbolDisplay() {
+    if (_library.symbolDisplay && _library.symbolDisplayFor === _library.libraryMap) {
+        return _library.symbolDisplay
+    }
+    const col = (_library.symbolColumn || 1) - 1
+    const display = new Map()
+    for (const key of Object.keys(_library.libraryMap || {})) {
+        const rows = _library.libraryMap[key]
+        const raw = rows && rows[0] && rows[0][col]
+        display.set(key, (raw && String(raw).trim()) || key.toUpperCase())
+    }
+    _library.symbolDisplay = display
+    _library.symbolDisplayFor = _library.libraryMap
+    return display
+}
+
+// searchSymbols: lower-cased symbols that found nothing.
+// Returns { symbol: [suggested display names] } — only symbols with at least
+// one suggestion appear. `perSymbol` caps how many each gets.
+function LIB_suggestSymbols(searchSymbols, perSymbol) {
+    const out = {}
+    const display = _librarySymbolDisplay()
+    if (display.size === 0) return out
+    const cap = perSymbol || 3
+    const keys = [...display.keys()]
+
+    for (const query of searchSymbols) {
+        const q = String(query).toLowerCase().trim()
+        // One or two characters match half the library by prefix and are never
+        // a misspelling worth guessing at.
+        if (q.length < 3) continue
+        const matches = []
+        for (const key of keys) {
+            if (key.startsWith(q) || q.startsWith(key)) matches.push(key)
+        }
+        matches.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+        if (matches.length < cap) {
+            const seen = new Set(matches)
+            const scored = []
+            const qShape = _symShape(q)
+            for (const key of keys) {
+                if (seen.has(key)) continue
+                if (Math.abs(key.length - q.length) > 2) continue
+                const dist = _symEditDistance(q, key)
+                if (dist <= 2) scored.push({ key, dist, shape: _symEditDistance(qShape, _symShape(key)) })
+            }
+            // Same number of edits, so break the tie on shape: TOX3 and TP53
+            // are both one character off "to53", but TP53 keeps the two digits
+            // where they were typed and TOX3 turns one of them into a letter.
+            // Digits are load-bearing in a gene symbol, and a typo rarely
+            // crosses between a digit and a letter.
+            scored.sort((a, b) => a.dist - b.dist || a.shape - b.shape || a.key.localeCompare(b.key))
+            for (const x of scored) {
+                matches.push(x.key)
+                if (matches.length >= cap) break
+            }
+        }
+
+        if (matches.length > 0) {
+            out[query] = matches.slice(0, cap).map(k => display.get(k) || k.toUpperCase())
+        }
+    }
+    return out
+}

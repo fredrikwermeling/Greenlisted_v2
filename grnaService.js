@@ -147,6 +147,12 @@ function SER_getLibraryCitation() {
     return LIB_libraryCitation()
 }
 
+// Closest spellings in the selected library for symbols that matched nothing.
+// { symbol: [display names] }, only for symbols with at least one candidate.
+function SER_suggestSymbols(searchSymbols, perSymbol) {
+    return LIB_suggestSymbols(searchSymbols, perSymbol)
+}
+
 // Return a map with symbols not found (keys) and an synonym used (value - often Null)
 function SER_getSynonymMap(searchSymbols) {
     return LIB_statusSynonyms(searchSymbols)

@@ -203,6 +203,19 @@ function _phoneOutputs(on) {
     if (on && !table.classList.contains("phone-outputs-open")) more.textContent = "Other outputs"
 }
 
+// Open one panel by its heading, for something that has just appeared inside
+// it and is worth seeing — a spelling suggestion, say. Does nothing off a
+// phone, where no panel is folded in the first place.
+function PHONE_openPanel(match) {
+    if (!_phoneOn()) return
+    for (const plate of document.querySelectorAll(".smallPlate.phone-collapsible")) {
+        const title = plate.querySelector(":scope > .smallTitle")
+        if (!title) continue
+        if (!match.test(title.textContent.replace(/[▾▸]/g, "").trim())) continue
+        if (!plate._phoneOpen) _phoneSet(plate, true)
+    }
+}
+
 function PHONE_apply() {
     const on = _phoneOn()
     for (const plate of document.querySelectorAll(".smallPlate")) {

@@ -2507,3 +2507,68 @@ body.modal-open {
 @media (prefers-reduced-motion: reduce) {
     .cnLoadSpin { animation-duration: 3s; }
 }
+
+/* "Did you mean?" under Symbols not found. Each suggestion is a button that
+   puts that spelling in the gene box. */
+.symSuggest {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--outlineColor);
+    border-left: 3px solid var(--mainColor);
+    border-radius: var(--inputRadius);
+    background: #f7faf4;
+    font-size: 0.8rem;
+}
+
+.symSuggestHead {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 5px;
+}
+
+.symSuggestRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+}
+
+.symSuggestFrom {
+    font-family: monospace;
+    color: #6b7280;
+}
+
+.symSuggestArrow {
+    color: #9ca3af;
+}
+
+.symSuggestBtn,
+.symSuggestAll {
+    font: inherit;
+    padding: 3px 8px;
+    border: 1px solid var(--mainColor);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--mainColor);
+    cursor: pointer;
+}
+
+.symSuggestBtn:hover,
+.symSuggestAll:hover {
+    background: var(--mainColor);
+    color: #fff;
+}
+
+.symSuggestAll {
+    margin-top: 4px;
+    border-radius: var(--inputRadius);
+}
+
+/* Room for a thumb, and the suggestions are the reason the panel opened. */
+@media (max-width: 640px), (pointer: coarse) {
+    .symSuggestBtn,
+    .symSuggestAll {
+        padding: 7px 12px;
+    }
+}

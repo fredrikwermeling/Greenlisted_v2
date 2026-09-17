@@ -1764,6 +1764,100 @@ document.addEventListener("DOMContentLoaded", () => {
     sync()
 })
 
+// Spelling suggestions for symbols that matched nothing.
+//
+// A typo is invisible in the current output: "To53" produces "Symbols found in
+// library: 0 of 1" and a line reading "to53", with nothing to say that TP53 is
+// one keystroke away. Suggestions come from the selected library, so every one
+// of them is a name that would actually return guides, and each is a button
+// that puts it in the box.
+//
+// A whole list that misses — the wrong species, or a library that targets
+// something else — is not a set of typos, and scanning the library once per
+// symbol to prove it would be slow as well as useless. Past a dozen the panel
+// says nothing.
+const _SUGGEST_MAX_SYMBOLS = 12
+
+function _renderSymbolSuggestions(unmatched) {
+    const box = document.getElementById("symbolSuggestions")
+    if (!box) return
+    box.innerHTML = ""
+    box.hidden = true
+    if (!unmatched || unmatched.length === 0 || unmatched.length > _SUGGEST_MAX_SYMBOLS) return
+    if (typeof SER_suggestSymbols !== "function") return
+
+    const suggestions = SER_suggestSymbols(unmatched, 3)
+    const symbols = Object.keys(suggestions)
+    if (symbols.length === 0) return
+
+    // Built as nodes rather than markup: a symbol is whatever the user typed
+    // into the box, and it ends up inside a click handler.
+    const head = document.createElement("div")
+    head.className = "symSuggestHead"
+    head.textContent = "Did you mean?"
+    box.appendChild(head)
+
+    for (const symbol of symbols) {
+        const row = document.createElement("div")
+        row.className = "symSuggestRow"
+        const from = document.createElement("span")
+        from.className = "symSuggestFrom"
+        from.textContent = symbol
+        const arrow = document.createElement("span")
+        arrow.className = "symSuggestArrow"
+        arrow.textContent = "→"
+        row.appendChild(from)
+        row.appendChild(arrow)
+        for (const name of suggestions[symbol]) {
+            const btn = document.createElement("button")
+            btn.type = "button"
+            btn.className = "symSuggestBtn"
+            btn.textContent = name
+            btn.addEventListener("click", () => _applySymbolReplacements({ [symbol]: name }))
+            row.appendChild(btn)
+        }
+        box.appendChild(row)
+    }
+
+    // One button for the common case of a list with several slips in it, each
+    // taking the closest name. The individual buttons stay for anything where
+    // the first guess is not the right one.
+    if (symbols.length > 1) {
+        const all = document.createElement("button")
+        all.type = "button"
+        all.className = "symSuggestAll"
+        all.textContent = `Use the first suggestion for all ${symbols.length}`
+        all.addEventListener("click", () => {
+            const map = {}
+            for (const [sym, names] of Object.entries(suggestions)) map[sym] = names[0]
+            _applySymbolReplacements(map)
+        })
+        box.appendChild(all)
+    }
+
+    box.hidden = false
+    // The panel starts folded on a phone, and a suggestion nobody can see is
+    // no better than none.
+    if (typeof PHONE_openPanel === "function") PHONE_openPanel(/^Symbols not found/i)
+}
+
+// Swap one or more symbols for suggested spellings, keeping everything else in
+// the box as it was typed.
+function _applySymbolReplacements(map) {
+    const input = document.getElementById("searchSymbols")
+    if (!input) return
+    const lower = {}
+    for (const [from, to] of Object.entries(map)) lower[String(from).toLowerCase()] = to
+    const replaced = SYM_split(input.value).map(token => {
+        const hit = lower[token.toLowerCase()]
+        return hit == null ? token : hit
+    })
+    // Repeats can appear if the suggestion is already in the list further down.
+    const seen = new Set()
+    input.value = replaced.filter(t => !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase())).join("\n")
+    changeSymbols()
+}
+
 // The last matching pass, so a status line written by something else — the
 // curated-list adder, say — can say how many of what it added actually exist
 // in the library instead of only how many it put in the box.
@@ -1775,6 +1869,7 @@ async function _displaySymbolsNotFound(synonymMap) {
         _setStatus("statusSearchSymbolsRows", ``)
         const synonymsUsed = document.getElementById("displaySynonyms")
         synonymsUsed.value = "Not available"
+        _renderSymbolSuggestions([])
     }
     else {
         const synonymsUsed = document.getElementById("displaySynonyms")
@@ -1782,6 +1877,7 @@ async function _displaySymbolsNotFound(synonymMap) {
 
         var numSynonyms = 0
         var numNotFound = 0
+        const unmatched = []
         Object.keys(synonymMap).forEach(symbol => {
             if (settings.enableSynonyms && (synonymMap[symbol].length != 0)) {
 
@@ -1791,9 +1887,11 @@ async function _displaySymbolsNotFound(synonymMap) {
             else {
                 displayText = `${displayText}${symbol}\n`
                 numNotFound++
+                unmatched.push(symbol)
             }
         })
         synonymsUsed.value = displayText
+        _renderSymbolSuggestions(unmatched)
 
     }
 
