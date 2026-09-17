@@ -2340,9 +2340,12 @@ a.gcBtnLink {
 
     /* Nobody saves a file to a phone. The buttons stay in the page so the
        code that fills them after every run still works; they are not shown,
-       and neither is the format picker behind them. */
+       and neither is the format picker behind them, nor the box that names
+       the files they would have written. */
     #outputTable.phone-outputs .dlBtn,
     #outputTable.phone-outputs .dlHidden { display: none; }
+
+    #outputFileNameRow { display: none; }
 
     /* Seven outputs, each a label over two buttons, stacked one per row: four
        screens of scrolling before the first table. Only the oligo list is
