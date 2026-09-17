@@ -644,6 +644,9 @@ async function runScreening() {
     // Default the preview to "Oligos to order" once the run
     // completes — saves the user a click for the most-used output.
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
+    // Which other libraries hold each guide is worth having on every run, and
+    // Run is the deliberate act that justifies fetching the index for it.
+    if (typeof LIBX_loadAfterRun === "function") LIBX_loadAfterRun()
     // The output rows are shown for the first time here, so the phone's
     // treatment of them has to be applied now rather than at load.
     if (typeof PHONE_apply === "function") PHONE_apply()
@@ -1648,6 +1651,52 @@ function _updateExampleText() {
     el.innerHTML =
         `${_escapeHtml(before)}<span class="seqSlot">${_escapeHtml(middle)}</span>${_escapeHtml(after)}`
 }
+
+// =============================================================================
+// Scrolling behind a popout
+// =============================================================================
+//
+// Ten modals, each shown by putting `fazeIn` on its overlay and hidden by
+// putting `fazeOut` there. With the page behind still scrollable, a finger
+// that started on the overlay — or that reached the end of the popout's own
+// scroll — carried on scrolling the app underneath, so closing the popout
+// left the user somewhere else entirely.
+//
+// Watched rather than wired into each open and close: there are ten of them
+// opened from six files, and a rule that has to be remembered at twenty call
+// sites is a rule that will be missed at one of them.
+//
+// iOS needs more than `overflow: hidden`, which it ignores on the body, so
+// the body is fixed in place and offset by the scroll position; that is also
+// why the position has to be put back by hand afterwards.
+var _modalScrollY = 0
+
+function _modalAnyOpen() {
+    return [...document.querySelectorAll(".upset-modal-overlay")].some(m => m.classList.contains("fazeIn"))
+}
+
+function _modalLockScroll(lock) {
+    const body = document.body
+    if (lock === body.classList.contains("modal-open")) return
+    if (lock) {
+        _modalScrollY = window.scrollY || window.pageYOffset || 0
+        body.style.top = `-${_modalScrollY}px`
+        body.classList.add("modal-open")
+    } else {
+        body.classList.remove("modal-open")
+        body.style.top = ""
+        window.scrollTo(0, _modalScrollY)
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const sync = () => _modalLockScroll(_modalAnyOpen())
+    const obs = new MutationObserver(sync)
+    for (const m of document.querySelectorAll(".upset-modal-overlay")) {
+        obs.observe(m, { attributes: true, attributeFilter: ["class"] })
+    }
+    sync()
+})
 
 // The last matching pass, so a status line written by something else — the
 // curated-list adder, say — can say how many of what it added actually exist

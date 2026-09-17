@@ -158,6 +158,15 @@ function _phoneOutputs(on) {
         const host = table.querySelector("tbody") || table
         host.appendChild(more)
     }
+    // The labels are written to wrap over two lines for the desktop's three
+    // narrow columns. A phone row is the full width, so the line break is
+    // replaced by a space rather than removed: dropping the <br> in CSS left
+    // "Oligos toorder". The original is kept so a rotation puts it back.
+    for (const label of table.querySelectorAll(".outLabel")) {
+        if (label.dataset.wideHtml == null) label.dataset.wideHtml = label.innerHTML
+        const want = on ? label.dataset.wideHtml.replace(/<br\s*\/?>/gi, " ") : label.dataset.wideHtml
+        if (label.innerHTML !== want) label.innerHTML = want
+    }
     table.classList.toggle("phone-outputs", on)
     if (!on) table.classList.remove("phone-outputs-open")
     more.hidden = !on

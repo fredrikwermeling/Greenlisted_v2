@@ -893,6 +893,15 @@ footer.plate {
     overflow: hidden;
 }
 
+/* The page behind an open popout. Fixed rather than `overflow: hidden`,
+   which iOS ignores on the body; the offset preserves what was on screen and
+   is undone when the popout closes. See _modalLockScroll in index.js. */
+body.modal-open {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+}
+
 .upset-modal-box {
     background: white;
     border-radius: var(--plateRadius);
@@ -2353,6 +2362,22 @@ a.gcBtnLink {
     #outputTable.phone-outputs tr { display: none; }
     #outputTable.phone-outputs tr:has(#outLabelAdapter),
     #outputTable.phone-outputs.phone-outputs-open tr { display: flex; }
+
+    /* The oligo list is on screen already — it is what the section opens on —
+       so its Show button says nothing. It comes back when the other outputs
+       are open, because then there is somewhere else to have been. */
+    #outputTable.phone-outputs tr:has(#outLabelAdapter) button[data-show] { display: none; }
+    #outputTable.phone-outputs.phone-outputs-open tr:has(#outLabelAdapter) button[data-show] { display: inline-block; }
+
+    /* A label wrapped for three desktop columns has a whole phone row to
+       itself, and the fixed height that keeps those columns level has nothing
+       to line up with. */
+    #outputTable.phone-outputs .outLabel {
+        height: auto;
+        min-height: 0;
+        padding: 6px 4px;
+    }
+    #outputTable.phone-outputs tr { padding-bottom: 4px; }
     .phoneMoreOutputs {
         order: 99;
         text-align: center;
@@ -2362,7 +2387,16 @@ a.gcBtnLink {
 
     /* A popout is the whole screen here, and the tables inside it hold a
        column of scores that cannot wrap. Full width, and the body scrolls. */
-    .upset-modal-box {
+    /* The page behind an open popout. Fixed rather than `overflow: hidden`,
+   which iOS ignores on the body; the offset preserves what was on screen and
+   is undone when the popout closes. See _modalLockScroll in index.js. */
+body.modal-open {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+}
+
+.upset-modal-box {
         max-width: 100vw;
         width: 100%;
         border-radius: 0;

@@ -122,6 +122,28 @@ async function LIBX_load(species, statusEl) {
     }
 }
 
+// Redraw whichever guide view is on screen, so the column fills in without
+// the user asking for the table again.
+function _libxRefreshVisible() {
+    const active = document.querySelector("#outputTable button.show-active")
+    if (!active) return
+    if (active.dataset.show === "full") showFullOutput()
+    else if (active.dataset.show === "adapter") showAdapterOutput()
+}
+
+// Pressing Run is the point at which this index becomes useful, and it is a
+// deliberate act rather than something the page did on its own, so the load
+// starts there rather than asking for a second click on a link above the
+// table. The device guard stays where it belongs, on the page-open prefetch:
+// it is there to stop an unasked-for download, and this one was asked for.
+function LIBX_loadAfterRun() {
+    const species = _libxSpecies()
+    if (!species || _libxLoaded(species) || _libxState.loading) return
+    LIBX_load(species)
+        .then(ok => { if (ok) _libxRefreshVisible() })
+        .catch(e => console.warn("sgRNA index load after run failed (harmless):", e))
+}
+
 // Called from the offer above the table. Loads, then redraws whichever output
 // is on screen so the column fills in.
 async function LIBX_loadAndRefresh() {
@@ -129,10 +151,7 @@ async function LIBX_loadAndRefresh() {
     if (!species) return
     const el = document.getElementById("libxNotice")
     const ok = await LIBX_load(species, el)
-    if (!ok) return
-    const active = document.querySelector("#outputTable button.show-active")
-    if (active && active.dataset.show === "full") showFullOutput()
-    else showAdapterOutput()
+    if (ok) _libxRefreshVisible()
 }
 
 // Pull the index in the background once the app has settled, so the column is
@@ -145,15 +164,11 @@ function LIBX_prefetchWhenIdle() {
     if (typeof APP_prefetchAllowed === "function" && !APP_prefetchAllowed("sgRNA index")) return
     const start = () => {
         if (_libxLoaded(species) || _libxState.loading) return
-        LIBX_load(species).then(ok => {
+        LIBX_load(species)
             // If a result table is already on screen, fill the column in now
             // rather than leaving dashes until the next run.
-            if (!ok) return
-            const active = document.querySelector("#outputTable button.show-active")
-            if (!active) return
-            if (active.dataset.show === "full") showFullOutput()
-            else if (active.dataset.show === "adapter") showAdapterOutput()
-        }).catch(e => console.warn("sgRNA index prefetch failed (harmless):", e))
+            .then(ok => { if (ok) _libxRefreshVisible() })
+            .catch(e => console.warn("sgRNA index prefetch failed (harmless):", e))
     }
     // Behind the copy-number matrix in the queue: that one is needed the
     // moment a cell line is picked, this only annotates a finished run.
@@ -197,7 +212,8 @@ function LIBX_columnFor(spacerOf) {
 }
 
 // The line above the table offering to fetch the index, shown only while it
-// would actually change anything.
+// would actually change anything. Pressing Run starts the load, so the offer
+// is what the user sees for the moment before that, or if it failed.
 function LIBX_noticeHtml() {
     const species = _libxSpecies()
     if (!species || _libxLoaded(species)) return ""
