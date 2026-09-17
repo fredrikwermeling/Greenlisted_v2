@@ -1043,7 +1043,7 @@ function _gcShow() {
         // Primer-BLAST first: designing the primers is what this panel is for,
         // and the rest are ways of taking the sequence elsewhere.
         `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
-        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies the sequence with its coloring, so the exon shading, the spacer highlight and the cut mark survive a paste into Word, an e-mail, Google Docs or a slide. Pasted somewhere that takes only plain text, it arrives as FASTA instead.">Copy with colors</button>` +
+        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies the sequence to the clipboard, ready to paste. Where the destination supports it — a document, an e-mail, a slide — the exon shading, the spacer highlight and the cut mark come with it; anywhere that takes only plain text it arrives as FASTA.">Copy as text</button>` +
         `<button class="validate-btn" onclick="GC_downloadFasta()" title="A FASTA file: flanks in lower case, spacer and PAM in upper case, positions in the header. Opens in Primer3, an aligner or any sequence editor.">Download FASTA</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
@@ -1172,7 +1172,7 @@ function GC_copyRich() {
         if (b.cutAfter) html += `<span style="color:#dc2626;font-weight:bold">|</span>`
     })
     html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.</p>`
-    _gcCopy(GC_fastaText(), html, "Copied with its coloring — paste into a document, an e-mail or a slide")
+    _gcCopy(GC_fastaText(), html, "Copied — paste into a document, an e-mail or a slide")
 }
 
 function GC_genBankText() {
