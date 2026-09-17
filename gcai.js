@@ -97,14 +97,25 @@ function _gcaiParseBlockFormat(text) {
         tm: num(c[6]), gcPercent: num(c[7]),
         selfComplementarity: num(c[8]), self3Complementarity: num(c[9])
     })
+    // Everything from "Products on intended targets" to the next pair is the
+    // specificity report, and it is full of lines that look like the table's
+    // own: "product length = 1246" for an off-target hit, and an alignment
+    // that starts "Forward primer". Pasting the results page rather than the
+    // download used to take the last product length seen, which was whichever
+    // unintended hit came last — pair 1 of a real page came out as 1246 bp
+    // instead of 970, and every distance derived from it was wrong in a way
+    // that looked entirely reasonable.
+    var inSpecificity = false
     for (const raw of lines) {
         const l = raw.trim()
         if (/^primer pair\s*\d+/i.test(l)) {
             if (cur && cur.forward && cur.reverse) pairs.push(cur)
             cur = { pair: num((l.match(/(\d+)/) || [])[1]) }
+            inSpecificity = false
             continue
         }
-        if (!cur) continue
+        if (/^products on /i.test(l)) { inSpecificity = true; continue }
+        if (!cur || inSpecificity) continue
         const c = cells(raw)
         if (/^forward primer/i.test(l) && c.length >= 6 && /^[ACGTacgt]+$/.test(c[1])) {
             const s = side(c)
@@ -116,7 +127,7 @@ function _gcaiParseBlockFormat(text) {
             cur.reverse = { sequence: s.sequence, length: s.length, fivePrimeEnd: s.a, threePrimeEnd: s.b,
                             tm: s.tm, gcPercent: s.gcPercent,
                             selfComplementarity: s.selfComplementarity, self3Complementarity: s.self3Complementarity }
-        } else if (/^product length/i.test(l)) {
+        } else if (/^product length(?!\s*=)/i.test(l)) {
             // Taken as "the number on this line", not "the second cell": a
             // table copied off the page can separate the label from the value
             // with a single space, and the cell split then keeps them together
