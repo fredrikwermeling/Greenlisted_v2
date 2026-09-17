@@ -1040,10 +1040,12 @@ function _gcShow() {
     for (const w of warnings) html += `<p class="gcWarn">${_escapeHtml(w)}</p>`
 
     html += `<div class="gcRow gcActions">` +
-        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies with the coloring, so a paste into Word or an e-mail keeps the exon shading and the spacer highlight.">Copy for Word</button>` +
+        // Primer-BLAST first: designing the primers is what this panel is for,
+        // and the rest are ways of taking the sequence elsewhere.
+        `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
+        `<button class="validate-btn" onclick="GC_copyRich()" title="Copies the sequence with its coloring, so the exon shading, the spacer highlight and the cut mark survive a paste into Word, an e-mail, Google Docs or a slide. Pasted somewhere that takes only plain text, it arrives as FASTA instead.">Copy with colors</button>` +
         `<button class="validate-btn" onclick="GC_downloadFasta()" title="A FASTA file: flanks in lower case, spacer and PAM in upper case, positions in the header. Opens in Primer3, an aligner or any sequence editor.">Download FASTA</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
-        `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>` +
@@ -1145,7 +1147,9 @@ function GC_downloadFasta() {
     _downloadBlob(new Blob([GC_fastaText()], { type: "text/plain;charset=utf-8" }), name)
 }
 
-// HTML with inline styles, since Word keeps those and drops classes.
+// HTML with inline styles, since a word processor keeps those and drops
+// classes. A plain-text copy of the FASTA goes on the clipboard beside it, so
+// a paste into something that takes no formatting still gets the sequence.
 function GC_copyRich() {
     if (!_gcReady()) return
     const v = _gcView()
@@ -1168,7 +1172,7 @@ function GC_copyRich() {
         if (b.cutAfter) html += `<span style="color:#dc2626;font-weight:bold">|</span>`
     })
     html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.</p>`
-    _gcCopy(GC_fastaText(), html, "Copied with formatting — paste into Word")
+    _gcCopy(GC_fastaText(), html, "Copied with its coloring — paste into a document, an e-mail or a slide")
 }
 
 function GC_genBankText() {
