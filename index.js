@@ -989,6 +989,29 @@ function _controlRole(symbol, essentialAdded) {
     return ""
 }
 
+// How the guides for a gene are ordered, said in the file rather than left to
+// be inferred from the row order.
+//
+// Every built-in library that carries a score is sorted by it, best first, so
+// _1 is the library's own first pick. That is a prediction from the design
+// algorithm, and a reader about to order the top two guides for each gene
+// should know it was never tested at the bench. The libraries that carry no
+// score are left in file order, which is not a ranking at all and has been
+// read as one.
+function _orderNote(headers) {
+    const col = parseInt(settings.rankingColumn, 10)
+    if (isNaN(col) || col <= 0) {
+        return "Order: this library provides no score, so the sgRNAs for a gene are in the order the library file lists them. They are not ranked."
+    }
+    // The column is named in brackets rather than in the sentence: the
+    // libraries call it anything from "Pick Order" to "Auto-pick top sgRNAs",
+    // and only some of those read as part of a sentence.
+    const name = (headers && headers[col - 1]) ? String(headers[col - 1]).trim() : ""
+    return "Order: for each gene, the sgRNAs are listed best first, using the library's own ranking" +
+           (name ? ` (${name})` : "") +
+           ". That ranking comes from the design algorithm and is a prediction, not experimental validation."
+}
+
 function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
     const date = new Date()
     // Each extra column appears only when it has something to say, so a plain
@@ -1003,6 +1026,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
     }
 
     var out = `Library: ${settings.libraryName}, Date: ${date.toLocaleString()}\n`
+    out = out + _orderNote(typeof searchOutput !== "undefined" && searchOutput ? searchOutput.headers : null) + "\n"
     if (cl) out = out + _cnColumnNote(cl) + "\n"
     // "+ adapters" only when there are adapters on the sequence. With both
     // boxes empty the column is the bare spacer, and saying otherwise sends a
