@@ -844,8 +844,20 @@ function _gcaiCodingCaution(coding) {
 // answer looks like, and a model that has to work them out from the data gets
 // some of them wrong. So they are decided here, where the facts are, and only
 // the lines that apply are written into the file.
-function _gcaiCaseNotes(v, tx, cur, csvWarning) {
+function _gcaiCaseNotes(v, tx, cur, csvWarning, pairs) {
     const out = []
+
+    // One pair is not a choice, and the reason is worth saying: the request
+    // asked for five, so the window had room for one. Raising the flank is the
+    // move, not reusing the same two sites under another number.
+    const asked = (typeof _gcPbLoad === "function") ? Number(_gcPbLoad().numReturn) : null
+    if (pairs && pairs.length && pairs.length < 3) {
+        out.push(`ONLY ${pairs.length === 1 ? "ONE PAIR CAME BACK" : pairs.length + " PAIRS CAME BACK"}` +
+                 (asked ? `, where ${asked} were asked for` : "") + ". That is the window running out of room rather than a " +
+                 "failed search, and it means there is no independent second choice: say so. If the pair fails at the bench, the fix is " +
+                 "to raise the flanking sequence in Green Listed, which gives Primer-BLAST more sequence to place primers in, and run it " +
+                 "again — not to reuse the same two sites.")
+    }
 
     if (!tx) {
         out.push("NO TRANSCRIPT. No RefSeq transcript was found in this window, so nothing here says which exon the cut falls in or what it " +
@@ -990,7 +1002,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "repeat, so do not try to spot repeats by eye from the sequence. Use it to explain the shape of the result, not to change the " +
             "request: if the candidates are crowded into one narrow stretch, or there are fewer of them than expected, the repeat section " +
             "usually says why, and that is worth telling them because it is a property of the locus rather than a mistake.\n\n" +
-            _gcaiCaseNotes(v, tx, cur, csvWarning) +
+            _gcaiCaseNotes(v, tx, cur, csvWarning, pairs) +
             (annotated
                 ? "THE PRIMERS BELONG TO THIS SEQUENCE. Green Listed checked every one of them against the template in this file before " +
                   "writing it, and would not have written it otherwise, so you do not need to verify that yourself. If you ever receive " +
