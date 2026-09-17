@@ -2208,6 +2208,40 @@ function SETS_load(index) {
         (m ? `, ${n(m.found)} of ${n(m.total)} found in the library` : ""))
 }
 
+// Which build this page is running.
+//
+// Every script and stylesheet in index.html carries the release number as a
+// ?v= on its src, bumped on each release so a browser holding the old file
+// fetches the new one. index.html itself has no such marker, so a browser
+// that has cached the page keeps serving the whole old app: the version in
+// these URLs is the only statement of which build is on screen, and it is
+// what a check for a newer one compares against.
+function APP_version() {
+    const el = document.querySelector('script[src*="index.js"]')
+    const m = el && /[?&]v=([\d.]+)/.exec(el.getAttribute("src") || "")
+    return m ? m[1] : null
+}
+
+// Is there a newer build on the server? Returns its version, or null.
+//
+// Fetches the page itself past the cache and reads the version out of it.
+// Nothing is compared numerically: any difference means the server is serving
+// something other than what is running here, which is what matters.
+async function APP_newVersionAvailable() {
+    const here = APP_version()
+    if (!here) return null
+    try {
+        const res = await fetch(location.pathname + "?_=" + Date.now(), { cache: "no-store" })
+        if (!res.ok) return null
+        const m = /index\.js\?v=([\d.]+)/.exec(await res.text())
+        return (m && m[1] !== here) ? m[1] : null
+    } catch (e) {
+        // Offline, or the page was opened from a file. Neither is a reason to
+        // interrupt a reset.
+        return null
+    }
+}
+
 // "Reset app" in the tool strip — back to how the app opens, without a page
 // reload. A reload would work too, but it would throw away the library file
 // and the copy-number matrix, and re-fetching 62 MB to clear a form is not a
@@ -2245,6 +2279,19 @@ async function TOOL_resetApp() {
     await init()
     _setStatus("statusSearch", "")
     _focusSymbolBox()
+
+    // A reset is the one moment when reloading costs nothing: everything that
+    // would be thrown away has just been thrown away deliberately. So it is
+    // also where a browser sitting on a cached copy of the app can be moved on
+    // to the current one. The check runs after the reset, so the button stays
+    // instant whether or not there is an update, and does nothing at all when
+    // the version on the server is the version already running.
+    const newer = await APP_newVersionAvailable()
+    if (!newer) return
+    _setStatus("statusSearch", `Version ${newer} is available. Loading it now…`)
+    // A new address rather than reload(), which is free to answer from the
+    // same cache that is holding the old page.
+    setTimeout(() => location.replace(location.pathname + "?v=" + encodeURIComponent(newer)), 900)
 }
 
 // "sgRNA design" in the tool strip — returns to the main flow from whichever

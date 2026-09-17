@@ -2051,10 +2051,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     box-sizing: border-box;
 }
 
-/* The instructions shown until something is typed. Italic and lighter than
-   real input, so it reads as text that is about to go away rather than as a
-   prefilled search. */
-#searchSymbols::placeholder {
+/* Placeholder text everywhere: the instructions in the gene box, "Type to
+   search…", "(optional)". Italic and lighter than real input, so it reads as
+   text that is about to go away rather than as something already filled in.
+   opacity is set because Firefox dims placeholders on top of the colour. */
+input::placeholder,
+textarea::placeholder {
     color: var(--gray-400);
     font-style: italic;
     opacity: 1;
