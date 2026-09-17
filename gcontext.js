@@ -1146,7 +1146,10 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>` +
-        `<p class="gcAlt">Primer-BLAST opens with everything filled in. It pauses once to ask which genome hit is your target &mdash; tick the row for your gene and press Submit.</p>`
+        `<p class="gcAlt">Primer-BLAST opens with everything filled in. It pauses once to ask which genome hit is your target &mdash; tick the row for your gene and press Submit. ` +
+        `On the results page the graphical view is often blank for a pasted sequence, and the banner saying the primers may not be specific ` +
+        `appears whenever the genome search finds anything at all: what matters is under each pair, where the intended product should be a ` +
+        `perfect match and the unintended ones should carry mismatches, above all in the last few bases at the 3' end.</p>`
 
     html += _gcSeqHtml(v)
 

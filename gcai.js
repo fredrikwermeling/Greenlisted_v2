@@ -826,11 +826,10 @@ function GC_aiBuild(pairs, question, csvWarning) {
                   "be, what part of the gene it cuts, and — where the file gives a codon — whether the edit is likely to disrupt the protein. " +
                   "Tell them they can rerun the export with the Primer-BLAST CSV pasted in, and you will pick between the pairs.\n\n") +
             "DO NOT REDESIGN THE PRIMER-BLAST REQUEST. The search windows and the product length in this file were set by the tool from the " +
-            "readout the user chose, and they are already correct. Primer-BLAST then runs its own genome-wide specificity search and will not " +
-            "return a primer that matches in many places, so it excludes repeats by itself: told it may use a whole flank, it comes back using " +
-            "only the part that is not repetitive. Telling the user to narrow the windows, avoid a repeat or change a length is redundant work " +
-            "you are asking of them for no gain. If something about the locus genuinely limits the design, say what it is and leave the settings " +
-            "alone.\n\n" +
+            "readout the user chose, and they are already correct. Primer-BLAST runs its own genome-wide specificity search and steers away " +
+            "from primers that match in many places, which is why, told it may use a whole flank, it comes back using only the part that is " +
+            "not repetitive. Telling the user to narrow the windows, avoid a repeat or change a length is redundant work you are asking of " +
+            "them for no gain. If something about the locus genuinely limits the design, say what it is and leave the settings alone.\n\n" +
             "ABOUT REPEATS: this file already carries the RepeatMasker annotation for the template and says which stretches are free of " +
             "repeat, so do not try to spot repeats by eye from the sequence. Use it to explain the shape of the result, not to change the " +
             "request: if the candidates are crowded into one narrow stretch, or there are fewer of them than expected, the repeat section " +
@@ -1004,7 +1003,7 @@ function GC_aiBuild(pairs, question, csvWarning) {
             thisFileDoesNotKnow: [
                 "Whether a primer sits on a common SNP in the cell line or strain being used, which can cause allele dropout. Repeats and long homopolymers ARE in this file, under repeatsAndAwkwardSequence; SNPs are not.",
                 "Whether the cell line carries a mutation under the spacer or the PAM, which would stop the guide cutting that allele.",
-                "Where else in the genome a primer would prime. Primer-BLAST checked this and returned only pairs it passed, but the evidence is not in the downloaded table.",
+                "Where else in the genome a primer would prime. Primer-BLAST searches for that and lists any potential unintended products under each pair on its results page, with the mismatches marked — but it reports them rather than withholding the pair, and none of that detail is in the downloadable table, so nothing in this file knows which pairs had any. Judge it on the results page: a pair is usually sound when the intended product is a perfect match to both primers and the unintended ones carry several mismatches, particularly in the last few bases at the 3' end, which is where a mismatch actually stops a primer extending.",
                 "The polymerase, cycling conditions or sequencing provider, so annealing temperature is not tuned to a protocol.",
                 "Anything about the actual edited sample, such as its clonality or the editing efficiency."
             ],
