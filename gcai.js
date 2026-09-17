@@ -640,6 +640,29 @@ function _gcaiShortlist(annotated, sanger) {
     }
 }
 
+// What a frameshift at this position may fail to do.
+//
+// Late in the coding sequence, most of the protein is upstream of the cut and
+// survives: a truncated product can keep partial function, and for some genes
+// acts as a dominant negative, neither of which an indel spectrum can show.
+// Right at the start, translation can restart at a downstream in-frame ATG and
+// produce a shortened but working protein. In the middle, neither applies.
+function _gcaiCodingCaution(coding) {
+    const n = coding.proteinLength
+    if (!n || !coding.codon) return null
+    const frac = coding.codon / n
+    if (frac > 0.5) {
+        return `The cut is ${Math.round(frac * 100)}% of the way through the protein, so a frameshift leaves most of it intact upstream. ` +
+               "A truncated product can retain partial function, and for some proteins acts as a dominant negative. " +
+               "The indel spectrum cannot show either, so confirm the loss at the protein level rather than inferring it from editing efficiency."
+    }
+    if (frac < 0.1) {
+        return `The cut is only ${Math.round(frac * 100)}% into the protein. That is where a frameshift removes the most, but it is also close enough to the start ` +
+               "that translation can reinitiate at a downstream in-frame ATG and make a shortened protein that still works. Worth a look at the protein if the phenotype is weaker than expected."
+    }
+    return null
+}
+
 // The parts of the brief that only apply to some exports.
 //
 // One guide in one gene is not one situation. The cut may be in coding
@@ -837,7 +860,13 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 fractionOfTheProteinUpstreamOfTheCut: v.coding.proteinLength
                     ? Number((v.coding.codon / v.coding.proteinLength).toFixed(3)) : null,
                 note: "Numbered along " + (tx ? tx.name : "the transcript") +
-                      ". A frameshift here truncates everything downstream of this codon."
+                      ". A frameshift here truncates everything downstream of this codon.",
+                // Where in the protein the cut falls decides whether "frameshift"
+                // and "knockout" are the same thing, and the two ends of the
+                // coding sequence fail in opposite ways. Worked out here, because
+                // it is a consequence of a number already in this file and only
+                // one reader in six raised it unprompted.
+                caution: _gcaiCodingCaution(v.coding)
             } : null,
             genomicRegionOfThisTemplate: v.regionPlain
         },
