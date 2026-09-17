@@ -1394,7 +1394,13 @@ function _gcPrimerBlastParams() {
         return null
     }
     const p = new URLSearchParams()
-    p.set("INPUT_SEQUENCE", v.seq)
+    // Upper case, always. The panel writes the flanks in lower case and the
+    // spacer and PAM in upper, which is a reading convention of the panel and
+    // nothing to do with the request — but lower case means soft-masked to
+    // NCBI's tools, and Primer-BLAST carries a lowercase-masking option that
+    // refuses a primer whose 3' end sits on a masked base. Sending the display
+    // form was asking it to interpret our typography.
+    p.set("INPUT_SEQUENCE", String(v.seq).toUpperCase())
     p.set("PRIMER5_START", "1")
     p.set("PRIMER5_END", String(fwdEnd))
     p.set("PRIMER3_START", String(revStart))
