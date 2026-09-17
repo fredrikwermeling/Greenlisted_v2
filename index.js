@@ -391,6 +391,16 @@ function ESS_loadIfNeeded() {
     return _essential.loading
 }
 
+// The column the downloaded files carry. Named so the file explains itself
+// when it is opened by someone who never saw the app: these land in order
+// forms and analysis folders, and "essential" on its own invites the reader to
+// think it means essential for their experiment.
+const _ESS_COLUMN = "Broadly essential (in nearly every cell line)"
+
+function ESS_flag(symbol) {
+    return ESS_isEssential(symbol) ? "yes" : ""
+}
+
 function ESS_isEssential(symbol) {
     if (!_essential.data) return false
     const set = _setsSpecies() === "Mouse" ? _essential.data.mouse : _essential.data.human
@@ -458,7 +468,14 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     // sentence in a column set the column's width and pushed the columns
     // after it off the right of the pane.
     const _wrappable = t => /\s/.test(String(t).trim())
-    for (const h of headers) {
+    // The essential column is for the file. On screen the same fact is the *
+    // on the symbol, which costs no width in a table that already has more
+    // columns than a phone can hold.
+    const hiddenCols = new Set()
+    headers.forEach((h, j) => { if (h.trim() === _ESS_COLUMN) hiddenCols.add(j) })
+    for (let j = 0; j < headers.length; j++) {
+        if (hiddenCols.has(j)) continue
+        const h = headers[j]
         const rich = _headerHtml[h.trim()]
         html += `<th${_wrappable(h) ? ' class="wrapCell"' : ""}>${rich || _escapeHtml(h)}</th>`
     }
@@ -473,6 +490,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         while (cols.length < headers.length) cols.push("")
         html += '<tr>'
         for (let j = 0; j < cols.length; j++) {
+            if (hiddenCols.has(j)) continue
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
@@ -689,6 +707,10 @@ async function runScreening() {
             }
         }
 
+        // Which genes are essential in nearly every line: a column in the
+        // files and a * in the table, so it has to be here before either is
+        // built.
+        if (typeof ESS_loadIfNeeded === "function") await ESS_loadIfNeeded()
         const fullOutput = _createFullTxtOutput(searchOutput.filteredLibraryMap, searchOutput.headers)
         const notFoundOutput = _createSymbolNotFound(searchOutput.usedSynonyms)
         const adapterOutput = _createAdapterOutput(searchOutput.filteredLibraryMap, cnReady ? screeningCl[0] : null, searchOutput.essentialAdded)
@@ -736,9 +758,6 @@ async function runScreening() {
     document.getElementById("outputTable").style.display = "flex"
     document.getElementById("outputTable").classList.remove("statusFadeOut")
     document.getElementById("outputTable").classList.add("statusFadeIn")
-    // The essential-gene list decides which rows get a *, and it is read as
-    // the table is built, so it has to be here before the first render.
-    if (typeof ESS_loadIfNeeded === "function") await ESS_loadIfNeeded()
     // Default the preview to "Oligos to order" once the run
     // completes — saves the user a click for the most-used output.
     if (outputTexts && outputTexts.textOutputAdapter) showAdapterOutput()
@@ -954,17 +973,20 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
     const hasAdapters = !!(String(settings.adapterBefore || "").trim() ||
                            String(settings.adapterAfter || "").trim())
     out = out + `Symbol\tSymbol_ID\t${hasAdapters ? "spacer + adapters" : "spacer"}` +
-          (anyRole ? "\tAdded as" : "") + (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
+          (anyRole ? "\tAdded as" : "") + `\t${_ESS_COLUMN}` +
+          (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
         // One lookup per symbol rather than per guide — otherwise a large
         // design redoes the same resolve-and-lookup three or four times a row.
         const flag = cl ? _cnAdapterFlag(symbol, cl, synonymMap) : ""
+        const essential = ESS_flag(symbol)
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
             out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` +
-                  (anyRole ? `\t${roles[symbol]}` : "") + (cl ? `\t${flag}` : "") + "\n"
+                  (anyRole ? `\t${roles[symbol]}` : "") + `\t${essential}` +
+                  (cl ? `\t${flag}` : "") + "\n"
         }
     }
     return out
@@ -1081,10 +1103,11 @@ function _createFullTxtOutput(libraryMap, headers) {
         out += `# On-Target Efficacy Score: RS3seq-Chen2013+RS3target (higher = better). Range in library: -1.7 to 2.2. Guides ranked by Pick Order.\n`
         out += `# Aggregate CFD Score: cumulative off-target activity (lower = fewer off-targets). Range in library: 0 to 4.8 (design cutoff).\n`
     }
-    var out = out + headers.join("\t") + "\n" //the original headers are placed att the top of the output
+    var out = out + headers.join("\t") + `\t${_ESS_COLUMN}\n` //the original headers are placed att the top of the output
     for (var symbol of Object.keys(libraryMap)) {
+        const essential = ESS_flag(symbol)
         libraryMap[symbol].forEach(row => {
-            out = out + `${row.map(_spreadsheetSafe).join("\t")}\n`
+            out = out + `${row.map(_spreadsheetSafe).join("\t")}\t${essential}\n`
         })
     }
     return out
