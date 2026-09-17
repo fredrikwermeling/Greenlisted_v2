@@ -59,6 +59,7 @@
     --gray-700: #374151;
     --gray-600: #4b5563;
     --gray-500: #6b7280;
+    --gray-400: #9ca3af;
     --gray-200: #e5e7eb;
     --gray-100: #f3f4f6;
     --earth-700: #8a6a3a;
@@ -2050,10 +2051,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     box-sizing: border-box;
 }
 
-/* The example genes shown until something is typed. Dimmer than real input so
-   it cannot be mistaken for a prefilled search. */
+/* The instructions shown until something is typed. Italic and lighter than
+   real input, so it reads as text that is about to go away rather than as a
+   prefilled search. */
 #searchSymbols::placeholder {
-    color: var(--gray-500);
+    color: var(--gray-400);
+    font-style: italic;
     opacity: 1;
 }
 
