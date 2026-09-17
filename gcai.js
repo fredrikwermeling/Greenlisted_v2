@@ -978,7 +978,20 @@ function GC_aiBuild(pairs, question, csvWarning) {
             ],
             howToAddPrimerCandidates:
                 "In Green Listed, open the guide's Context panel, press Open in Primer-BLAST, run it, then on the results page use " +
-                "Download primer pairs > CSV. Press Export for AI again and paste that CSV into the box before exporting."
+                "Download primer pairs > CSV. Press Export for AI again and choose or paste that file before exporting.",
+            // People do hand an assistant both files instead, which looks like
+            // the same thing and is not: the tool checks every primer against
+            // this template before writing the file, and nothing checks it in
+            // the other route. Two files in one folder can be a different
+            // guide, or the same guide at a different flank length, and every
+            // distance computed from the wrong pairing looks entirely
+            // reasonable.
+            ifYouWereAlsoGivenARawPrimerBlastFile:
+                "Its positions are relative to whatever sequence was submitted to Primer-BLAST, which may not be the template in this " +
+                "file. Before using any of them, check that each primer sequence actually occurs in the template here — the forward " +
+                "primer reading along it, the reverse primer as the reverse complement — and say which ones do not. Distances to the " +
+                "cut, product lengths and read directions are all wrong, plausibly wrong, if the two do not belong together. Exporting " +
+                "again with the results chosen in the dialog does that check for you and works out the distances as well."
         },
 
         provenance: {
@@ -1008,6 +1021,8 @@ function GC_aiExport() {
         `<p class="gcaiHint"><b>Do this first.</b> Press <i>Open in Primer-BLAST</i>, run it, and on the results page either select the ` +
         `primer table and copy it or use any of the links under <i>Download primer pairs</i> &mdash; <b>Text</b>, <b>CSV</b> and ` +
         `<b>Tabular</b> all work. Paste it here, or drop the file on this box.</p>` +
+        `<p class="gcaiHint"><label class="gcaiPick"><input type="file" id="gcaiFile" accept=".csv,.tsv,.txt,text/plain,text/csv" ` +
+        `onchange="GC_aiPickFile(this)">Choose the downloaded file&hellip;</label> or paste it in the box below.</p>` +
         `<p class="gcaiHint">Without it there is nothing to choose between and no assistant can fill the gap: picking primers needs ` +
         `melting temperatures computed under real salt conditions and a genome-wide search for where else each one would prime, and ` +
         `neither can be done by reading a sequence. The file is still worth exporting without them &mdash; it will tell you where the ` +
@@ -1039,6 +1054,24 @@ function GC_aiExport() {
     // Say what an empty box means before the export button is pressed, not
     // after the file has been written and attached.
     GC_aiCheckCsv()
+}
+
+// The downloaded Primer-BLAST file, chosen rather than pasted. Dropping it on
+// the box has always worked, but a line of small print saying so is not a
+// button, and the file is sitting in the Downloads folder anyway.
+function GC_aiPickFile(input) {
+    const f = input && input.files && input.files[0]
+    if (!f) return
+    const area = document.getElementById("gcaiCsv")
+    const r = new FileReader()
+    r.onload = () => {
+        area.value = String(r.result || "")
+        GC_aiCheckCsv()
+    }
+    r.onerror = () => {
+        document.getElementById("gcaiCsvStatus").textContent = "That file could not be read. Open it and paste the contents instead."
+    }
+    r.readAsText(f)
 }
 
 function GC_aiClose() {

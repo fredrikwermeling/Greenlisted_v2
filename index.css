@@ -2794,3 +2794,25 @@ body.modal-open {
     color: var(--mainColor);
     font-size: 0.85em;
 }
+
+/* "Choose the downloaded file…" in the AI export dialog. The native file input
+   is replaced by its own label, since the browser's own button says "No file
+   chosen" next to it and reads as a broken control until one is. */
+.gcaiPick {
+    display: inline-block;
+    padding: 4px 10px;
+    border: 1px solid var(--outlineColor);
+    border-radius: var(--inputRadius);
+    background: var(--green-50);
+    color: var(--green-800);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.gcaiPick:hover {
+    background: var(--green-100);
+}
+
+.gcaiPick input[type="file"] {
+    display: none;
+}
