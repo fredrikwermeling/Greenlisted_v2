@@ -117,7 +117,11 @@ function _gcaiParseBlockFormat(text) {
                             tm: s.tm, gcPercent: s.gcPercent,
                             selfComplementarity: s.selfComplementarity, self3Complementarity: s.self3Complementarity }
         } else if (/^product length/i.test(l)) {
-            cur.productLength = num(c[1])
+            // Taken as "the number on this line", not "the second cell": a
+            // table copied off the page can separate the label from the value
+            // with a single space, and the cell split then keeps them together
+            // and the length is lost.
+            cur.productLength = num((l.match(/(\d+)\s*$/) || [])[1])
         }
     }
     if (cur && cur.forward && cur.reverse) pairs.push(cur)
@@ -377,7 +381,50 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
     const cut = v.cutAfter                 // last base before the cut, 1-based
     const n = v.n
     const sanger = readout !== "ngs"
-    // Which pairs are the same amplicon as which.
+    // A Sanger trace is unreadable for the first ~30 bases and stays reliable for
+// roughly 700 after the primer, so the cut has to fall inside that window, and
+// there has to be clean template beyond it for the indel spectrum to be read
+// from. Both ICE and TIDE work this way; they differ in how much room they ask
+// for on each side.
+const _GCAI_SANGER_READ_LIMIT = 700
+
+const _GCAI_SANGER_RULE =
+    "Judged separately for each direction, because one trace is read from one primer. " +
+    "The cut must be at least 150 bases past the sequencing primer for ICE (100 for TIDE), " +
+    "no more than " + _GCAI_SANGER_READ_LIMIT + " bases past it, since a Sanger read is not " +
+    "reliable beyond about that, and there must be at least 150 bases of template beyond the " +
+    "cut for ICE (200 for TIDE) for the indel spectrum to be read from. Where both directions work, " +
+    "sequenceThisProductWith names the one that puts the cut nearest 250 bases from the primer, which is " +
+    "where a trace reads best: past the unreadable start and well before quality falls away."
+
+function _gcaiFitsIce(toCut, beyondCut) {
+    return toCut >= 150 && toCut <= _GCAI_SANGER_READ_LIMIT && beyondCut >= 150
+}
+
+function _gcaiFitsTide(toCut, beyondCut) {
+    return toCut >= 100 && toCut <= _GCAI_SANGER_READ_LIMIT && beyondCut >= 200
+}
+
+// Which end to sequence from: the one that puts the cut inside a readable
+// trace, and where both do, the one that puts it closest to where a trace is
+// at its best. Not simply the furthest: the first 20-50 bases are unreadable
+// and quality falls away towards the end, so 250 or so is the target, and a
+// cut 700 bases out is worse than one at 300 rather than better.
+const _GCAI_SANGER_IDEAL = 250
+
+function _gcaiReadFrom(fwdLeadIn, revLeadIn) {
+    const ok = d => d >= 100 && d <= _GCAI_SANGER_READ_LIMIT
+    const fwdOk = ok(fwdLeadIn), revOk = ok(revLeadIn)
+    if (fwdOk && revOk) {
+        return Math.abs(fwdLeadIn - _GCAI_SANGER_IDEAL) <= Math.abs(revLeadIn - _GCAI_SANGER_IDEAL)
+            ? "the forward primer" : "the reverse primer"
+    }
+    if (fwdOk) return "the forward primer"
+    if (revOk) return "the reverse primer"
+    return "neither: the cut is out of reach of a single Sanger read from either primer"
+}
+
+// Which pairs are the same amplicon as which.
     //
     // Primer-BLAST returns near-duplicates: the same site offered again
     // shifted a base or two. They look like ten choices and are not, and a
@@ -398,13 +445,23 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
         const fwdLeadIn = cut - fEnd             // bases from the forward primer to the cut
         const revLeadIn = rLo - cut - 1          // bases from the cut to the reverse primer
         const spansCut = p.forward.start <= cut && rHi > cut
+        // The amplicon, from the outer ends of the two primers. Primer-BLAST
+        // prints it, but not in every format it offers, and a missing length
+        // used to fail every size test silently: an assistant reading one of
+        // those files concluded that all five pairs failed the guidance when
+        // the geometry was fine, because the only number the tests had was
+        // null. It is the distance between two positions already in this file,
+        // so it is worked out rather than left out.
+        const product = (p.productLength != null) ? p.productLength
+                      : (p.forward.start != null && rHi != null) ? (rHi - p.forward.start + 1)
+                      : null
         const notes = []
         if (!spansCut) notes.push("This product does not span the cut site, so it cannot be used to read the edit.")
         if (fwdLeadIn < 100) notes.push(`Only ${fwdLeadIn} bp between the forward primer and the cut; a Sanger read from this primer may still be settling when it reaches the edit.`)
         if (revLeadIn < 100) notes.push(`Only ${revLeadIn} bp between the cut and the reverse primer; a read from the reverse primer may still be settling when it reaches the edit.`)
-        if (sanger && p.productLength != null && p.productLength < 400) notes.push("Shorter than the 400-800 bp ICE recommends.")
-        if (sanger && p.productLength != null && p.productLength > 1500) notes.push("Longer than the 500-1500 bp TIDE recommends.")
-        if (!sanger && p.productLength != null && p.productLength > 280) notes.push("Longer than about 280 bp, so the two reads of a 2x150 paired-end run will not overlap and cannot be merged.")
+        if (sanger && product != null && product < 400) notes.push("Shorter than the 400-800 bp ICE recommends.")
+        if (sanger && product != null && product > 1500) notes.push("Longer than the 500-1500 bp TIDE recommends.")
+        if (!sanger && product != null && product > 280) notes.push("Longer than about 280 bp, so the two reads of a 2x150 paired-end run will not overlap and cannot be merged.")
         // A primer inside a repeat is the failure this file can actually see
         // coming, so it is stated per pair rather than left in the section above.
         const fRep = _gcaiInRepeat(v, p.forward.start, p.forward.end)
@@ -440,16 +497,31 @@ function _gcaiAnnotatePairs(pairs, v, readout) {
                     basesOfTemplateBeforeTheCut: Math.max(0, cut - p.forward.start + 1)
                 }
             },
+            productLength: product,
+            productLengthSource: (p.productLength != null) ? "as reported by Primer-BLAST"
+                : (product != null) ? "worked out from the primer positions in this template, since the pasted results did not carry it"
+                : null,
             // Only the readout that was chosen. A Sanger export carrying an
             // amplicon-NGS verdict on every pair is ten lines of false there
             // about a method nobody asked for.
+            //
+            // And for Sanger, judged once per direction. ICE and TIDE read one
+            // trace, from one primer, and the same product can be hopeless one
+            // way and ideal the other: here the cut sat 829 bases from the
+            // forward primer, past the end of a usable read, and 339 from the
+            // reverse, which is exactly where you want it. A single verdict
+            // for the pair said "no" to both, and an assistant reading it
+            // reported that every pair failed rather than saying which primer
+            // to sequence with.
             fitsGuidance: sanger ? {
-                ice: p.productLength != null && p.productLength >= 400 && p.productLength <= 800
-                     && fwdLeadIn >= 150 && revLeadIn >= 150,
-                tide: p.productLength != null && p.productLength >= 500 && p.productLength <= 1500
-                      && fwdLeadIn >= 100
+                ice: { readingFromTheForwardPrimer: _gcaiFitsIce(fwdLeadIn, Math.max(0, rHi - cut)),
+                       readingFromTheReversePrimer: _gcaiFitsIce(revLeadIn, Math.max(0, cut - p.forward.start + 1)) },
+                tide: { readingFromTheForwardPrimer: _gcaiFitsTide(fwdLeadIn, Math.max(0, rHi - cut)),
+                        readingFromTheReversePrimer: _gcaiFitsTide(revLeadIn, Math.max(0, cut - p.forward.start + 1)) },
+                sequenceThisProductWith: _gcaiReadFrom(fwdLeadIn, revLeadIn),
+                howThisIsJudged: _GCAI_SANGER_RULE
             } : {
-                ampliconNgs: p.productLength != null && p.productLength >= 200 && p.productLength <= 280
+                ampliconNgs: product != null && product >= 200 && product <= 280
                      && fwdLeadIn >= 50 && revLeadIn >= 50
             },
             notes: notes
@@ -580,6 +652,9 @@ function GC_aiBuild(pairs, question, csvWarning) {
                 ? "THEN RECOMMEND ONE PAIR and say plainly why, in two or three sentences. The numbers you need are already worked out for each " +
                   "pair: how far each primer sits from the cut, whether the product spans it, and whether it fits the ICE and TIDE guidance. " +
                   "Do not recompute them from the positions; they are relative to the template in this file and easy to get wrong. " +
+                  "SAY WHICH PRIMER TO SEQUENCE WITH. One trace is read from one end, the file judges each direction separately, and " +
+                  "sequenceThisProductWith names the end to use; a pair that is out of reach one way is often ideal the other way, so a " +
+                  "recommendation without that sentence is incomplete. " +
                   "Name a second choice that uses different primer sites from the first, and say what would make you switch to it: a pair " +
                   "that is the same two sites shifted by a base is not a fallback, and each pair says which others those are. " +
                   "Mention a real risk if there is one, and say plainly when there is not.\n\n"
@@ -721,9 +796,11 @@ function GC_aiBuild(pairs, question, csvWarning) {
             "The first 20-50 bases of a Sanger read are unreliable, so the distance from the sequencing primer to the cut needs to be comfortably more than that. Around 150-250 bp is the usual target.",
             "There must be enough clean sequence after the cut as well, since ICE and TIDE both infer the indel spectrum from the mixed trace downstream of it. Longer helps when deletions are large.",
             "Neither primer may lie inside an annotated repeat. This file says which ones do.",
-            "A pair can be read from either end. If the forward primer is close to the minimum clearance, sequencing the same product with the reverse primer puts the cut deep inside a clean read instead, and it costs one extra reaction.",
+            "A pair is read from ONE end, so say which. The file judges each direction separately and names one in sequenceThisProductWith; a pair can be unusable one way and ideal the other, and a recommendation that does not say which primer to sequence with is incomplete.",
+            "A Sanger read is not reliable much past 700 bases, so a cut further than that from the sequencing primer cannot be read from that end however good the pair is.",
             "Specificity matters more than a perfect melting temperature. A pair that also primes elsewhere in the genome gives a mixed trace that looks like editing.",
             "Between pairs that all satisfy the above, prefer closely matched melting temperatures and low self- and cross-complementarity. The difference between the two temperatures is given for each pair; do not work it out by eye across the pairs.",
+            "fitsGuidance is per direction. Do not report that a pair fails unless it fails in both directions, and do not treat a false in one direction as a reason to reject a pair whose other direction is fine.",
             "A second choice is only worth naming if it uses different primer sites. Primer-BLAST offers the same site again shifted by a base or two, and each pair says which others are the same two sites as itself. A fallback that shares both of them fails for every reason the first one does."
         ],
 
