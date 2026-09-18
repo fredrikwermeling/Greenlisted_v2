@@ -560,7 +560,7 @@ function ESS_loadIfNeeded() {
             return _essential.data
         })
         .catch(e => {
-            // A missing list only costs the asterisks.
+            // A missing list only costs the essential half of a Notes cell.
             console.warn("Essential-gene list unavailable:", e)
             _essential.data = { source: "", human: new Set(), mouse: new Set() }
             return _essential.data
@@ -568,25 +568,37 @@ function ESS_loadIfNeeded() {
     return _essential.loading
 }
 
-// The column the downloaded files carry. Named so the file explains itself
-// when it is opened by someone who never saw the app: these land in order
-// forms and analysis folders, and "essential" on its own invites the reader to
-// think it means essential for their experiment.
-const _ESS_COLUMN = "Broadly essential (in nearly every cell line)"
+// One column instead of three, and words instead of marks. A * and a ** on
+// the symbol cost no width, but they send the reader to a legend under the
+// table to find out what happened to their gene, and by the time they have
+// read it they have lost the row. This says it in the row.
+//
+// Empty for a gene with nothing wrong, which is most of them, so the column
+// is read by scanning for the cells that are not blank. The pieces are
+// ordered by how much they change what the guide can tell you: a deleted gene
+// cannot be cut at all, an amplified one gives a signal that is not about the
+// gene, a mutated one is a different experiment from the wild-type, and an
+// essential one drops out whatever was being asked.
+const _NOTES_COLUMN = "Notes"
 
-// The hotspot column, and the value in it. Named after the cell line, since
-// this is a fact about that line and not about the gene.
-function _hotColumn(cl) {
-    return `Hotspot mutation in ${_cnPlainName(cl)} cells`
-}
-
-function _hotFlag(cl, symbol) {
-    const v = (typeof HOT_variant === "function") ? HOT_variant(cl, symbol) : null
-    return v === null ? "" : (v || "yes")
-}
-
-function ESS_flag(symbol) {
-    return ESS_isEssential(symbol) ? "yes" : ""
+function _rowNotes(symbol, cl, synonymMap) {
+    const parts = []
+    if (cl && typeof CN_isLoaded === "function" && CN_isLoaded()) {
+        const cn = _cnNote(symbol, cl, synonymMap)
+        if (cn) parts.push(cn)
+    }
+    if (cl) {
+        const v = (typeof HOT_variant === "function") ? HOT_variant(cl, symbol) : null
+        if (v !== null) {
+            // DepMap writes the protein change as "p.V600E". Everyone else
+            // writes V600E, and the prefix only makes the cell harder to read.
+            const variant = String(v || "").replace(/^p\./, "")
+            parts.push((variant ? `${variant} hotspot mutation` : "Hotspot mutation") +
+                       ` in ${_cnPlainName(cl)} cells`)
+        }
+    }
+    if (ESS_isEssential(symbol)) parts.push("Essential in nearly every cell line")
+    return parts.join(". ")
 }
 
 function ESS_isEssential(symbol) {
@@ -643,29 +655,16 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     for (let j = 0; j < headers.length; j++) {
         if (_GENE_HEADER_RE.test(headers[j].trim())) italicCols.add(j)
     }
-    // The * goes on the symbol itself, in the first gene column only. The
-    // file keeps plain symbols: an asterisk inside a gene name would follow
-    // the symbol into MAGeCK, a vendor's order form and every lookup made
-    // from them.
-    const starCol = Math.min(...italicCols, Infinity)
-    var starred = false
-    const hotSeen = new Map()
     // Gene symbols, guide IDs and sequences never contain a space, so a cell
     // that does is prose and may wrap. Everything else stays on one line,
     // where a break would make it unreadable. Without this the longest
     // sentence in a column set the column's width and pushed the columns
     // after it off the right of the pane.
     const _wrappable = t => /\s/.test(String(t).trim())
-    // The essential column is for the file. On screen the same fact is the *
-    // on the symbol, which costs no width in a table that already has more
-    // columns than a phone can hold.
-    const hiddenCols = new Set()
-    headers.forEach((h, j) => {
-        if (h.trim() === _ESS_COLUMN) hiddenCols.add(j)
-        // Same reasoning as the essential column: on screen the ** and the
-        // line under the table say it, in none of the width.
-        if (/^Hotspot mutation in /.test(h.trim())) hiddenCols.add(j)
-    })
+    // Whether any gene had something to report, so the sources line under the
+    // table appears only when there is a note above it to source.
+    var anyNote = false
+    const notesCol = headers.findIndex(h => h.trim() === _NOTES_COLUMN)
     // The rows are built first: whether an appended column can be sorted
     // depends on what its cells turn out to hold, and the heading that says so
     // is written above them.
@@ -680,25 +679,14 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         while (cols.length < headers.length) cols.push("")
         bodyHtml += `<tr data-row="${i - dataStart - 1}">`
         for (let j = 0; j < cols.length; j++) {
-            if (hiddenCols.has(j)) continue
             const safe = _escapeHtml(cols[j])
             const cls = _wrappable(cols[j]) ? ' class="wrapCell"' : ""
             var cell = italicCols.has(j) ? `<i>${safe}</i>` : safe
-            if (j === starCol) {
-                const line = _hotCellLine()
-                const variant = line ? HOT_variant(line, cols[j]) : null
-                if (variant !== null) {
-                    cell += `<span class="hotMark" title="Known hotspot mutation in ${_escapeHtml(line.name)}` +
-                            `${variant ? ": " + _escapeHtml(variant) : ""}">**</span>`
-                    hotSeen.set(String(cols[j]).trim(), variant)
-                }
-            }
-            if (j === starCol && ESS_isEssential(cols[j])) {
-                // A marker again rather than a link: the symbol beside it now
-                // goes to the same page, and two links to one place in one
-                // cell is one too many.
-                cell += `<span class="essStar" title="Essential in nearly every cell line">*</span>`
-                starred = true
+            // The notes read as warnings, so they are set apart from the data
+            // beside them rather than left to look like another field.
+            if (j === notesCol && String(cols[j]).trim()) {
+                anyNote = true
+                cell = `<span class="noteCell">${safe}</span>`
             }
             bodyHtml += `<td${cls}>${cell}</td>`
         }
@@ -717,7 +705,6 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
 
     var html = infoHtml + '<table class="validationResultsTable sortTable"><thead><tr>'
     for (let j = 0; j < headers.length; j++) {
-        if (hiddenCols.has(j)) continue
         const h = headers[j]
         const rich = _headerHtml[h.trim()]
         html += `<th class="sortable${_wrappable(h) ? " wrapCell" : ""}" tabindex="0" ` +
@@ -732,22 +719,25 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
                 `>${_escapeHtml(x.header)}${sortable ? '<span class="sortMark"></span>' : ""}</th>`
     })
     html += '</tr></thead><tbody>' + bodyHtml + '</tbody></table>'
-    if (hotSeen.size) {
-        const line = _hotCellLine()
-        // Named in the line itself, so the variant is readable without a
-        // hover, which a phone does not have.
-        const shown = [...hotSeen.entries()].slice(0, 6)
-            .map(([g, v]) => _escapeHtml(g) + (v ? " " + _escapeHtml(v) : ""))
-        const more = hotSeen.size - shown.length
-        html += `<p class="essLegend">** Carries a known hotspot mutation in ` +
-                `${_escapeHtml(line ? line.name : "this cell line")} cells: ${shown.join(", ")}` +
-                `${more > 0 ? ` and ${more} more` : ""}. Knocking out a gene that is already mutated is a different ` +
-                `experiment from knocking out the wild-type, and a guide whose spacer or PAM covers the mutated site may ` +
-                `not cut that allele. Source: ${_escapeHtml((_hotspots.data && _hotspots.data.source) || "DepMap")}.</p>`
-    }
-    if (starred) {
-        html += `<p class="essLegend">* Essential in nearly every cell line, so its guides drop out ` +
-                `whatever the experiment was asking. Source: ${_escapeHtml(_essential.data.source)}.</p>`
+    // The notes say what they mean in the row, so nothing under the table has
+    // to be decoded. What is left is where the facts came from, which belongs
+    // with the run rather than beside every gene.
+    if (anyNote) {
+        const src = []
+        if (_essential.data && _essential.data.source) src.push(_escapeHtml(_essential.data.source))
+        if (_hotspots.data && _hotspots.data.source) src.push(_escapeHtml(_hotspots.data.source))
+        // Without a cell line the only thing a note can say is that the gene
+        // is essential, so the sentence promising copy number and mutations
+        // would be describing a column that cannot hold them.
+        const line = (typeof _hotCellLine === "function") ? _hotCellLine() : null
+        const what = line
+            ? `too few copies to cut in ${_escapeHtml(_cnPlainName(line))} cells, too many, a mutation the guide ` +
+              `may or may not cut, or a gene whose loss kills any cell`
+            : `a gene whose loss kills any cell. Pick a cell line and the notes also report copy ` +
+              `number and hotspot mutations in that line`
+        html += `<p class="essLegend">Notes flag what is already true of a gene before any guide is used: ` +
+                `${what}. A blank means none of those apply. ` +
+                `Source: ${src.length ? src.join("; ") : "DepMap"}.</p>`
     }
     return html
 }
@@ -1044,9 +1034,8 @@ function _scrollToOutput() {
     })
 }
 
-// Copy-number warning for one gene in the screening cell line. Only the
-// extremes are flagged, so the column holds nothing but things worth acting
-// on:
+// The copy-number half of a gene's Notes cell. Only a departure from the
+// line's own ploidy is worth a line, so most genes contribute nothing:
 //   Deep deletion — the gene is effectively absent, so its guides cannot
 //     report a knockout phenotype and any signal from them is noise.
 //   Amplification — the copy-number effect. Cas9 cuts once per copy, so in
@@ -1055,46 +1044,47 @@ function _scrollToOutput() {
 //     That reads as dropout and is a classic false positive.
 // Anything in between gets a blank cell. Control blocks are skipped, since a
 // non-targeting guide has no locus to report.
-function _cnAdapterFlag(symbol, cellLine, synonymMap) {
+function _cnNote(symbol, cellLine, synonymMap) {
     if (typeof LIB_isControlSymbol === "function" && LIB_isControlSymbol(symbol)) return ""
+    const name = _cnPlainName(cellLine)
     const { resolved } = CN_resolveSymbol(String(symbol).toUpperCase(), synonymMap)
-    if (!resolved) return "no CN data"
+    if (!resolved) return `No copy number data for ${name} cells`
     const v = CN_lookup(cellLine.id, resolved)
-    if (v == null) return "no CN data"
+    if (v == null) return `No copy number data for ${name} cells`
     // Relative to the line's own ploidy, not converted to copies. "~6 copies"
     // reads as a lot until you remember the baseline here is four, and it
-    // hides the very thing the heading is at pains to say. "1.43x" carries the
+    // hides the very thing the wording is at pains to say. "1.5x" carries the
     // comparison in the number itself and does not have to be reinterpreted
     // for each cell line.
     //
     // A rounded figure, not a measurement. "0.26x" invites the reader to take
     // the second decimal seriously and there is nothing there to take: what
-    // this column is for is which way a gene departs from the rest of the
-    // genome and roughly how far, and the word in front of the number already
-    // carries the first half of that. Below half an average gene it is not
-    // worth rounding at all, since nothing anyone would do turns on whether it
-    // is 0.26 or 0.4. The exact values are a column of the Copy number per
-    // gene output.
+    // this is for is which way a gene departs from the rest of the genome and
+    // roughly how far, and the word in front of the number already carries
+    // the first half of that. The exact values are a column of the Copy
+    // number per gene output.
     const detail = v < 0.5 ? "below 0.5x"
                  : v < 3   ? `about ${(Math.round(v * 2) / 2).toFixed(1)}x`
                  :           `about ${Math.round(v)}x`
-    // What each of these means for a screen is said once, above the table, in
-    // _cnColumnNote, rather than repeated on every row.
-    if (v < 0.3)  return `DEEP DELETION, ${detail}`
-    if (v >= 5.0) return `HIGHLY AMPLIFIED, ${detail}`
-    if (v >= 3.0) return `AMPLIFIED, ${detail}`
-    // Between the two extremes the column used to say nothing at all, so a
-    // gene sitting at one copy looked the same as one at two. Neither state
-    // invalidates a screen, but a loss or a gain is worth knowing when a guide
-    // behaves oddly, so they are named without being called warnings.
-    if (v < 0.7)  return `one-copy loss, ${detail}`
-    if (v >= 2.0) return `gain, ${detail}`
-    if (v >= 1.3) return `slight gain, ${detail}`
+    const where = `in ${name} cells, ${detail}`
+    // The two extremes carry what they mean for the experiment, because that
+    // is the whole reason they are worth a line. Kept to one clause: this is
+    // a table cell, not the paragraph above the table.
+    if (v < 0.3)  return `Deep deletion ${where}, so there is little or nothing to cut`
+    if (v >= 5.0) return `Highly amplified ${where}, and cutting every copy can affect the cells on its own`
+    if (v >= 3.0) return `Amplified ${where}, and cutting every copy can affect the cells on its own`
+    // Between the two extremes a gene sitting at one copy used to look the
+    // same as one at two. Neither state invalidates a screen, but a loss or a
+    // gain is worth knowing when a guide behaves oddly, so they are named
+    // without being called warnings.
+    if (v < 0.7)  return `One-copy loss ${where}`
+    if (v >= 2.0) return `Gain ${where}`
+    if (v >= 1.3) return `Slight gain ${where}`
     // A gene sitting at the line's own ploidy has nothing to report. Saying
     // so anyway filled the column on every row, and in a doubled line it read
-    // as a finding: A-375 is near-tetraploid, so an unremarkable gene came out
-    // as "~4 copies" on every line of the file. The ploidy belongs in the
-    // heading, once, and the column is left for departures from it.
+    // as a finding: A-375 is near-tetraploid, so an unremarkable gene came
+    // out as "~4 copies" on every line of the file. The ploidy belongs in the
+    // note above the table, once.
     return ""
 }
 
@@ -1102,34 +1092,6 @@ function _cnAdapterFlag(symbol, cellLine, synonymMap) {
 // plain text. The plain text is what goes into the downloaded file and is what
 // the lookup is keyed on; this only changes how the header cell is drawn.
 var _headerHtml = {}
-
-// The heading over that column. Short, because a table column is a bad place
-// for a sentence: at this width the full explanation stacked five lines deep
-// and made the header row taller than eight rows of data.
-//
-// It does name the ploidy, though. Every copy number under it is read against
-// that baseline, and in a doubled line the baseline is four copies rather than
-// two, which inverts what an ordinary-looking number means. That half is set
-// in red, because it is the part a reader has to carry into the column.
-function _cnColumnHeading(cl) {
-    const name = _cnPlainName(cl)
-    const doubled = cl.wgd === true
-    // The unit, by example. "Copy number (A-375)" over a column of "1.4x" left
-    // the reader to work out 1.4 of what, and the likeliest guess — copies —
-    // is wrong. "1.0x = an average gene in A-375 cells" says it in the
-    // heading, where it is read at the same moment as the number.
-    const base = `Copy number, 1.0x = an average gene in ${name} cells`
-    const plain = base + (doubled ? ", genome doubled" : "")
-    // Three deliberate lines rather than one sentence left to wrap: a heading
-    // this narrow broke wherever it ran out of room, and "A-375" came apart
-    // across two rows. Each line is now a whole thought, and the cell line
-    // itself cannot be split.
-    _headerHtml[plain] = `<span class="cnHeadTop">Copy number</span>` +
-        `<span class="cnHeadSub">1.0x = an average gene in ` +
-        `<span class="cnHeadName">${_escapeHtml(name)} cells</span></span>` +
-        (doubled ? `<span class="cnHeadWgd">genome doubled</span>` : "")
-    return plain
-}
 
 function _cnColumnNote(cl) {
     const name = _cnPlainName(cl)
@@ -1266,22 +1228,17 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
     const hasAdapters = !!(String(settings.adapterBefore || "").trim() ||
                            String(settings.adapterAfter || "").trim())
     out = out + `Symbol\tSymbol_ID\t${hasAdapters ? "spacer + adapters" : "spacer"}` +
-          (anyRole ? "\tAdded as" : "") + `\t${_ESS_COLUMN}` +
-          (cl ? `\t${_hotColumn(cl)}` : "") +
-          (cl ? `\t${_cnColumnHeading(cl)}` : "") + "\n"
+          (anyRole ? "\tAdded as" : "") + `\t${_NOTES_COLUMN}` + "\n"
 
     for (var symbol of Object.keys(libraryMap)) {
         // One lookup per symbol rather than per guide — otherwise a large
         // design redoes the same resolve-and-lookup three or four times a row.
-        const flag = cl ? _cnAdapterFlag(symbol, cl, synonymMap) : ""
-        const essential = ESS_flag(symbol)
-        const hot = cl ? _hotFlag(cl, symbol) : ""
+        const notes = _rowNotes(symbol, cl, synonymMap)
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = LIB_displayFor(symbol, row[settings.symbolColumn - 1].trim())
             out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` +
-                  (anyRole ? `\t${roles[symbol]}` : "") + `\t${essential}` +
-                  (cl ? `\t${hot}` : "") + (cl ? `\t${flag}` : "") + "\n"
+                  (anyRole ? `\t${roles[symbol]}` : "") + `\t${_spreadsheetSafe(notes)}` + "\n"
         }
     }
     return out
@@ -1398,15 +1355,14 @@ function _createFullTxtOutput(libraryMap, headers) {
         out += `# On-Target Efficacy Score: RS3seq-Chen2013+RS3target (higher = better). Range in library: -1.7 to 2.2. Guides ranked by Pick Order.\n`
         out += `# Aggregate CFD Score: cumulative off-target activity (lower = fewer off-targets). Range in library: 0 to 4.8 (design cutoff).\n`
     }
-    const hotLine = (typeof _hotCellLine === "function") ? _hotCellLine() : null
-    var out = out + headers.join("\t") + `\t${_ESS_COLUMN}` +
-              (hotLine ? `\t${_hotColumn(hotLine)}` : "") + "\n" //the original headers are placed att the top of the output
+    const cl = (typeof _hotCellLine === "function") ? _hotCellLine() : null
+    const synonymMap = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
+    if (cl) out += _cnColumnNote(cl) + "\n"
+    var out = out + headers.join("\t") + `\t${_NOTES_COLUMN}` + "\n" //the original headers are placed att the top of the output
     for (var symbol of Object.keys(libraryMap)) {
-        const essential = ESS_flag(symbol)
-        const hot = hotLine ? _hotFlag(hotLine, symbol) : null
+        const notes = _rowNotes(symbol, cl, synonymMap)
         libraryMap[symbol].forEach(row => {
-            out = out + `${row.map(_spreadsheetSafe).join("\t")}\t${essential}` +
-                  (hotLine ? `\t${hot}` : "") + "\n"
+            out = out + `${row.map(_spreadsheetSafe).join("\t")}\t${_spreadsheetSafe(notes)}\n`
         })
     }
     return out

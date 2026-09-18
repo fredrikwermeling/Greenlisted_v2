@@ -2337,37 +2337,11 @@ a.gcBtnLink:focus-visible {
     overflow-x: auto;
 }
 
-/* The copy-number heading, in three lines: what the column is, what the unit
-   means, and whether the genome is doubled. Left to wrap on its own it broke
-   wherever it ran out of room, which split "A-375" across two rows. */
-.cnHeadTop,
-.cnHeadSub,
-.cnHeadWgd {
-    /* The reset at the top of this file sets a font on every element via `*`,
-       which beats inheritance, so a span inside a monospace cell comes out in
-       the sans face unless it says otherwise. */
-    font-family: var(--monoFont);
-    display: block;
-}
-
-.cnHeadSub,
-.cnHeadWgd {
-    font-weight: 400;
-}
-
-/* The cell line is a name, so it never breaks in the middle. */
-.cnHeadName {
-    font-family: inherit;
-    white-space: nowrap;
-}
-
-/* Whole-genome doubling in red. It is not a warning about the cell line, it
-   is a warning about the column: where the genome is doubled the baseline is
-   four copies rather than two, so a gene reported at four copies is ordinary
-   and one at two has lost half its copies. Read without that, every number
-   below means the opposite of what it appears to. */
-.cnHeadWgd {
-    color: #b91c1c;
+/* A Notes cell. Amber rather than red: most of what it says is a caveat to
+   carry into the analysis, not a reason to drop the guide. Left to look like
+   an ordinary field it read as another piece of data about the gene. */
+.noteCell {
+    color: #92400e;
 }
 
 /* Through to the same cell line in Correlate, which has a page per line. */
@@ -2684,23 +2658,6 @@ body.modal-open {
     }
 }
 
-/* The * on a gene that is essential in nearly every cell line. A marker, not
-   part of the name, so it is set apart from the symbol it follows and never
-   reaches the downloaded file. */
-.essStar {
-    color: var(--mainColor);
-    font-weight: 700;
-    margin-left: 2px;
-    text-decoration: none;
-    /* A single character is a small thing to hit, so the target is padded out
-       around it. */
-    padding: 0 3px;
-}
-
-.essStar:hover {
-    text-decoration: underline;
-}
-
 .essLegend {
     margin: 6px 0 0 0;
     font-size: 0.78rem;
@@ -2870,16 +2827,6 @@ body.modal-open {
 
 .gcaiPick input[type="file"] {
     display: none;
-}
-
-/* The ** on a gene that carries a known hotspot mutation in the chosen cell
-   line. Amber rather than green: unlike the essential *, this one is about the
-   experiment being different from the one intended. */
-.hotMark {
-    color: #b45309;
-    font-weight: 700;
-    margin-left: 3px;
-    cursor: help;
 }
 
 /* The caveat on the mutation row in the context panel: true of every line it
