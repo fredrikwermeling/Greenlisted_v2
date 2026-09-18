@@ -1194,8 +1194,14 @@ function _gcSeqHtml(v) {
         return c.join(" ")
     }
     var html = `<div class="gcSeq" id="gcSeq">`
+    // Which row the cut falls on, so its line number can be set in the same
+    // red. Seventeen rows of sequence look alike, and a mark three pixels wide
+    // is only findable once you know which row to look along.
+    var cutRow = -1
+    for (var ci = 0; ci < v.n; ci++) if (v.bases[ci].cutAfter) { cutRow = Math.floor(ci / perLine); break }
     for (var start = 0; start < v.n; start += perLine) {
-        html += `<div class="gcLine"><span class="gcNum">${start + 1}</span><span class="gcBases">`
+        const numCls = (start / perLine === cutRow) ? "gcNum gcNumCut" : "gcNum"
+        html += `<div class="gcLine"><span class="${numCls}">${start + 1}</span><span class="gcBases">`
         var open = null
         for (var i = start; i < Math.min(v.n, start + perLine); i++) {
             const b = v.bases[i]

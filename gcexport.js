@@ -243,9 +243,12 @@ function GC_buildSvg(v) {
         const rowY = headH + ln * _GCX.lineH
         const baseY = rowY + 12
 
-        // line number, right-aligned against the sequence
+        // line number, right-aligned against the sequence. The row the cut
+        // falls on takes the cut's own colour, so the eye lands on the right
+        // row before it goes looking for a three-pixel mark along it.
+        const isCutRow = v.cutAfter >= start + 1 && v.cutAfter <= end
         seqSvg += `<text x="${x0 - 8}" y="${baseY}" text-anchor="end" ` +
-                  `style="${_gcxFont(_GCX.face, _GCX.fontPx - 1, `fill:${C.muted};`)}">${start + 1}</text>\n`
+                  `style="${_gcxFont(_GCX.face, _GCX.fontPx - 1, `fill:${isCutRow ? C.cut : C.muted};${isCutRow ? "font-weight:bold;" : ""}`)}">${start + 1}</text>\n`
 
         var runStart = -1, runColor = null
         for (var i = start; i <= end; i++) {
@@ -271,7 +274,12 @@ function GC_buildSvg(v) {
             xs.push((x0 + _gcxCol(i - start) * _GCX.advance).toFixed(2))
             if (b.cutAfter) {
                 const cx = x0 + (_gcxCol(i - start) + 1) * _GCX.advance - _GCX.advance * 0.5 + _GCX.advance * 0.5
-                cutSvg += `<line x1="${cx.toFixed(2)}" y1="${(rowY + 1).toFixed(2)}" x2="${cx.toFixed(2)}" y2="${(rowY + _GCX.lineH - 1).toFixed(2)}" stroke="${C.cut}" stroke-width="1.6"/>\n`
+                // A rule with a wedge on top, the same mark the panel draws.
+                // A bare hairline had to be hunted for in sixty characters of
+                // sequence, in a figure as much as on screen.
+                const cy0 = rowY + 5, cy1 = rowY + _GCX.lineH - 1
+                cutSvg += `<line x1="${cx.toFixed(2)}" y1="${cy0.toFixed(2)}" x2="${cx.toFixed(2)}" y2="${cy1.toFixed(2)}" stroke="${C.cut}" stroke-width="2.2"/>\n` +
+                    `<polygon points="${(cx - 3.2).toFixed(2)},${(cy0 - 4.6).toFixed(2)} ${(cx + 3.2).toFixed(2)},${(cy0 - 4.6).toFixed(2)} ${cx.toFixed(2)},${cy0.toFixed(2)}" fill="${C.cut}"/>\n`
             }
         }
         textSvg += `<text x="${xs.join(" ")}" y="${baseY}" xml:space="preserve" ` +
@@ -294,7 +302,9 @@ function GC_buildSvg(v) {
             const [label, col] = legendItems[idx]
             if (col === null) {
                 // The cut site is a rule, not a filled patch.
-                s += `<line x1="${(lx + 5).toFixed(1)}" y1="${legY - 8}" x2="${(lx + 5).toFixed(1)}" y2="${legY + 2}" stroke="${C.cut}" stroke-width="1.6"/>\n`
+                const sx = lx + 5
+                s += `<line x1="${sx.toFixed(1)}" y1="${legY - 4}" x2="${sx.toFixed(1)}" y2="${legY + 2}" stroke="${C.cut}" stroke-width="2.2"/>\n` +
+                     `<polygon points="${(sx - 3.2).toFixed(1)},${legY - 9} ${(sx + 3.2).toFixed(1)},${legY - 9} ${sx.toFixed(1)},${legY - 4}" fill="${C.cut}"/>\n`
             } else {
                 s += `<rect x="${lx}" y="${legY - 8}" width="${LEG_SWATCH}" height="${LEG_SWATCH}" fill="${col}" stroke="${C.rule}" stroke-width="0.8"/>\n`
             }
