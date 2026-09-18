@@ -1370,6 +1370,11 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 }
 
 .gcOrient {
+    /* Kept here so the line underneath can be indented to exactly clear the
+       radio and land under the first choice's words. Both follow the radio
+       when a touch screen makes it bigger. */
+    --gcRadioSize: 18px;
+    --gcRadioGap: 5px;
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1383,6 +1388,9 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
 .gcHintUnder {
     flex: 1 0 100%;
+    /* Under the first choice's words rather than under its radio button: the
+       line explains the choice, so it should start where the choice reads. */
+    padding-left: calc(var(--gcRadioSize) + var(--gcRadioGap));
     margin-top: -2px;
     color: var(--gray-500);
     font-size: 0.78rem;
@@ -1402,7 +1410,7 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 .gcOrient label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--gcRadioGap);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -2581,6 +2589,8 @@ body.modal-open {
     input[type="text"], input[type="number"], select, textarea { min-height: 36px; font-size: 16px; }
     #searchSymbols { font-size: 16px; }
     input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; min-width: 22px; }
+    /* So the line under a choice keeps clearing the now-wider radio. */
+    .gcOrient { --gcRadioSize: 22px; }
     /* The info dots are the explanations, and a 14px dot is not a target.
        Wider, with the tap handled in helpPopout.js. */
     .infoDot { width: 24px; height: 24px; font-size: 0.8rem; }
