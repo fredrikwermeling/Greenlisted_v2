@@ -382,8 +382,40 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
             libraryMap[symbolLower] = [row]
         }
     }
+    // Jacquere and Julianna list about 2,950 genes under a piped label —
+    // "CD59|nan", where the second field is a missing value written out
+    // literally, or "ABHD14A-ACY1|ABHD14A", where the guide also falls in a
+    // read-through transcript. Neither string is a symbol anyone would search
+    // for, so those genes reported "not found" for a search of their own name:
+    // 4 of the 384 CD markers, all four of them in the library.
+    //
+    // Each part is registered as a name for the same guides, and the name the
+    // user searched is what the output calls it. The Context panel has
+    // resolved these since it was written; the search itself had not.
+    const aliasDisplay = {}
+    for (const key of Object.keys(libraryMap)) {
+        if (key.indexOf("|") === -1) continue
+        const raw = String(libraryMap[key][0][symbolColumn - 1] || "").trim()
+        for (const part of raw.split("|")) {
+            const name = part.trim()
+            if (!name || name.toLowerCase() === "nan") continue
+            const alias = name.toLowerCase()
+            // A gene listed in its own right keeps its own guides.
+            if (libraryMap[alias]) continue
+            libraryMap[alias] = libraryMap[key]
+            aliasDisplay[alias] = name
+        }
+    }
+    _library.aliasDisplay = aliasDisplay
     _library.libraryStatus = additionalStatus + `${Object.keys(libraryMap).length} symbols found`
     return libraryMap
+}
+
+// What to call a gene the user found under one of those labels: the name they
+// searched for, not the label the file carries.
+function LIB_displayFor(symbolKey, fallback) {
+    const alias = _library.aliasDisplay && _library.aliasDisplay[String(symbolKey).toLowerCase()]
+    return alias || fallback
 }
 
 
@@ -522,9 +554,12 @@ function _librarySymbolDisplay() {
     const col = (_library.symbolColumn || 1) - 1
     const display = new Map()
     for (const key of Object.keys(_library.libraryMap || {})) {
+        // The piped labels are not names anyone should be offered; each part
+        // of them is a key of its own, and those are.
+        if (key.indexOf("|") !== -1) continue
         const rows = _library.libraryMap[key]
         const raw = rows && rows[0] && rows[0][col]
-        display.set(key, (raw && String(raw).trim()) || key.toUpperCase())
+        display.set(key, LIB_displayFor(key, (raw && String(raw).trim()) || key.toUpperCase()))
     }
     _library.symbolDisplay = display
     _library.symbolDisplayFor = _library.libraryMap

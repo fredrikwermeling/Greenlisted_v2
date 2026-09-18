@@ -1278,7 +1278,7 @@ function _createAdapterOutput(libraryMap, screeningCellLine, essentialAdded) {
         const hot = cl ? _hotFlag(cl, symbol) : ""
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
-            const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
+            const capitalizedSymbol = LIB_displayFor(symbol, row[settings.symbolColumn - 1].trim())
             out = out + `${_spreadsheetSafe(capitalizedSymbol)}\t${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))}\t${_spreadsheetSafe(_applyPostProcessing(row[settings.RNAColumn - 1]))}` +
                   (anyRole ? `\t${roles[symbol]}` : "") + `\t${essential}` +
                   (cl ? `\t${hot}` : "") + (cl ? `\t${flag}` : "") + "\n"
