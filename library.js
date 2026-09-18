@@ -399,6 +399,9 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
     // handing such a name to whichever row was read first would answer a
     // search for it with one parent's guides and no sign that the other
     // existed. Those stay unfound, which is what they were.
+    // Counted before the aliases go in: an alias is a second name for guides
+    // already counted under their label, not another symbol in the library.
+    const realSymbolCount = Object.keys(libraryMap).length
     const claims = {}
     for (const key of Object.keys(libraryMap)) {
         if (key.indexOf("|") === -1) continue
@@ -420,7 +423,7 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
         aliasDisplay[alias] = claim.name
     }
     _library.aliasDisplay = aliasDisplay
-    _library.libraryStatus = additionalStatus + `${Object.keys(libraryMap).length} symbols found`
+    _library.libraryStatus = additionalStatus + `${realSymbolCount} symbols found`
     return libraryMap
 }
 

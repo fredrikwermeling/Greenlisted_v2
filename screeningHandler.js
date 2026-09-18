@@ -21,6 +21,22 @@ function SCR_startScreening(library, settings, usedSynonyms) {
 
     //machingSymbols now contains all symbols found in library maching the searched symbols
 
+    // A gene under a combined label answers to every name in that label, so
+    // "ISY1", "ISY1-RAB43" and "ISY1|ISY1-RAB43" all reach the same three
+    // guides. Partial matching finds all three names at once, and a user can
+    // type two of them, either of which would list those guides more than
+    // once. The alternative names share the row array itself, so identity
+    // tells them apart from genes that merely look alike. The first name
+    // through wins, which is the label for a partial match and what the user
+    // typed for an exact one.
+    const seenEntries = new Set()
+    machingSymbols = machingSymbols.filter(symbol => {
+        const rows = library.libraryMap[symbol]
+        if (!rows || seenEntries.has(rows)) return false
+        seenEntries.add(rows)
+        return true
+    })
+
     // Essential-gene positive controls are ordinary genes, so they join the
     // symbol list here rather than being spiked in later — that way they are
     // ranked and top-N sliced exactly like a gene the user typed.
@@ -30,7 +46,16 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         const panel = LIB_essentialPanel(isNaN(requested) || requested <= 0 ? _ESSENTIAL_DEFAULT : requested)
         for (const gene of panel) {
             if (!library.librarySymbolSet.has(gene)) continue
-            if (machingSymbols.indexOf(gene) === -1) machingSymbols.push(gene)
+            // Same reason as above: a panel gene the search already picked up
+            // under another of its names must not be listed a second time.
+            // It still counts as a panel gene in the design, as it did when
+            // the user simply typed it themselves.
+            const rows = library.libraryMap[gene]
+            if (!rows) continue
+            if (!seenEntries.has(rows)) {
+                seenEntries.add(rows)
+                machingSymbols.push(gene)
+            }
             essentialAdded.push(gene)
         }
     }
