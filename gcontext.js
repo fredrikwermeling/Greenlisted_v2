@@ -174,7 +174,13 @@ function GC_pbPreset(id) {
 }
 
 const _GC_PB_DBS = [
-    { value: "PRIMERDB/genome_selected_species", label: "Genome of the selected organism (reference assembly)" },
+    // NCBI's own wording, so the choice here is recognisable as the one
+    // selected on the Primer-BLAST page. "Primary assembly only" is the part
+    // that matters and the part "reference assembly" failed to say: it leaves
+    // out the ALT haplotypes and patch scaffolds, which are second copies of
+    // regions already in the chromosomes. Searched with those in, a perfectly
+    // specific pair comes back hitting its own locus several times over.
+    { value: "PRIMERDB/genome_selected_species", label: "Genomes for selected eukaryotic organisms (primary assembly only)" },
     { value: "refseq_representative_genomes", label: "RefSeq representative genomes" },
     { value: "refseq_mrna", label: "RefSeq mRNA" }
 ]
