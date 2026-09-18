@@ -104,17 +104,17 @@ async function CN_loadCatalogIfNeeded() {
     _CN_STATE.catalogLoading = (async () => {
         // Slim cell-line metadata (display name / sex / cancer type) loads
         // first since it's small and gates the picker UI.
-        const metaRes = await fetch("cellLineMetadata.json")
+        const metaRes = await fetch("cellLineMetadata.json?v=2")
         _CN_STATE.cellLineMeta = await metaRes.json()
         // Genome signatures (per-line WGD + measured ploidy). Used to map
         // DepMap relative CN → actual copy estimate. Without ploidy, a
         // WGD line's "CN 1.0" would read as 2 copies when it's really 4.
         try {
-            const gsRes = await fetch("globalSignatures.json")
+            const gsRes = await fetch("globalSignatures.json?v=2")
             if (gsRes.ok) _CN_STATE.globalSignatures = await gsRes.json()
         } catch (e) { console.warn("Could not load globalSignatures.json:", e) }
         // CN metadata (gene list + cell-line list + scale factor).
-        const cnMetaRes = await fetch("cn_metadata.json")
+        const cnMetaRes = await fetch("cn_metadata.json?v=2")
         const meta = await cnMetaRes.json()
         _CN_STATE.geneIndex = new Map()
         meta.genes.forEach((g, i) => _CN_STATE.geneIndex.set(g.toUpperCase(), i))
@@ -138,7 +138,7 @@ async function CN_loadIfNeeded() {
         // the gzipped size; the gzip stream is then piped through the
         // browser-native DecompressionStream.
         _cnEmitProgress("starting", 0, 0, 0)
-        const binRes = await fetch("cn.bin.gz")
+        const binRes = await fetch("cn.bin.gz?v=2")
         const total = +binRes.headers.get("content-length") || 0
         let received = 0
         const tDl = performance.now()
