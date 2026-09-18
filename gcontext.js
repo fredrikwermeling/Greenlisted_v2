@@ -258,8 +258,9 @@ function _gcButton(symbol, spacer, id) {
     // Which other libraries pick the same guide, from the index the Validate
     // tool searches. Sits beside Context because both answer "is this the
     // guide I should order?".
-    const libs = (typeof LIBX_button === "function") ? LIBX_button(symbol, clean, id) : ""
-    return context + libs
+    // No Libraries button here any more: the count in the "Found in other
+    // libraries" column is the button now, where the number it opens is.
+    return context
 }
 
 function GC_openFromButton(btn) {

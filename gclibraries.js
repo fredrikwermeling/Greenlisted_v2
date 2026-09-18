@@ -183,7 +183,10 @@ function LIBX_prefetchWhenIdle() {
 // A rowExtra descriptor for _renderTsvAsTable: how many other libraries of the
 // same species carry each guide. Null when there is no species to compare
 // within, e.g. an uploaded library.
-function LIBX_columnFor(spacerOf) {
+// `labelOf` returns { symbol, id } for a row: the two views put them in
+// different columns, and reading cols[0] as the symbol was right in the oligo
+// view and gave the sgRNA sequence in the full one.
+function LIBX_columnFor(spacerOf, labelOf) {
     const species = _libxSpecies()
     if (!species) return null
     const mine = (typeof settings !== "undefined" && settings.libraryName) || ""
@@ -205,8 +208,15 @@ function LIBX_columnFor(spacerOf) {
             if (!hits || !hits.length) {
                 return `<span class="libxNone" title="No other ${species} library in the index picks this guide.">none</span>`
             }
+            // The number is the button. It used to be a number in this column
+            // and a "Libraries" button two columns along, which is one fact in
+            // two places and a reader's eye crossing the table to join them.
             const names = hits.map(h => h.library).join(", ")
-            return `<span class="libxCount" title="Also picked by: ${_escapeHtml(names)}">${hits.length}</span>`
+            const label = (typeof labelOf === "function") ? labelOf(cols) : { symbol: cols[0], id: cols[1] }
+            return `<button class="libxCountBtn" data-symbol="${_escapeHtml(String(label.symbol || ""))}" data-spacer="${spacer}" ` +
+                   `data-id="${_escapeHtml(String(label.id || label.symbol || ""))}" onclick="LIBX_openFromButton(this)" ` +
+                   `title="Also picked by: ${_escapeHtml(names)}. Press for the guide's entry in each, with the scores they give it.">` +
+                   `${hits.length}</button>`
         }
     }
 }

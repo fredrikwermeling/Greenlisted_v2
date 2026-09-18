@@ -2033,9 +2033,28 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 #infoModal,
 #downloadModal { z-index: 1100; }
 
-/* "Other libraries": how many same-species libraries also picked this guide. */
-.libxBtn {
-    margin-left: 5px;
+/* "Other libraries": how many same-species libraries also picked this guide,
+   and the button that opens them — the same thing, so the number is the
+   button rather than a number here and a button two columns along. Drawn as a
+   count first and a control second: a full button in every row of this column
+   would shout louder than the guide it describes. */
+.libxCountBtn {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--green-800);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--inputRadius);
+    padding: 2px 9px;
+    min-height: 0;
+    cursor: pointer;
+}
+
+.libxCountBtn:hover,
+.libxCountBtn:focus-visible {
+    background: var(--green-50);
+    border-color: var(--green-300);
+    color: var(--green-800);
 }
 
 .libxCount {

@@ -1533,16 +1533,21 @@ function _guideRowExtras(which) {
     const extras = []
     // What is known about the guide comes first, then what you can do with
     // it. The buttons used to sit between two columns of information.
-    if (typeof LIBX_columnFor === "function") {
-        const spacerOf = (which === "adapter") ? _adapterSpacerOf() : _fullSpacerOf()
-        if (spacerOf) {
-            const col = LIBX_columnFor(spacerOf)
-            if (col) extras.push(col)
-        }
-    }
     const symbolOf = (which === "adapter")
         ? (cols => cols[0])
         : (cols => cols[(settings && settings.symbolColumn ? settings.symbolColumn : 1) - 1])
+    if (typeof LIBX_columnFor === "function") {
+        const spacerOf = (which === "adapter") ? _adapterSpacerOf() : _fullSpacerOf()
+        if (spacerOf) {
+            // The oligo view carries a guide id of its own; the full view has
+            // only the symbol, which is what its Context button uses too.
+            const labelOf = (which === "adapter")
+                ? (cols => ({ symbol: _gcUnquote(cols[0]), id: _gcUnquote(cols[1] || "") }))
+                : (cols => ({ symbol: _gcUnquote(symbolOf(cols)), id: _gcUnquote(symbolOf(cols)) }))
+            const col = LIBX_columnFor(spacerOf, labelOf)
+            if (col) extras.push(col)
+        }
+    }
     extras.push(_geneColumnFor(symbolOf))
     const ctx = (which === "adapter")
         ? (typeof GC_rowExtraAdapter === "function" ? GC_rowExtraAdapter() : null)
