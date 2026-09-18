@@ -392,19 +392,32 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
     // Each part is registered as a name for the same guides, and the name the
     // user searched is what the output calls it. The Context panel has
     // resolved these since it was written; the search itself had not.
-    const aliasDisplay = {}
+    //
+    // A name is only taken as an alias when exactly one label claims it. The
+    // read-through names are claimed by both parents — ARPIN-AP3S2 appears in
+    // "ARPIN|ARPIN-AP3S2" and in "AP3S2|ARPIN-AP3S2", 135 of them — and
+    // handing such a name to whichever row was read first would answer a
+    // search for it with one parent's guides and no sign that the other
+    // existed. Those stay unfound, which is what they were.
+    const claims = {}
     for (const key of Object.keys(libraryMap)) {
         if (key.indexOf("|") === -1) continue
         const raw = String(libraryMap[key][0][symbolColumn - 1] || "").trim()
-        for (const part of raw.split("|")) {
-            const name = part.trim()
-            if (!name || name.toLowerCase() === "nan") continue
+        const parts = raw.split("|").map(x => x.trim()).filter(x => x && x.toLowerCase() !== "nan")
+        for (const name of new Set(parts)) {
             const alias = name.toLowerCase()
             // A gene listed in its own right keeps its own guides.
             if (libraryMap[alias]) continue
-            libraryMap[alias] = libraryMap[key]
-            aliasDisplay[alias] = name
+            if (!claims[alias]) claims[alias] = { name: name, keys: new Set() }
+            claims[alias].keys.add(key)
         }
+    }
+    const aliasDisplay = {}
+    for (const alias in claims) {
+        const claim = claims[alias]
+        if (claim.keys.size !== 1) continue
+        libraryMap[alias] = libraryMap[[...claim.keys][0]]
+        aliasDisplay[alias] = claim.name
     }
     _library.aliasDisplay = aliasDisplay
     _library.libraryStatus = additionalStatus + `${Object.keys(libraryMap).length} symbols found`
