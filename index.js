@@ -1993,13 +1993,22 @@ function _estimateDesign() {
     if (typeof _library === "undefined" || !_library || !_library.libraryMap) return empty
     const symbols = (settings && settings.searchSymbols) ? settings.searchSymbols : []
     const found = new Set()
-    for (const s of symbols) if (_library.libraryMap[s]) found.add(s)
+    // Keyed on the guides rather than the name, so two names for one entry —
+    // ISY1 and ISY1-RAB43 — count as the one gene the run will produce.
+    const seenEntries = new Set()
+    const add = s => {
+        const rows = _library.libraryMap[s]
+        if (!rows || seenEntries.has(rows)) return
+        seenEntries.add(rows)
+        found.add(s)
+    }
+    for (const s of symbols) add(s)
     // The essential-gene panel adds genes to the design too.
     const essCb = document.getElementById("includeEssential")
     if (essCb && essCb.checked && typeof LIB_essentialPanel === "function") {
         const raw = parseInt(document.getElementById("essentialCount").value, 10)
         const n = (isNaN(raw) || raw <= 0) ? _ESSENTIAL_DEFAULT : raw
-        for (const g of LIB_essentialPanel(n)) if (_library.libraryMap[g]) found.add(g)
+        for (const g of LIB_essentialPanel(n)) add(g)
     }
     if (found.size === 0) return empty
     var guides = 0
