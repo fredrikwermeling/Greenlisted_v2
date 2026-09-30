@@ -1167,6 +1167,7 @@ function _correlateGeneUrl(symbol) {
 // Where the gene-set link goes. A var so a local test can point it at a
 // local Correlate.
 var CORRELATE_BASE = "https://correlate.cmm.se/"
+const CORRELATE_MAX_GENES = 1000
 
 // The whole gene box, sent to Correlate to be correlated there. Correlate can
 // grow the set by the genes that correlate with it and thin it to one gene per
@@ -1176,6 +1177,13 @@ function openSymbolsInCorrelate() {
     const genes = [...new Set(SYM_split(document.getElementById("searchSymbols").value))]
     if (!genes.length) {
         _setStatus("statusSearchSymbolsRows", "Enter genes first, then open them in Correlate")
+        return
+    }
+    // Past this a correlation network is unreadable at any cutoff and slow to
+    // draw. Correlate itself starts longer lists at a stricter cutoff.
+    if (genes.length > CORRELATE_MAX_GENES) {
+        _setStatus("statusSearchSymbolsRows",
+            `Correlate takes up to ${CORRELATE_MAX_GENES.toLocaleString("en-US")} genes from here; the box has ${genes.length.toLocaleString("en-US")}`)
         return
     }
     const back = location.origin + location.pathname
