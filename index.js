@@ -122,6 +122,7 @@ async function init() {
     // CN feature doesn't wait on a 62 MB download. Deliberately not awaited.
     if (typeof CN_prefetchWhenIdle === "function") CN_prefetchWhenIdle()
     if (typeof LIBX_prefetchWhenIdle === "function") LIBX_prefetchWhenIdle()
+    _takeSymbolsFromHash()
     _focusSymbolBox()
     setTimeout(_alignSymbolColumn, 60)
 }
@@ -1145,9 +1146,8 @@ function _correlateCellUrl(name) {
     return "https://correlate.cmm.se/#cell=" + encodeURIComponent(String(name || "").trim())
 }
 
-// Correlate again, this time for one gene: #gene=<symbol> fills the gene box
-// and runs, so the link lands on the gene's effect across the panel rather
-// than on a form.
+// Correlate again, this time for one gene: #gene=<symbol> opens its Gene
+// Effect Analysis, the gene's effect across the panel split by tissue.
 // Is this cell a gene that Correlate would know? Controls are not genes, and
 // Correlate's panel is human, so a mouse symbol would land on a search that
 // finds nothing.
@@ -1161,6 +1161,97 @@ function _geneLinkable(value) {
 
 function _correlateGeneUrl(symbol) {
     return "https://correlate.cmm.se/#gene=" + encodeURIComponent(String(symbol || "").trim())
+}
+
+// Where the gene-set link goes. A var so a local test can point it at a
+// local Correlate.
+var CORRELATE_BASE = "https://correlate.cmm.se/"
+
+// The whole gene box, sent to Correlate to be correlated there. Correlate can
+// grow the set by the genes that correlate with it and thin it to one gene per
+// correlated group, then send the list back to this tab (below). It is opened
+// without noopener on purpose: the way back is a message to this window.
+function openSymbolsInCorrelate() {
+    const genes = [...new Set(SYM_split(document.getElementById("searchSymbols").value))]
+    if (!genes.length) {
+        _setStatus("statusSearchSymbolsRows", "Enter genes first, then open them in Correlate")
+        return
+    }
+    const back = location.origin + location.pathname
+    const sp = _setsSpecies() === "Mouse" ? "mouse" : "human"
+    window.open(CORRELATE_BASE + "#genes=" + encodeURIComponent(genes.join(",")) +
+        "&gl=" + encodeURIComponent(back) + "&sp=" + sp, "_blank")
+}
+
+// Only Correlate may fill the gene box, and a page served locally only from
+// another local page.
+function _correlateOriginOk(origin) {
+    if (origin === "https://correlate.cmm.se" || origin === "https://fredrikwermeling.github.io") return true
+    const local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
+    return local.test(origin) && local.test(location.origin)
+}
+
+const _correlateReturn = { previous: null, pending: null }
+
+function _takeSymbolsFromCorrelate(list) {
+    const genes = (Array.isArray(list) ? list : [])
+        .map(g => String(g).trim())
+        .filter(g => /^[A-Za-z0-9][A-Za-z0-9._|:-]{0,40}$/.test(g))
+    if (!genes.length) return false
+    // Validate sgRNA uses the same box for sequences. Leaving it runs init(),
+    // which refills the box with the defaults, so the list waits for that.
+    if (_validateState.isValidateMode) {
+        _correlateReturn.pending = genes
+        toggleValidateMode(_validateState.activeSpecies)
+        return true
+    }
+    const box = document.getElementById("searchSymbols")
+    _correlateReturn.previous = box.value
+    box.value = genes.join("\n")
+    changeSymbols()
+    const note = document.getElementById("correlateNote")
+    if (note) {
+        note.hidden = false
+        note.innerHTML = `The gene box now holds the ${genes.length} ${genes.length === 1 ? "gene" : "genes"} sent back from Correlate. ` +
+            `<a href="javascript:void(0)" onclick="_undoSymbolsFromCorrelate()">Put the previous list back</a>`
+    }
+    try { box.scrollIntoView({ block: "center", behavior: "smooth" }) } catch (e) { }
+    return true
+}
+
+function _undoSymbolsFromCorrelate() {
+    if (_correlateReturn.previous == null) return
+    document.getElementById("searchSymbols").value = _correlateReturn.previous
+    _correlateReturn.previous = null
+    changeSymbols()
+    const note = document.getElementById("correlateNote")
+    if (note) { note.hidden = true; note.innerHTML = "" }
+}
+
+window.addEventListener("message", (ev) => {
+    const d = ev.data
+    if (!d || d.type !== "correlate-gene-list" || !_correlateOriginOk(ev.origin)) return
+    if (!_takeSymbolsFromCorrelate(d.genes)) return
+    try { ev.source.postMessage({ type: "correlate-gene-list-received", token: d.token }, ev.origin) } catch (e) { }
+})
+
+// The same list arriving in a fresh tab, when the one that opened Correlate
+// was gone: #genes=A,B,C. Read once, after the defaults have filled the box.
+var _correlateHashRead = false
+function _takeSymbolsFromHash() {
+    if (_correlateReturn.pending) {
+        const genes = _correlateReturn.pending
+        _correlateReturn.pending = null
+        _takeSymbolsFromCorrelate(genes)
+    }
+    if (_correlateHashRead) return
+    _correlateHashRead = true
+    const m = /^#genes=(.*)$/i.exec(location.hash || "")
+    if (!m) return
+    var text = m[1]
+    try { text = decodeURIComponent(text) } catch (e) { }
+    _takeSymbolsFromCorrelate(SYM_split(text))
+    history.replaceState(null, "", location.pathname + location.search)
 }
 
 function _cnPlainName(cl) {
@@ -1528,8 +1619,8 @@ function _geneColumnFor(symbolOf) {
             seen.add(key)
             return `<a class="gcBtn gcBtnLink" href="${_correlateGeneUrl(sym.toUpperCase())}" ` +
                    `target="_blank" rel="noopener noreferrer" ` +
-                   `title="Open ${_escapeHtml(sym)} in Correlate: every DepMap cell line ranked by how much it ` +
-                   `depends on this gene.">Gene effect</a>`
+                   `title="Open ${_escapeHtml(sym)} in Correlate: its gene effect across the DepMap cell lines, ` +
+                   `by tissue.">Gene effect</a>`
         }
     }
 }
