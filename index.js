@@ -1180,8 +1180,12 @@ function openSymbolsInCorrelate() {
     }
     const back = location.origin + location.pathname
     const sp = _setsSpecies() === "Mouse" ? "mouse" : "human"
-    window.open(CORRELATE_BASE + "#genes=" + encodeURIComponent(genes.join(",")) +
-        "&gl=" + encodeURIComponent(back) + "&sp=" + sp, "_blank")
+    // The way back rides in the query string and the hash holds only the
+    // genes: a Correlate build that does not know the way back then still
+    // reads a clean gene list, where it would take "&gl=..." for part of the
+    // last gene.
+    window.open(CORRELATE_BASE + "?gl=" + encodeURIComponent(back) + "&sp=" + sp +
+        "#genes=" + encodeURIComponent(genes.join(",")), "_blank")
 }
 
 // Only Correlate may fill the gene box, and a page served locally only from
