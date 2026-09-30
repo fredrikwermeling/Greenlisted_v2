@@ -2333,6 +2333,25 @@ a.gcBtnLink:focus-visible {
     max-width: 14ch;
 }
 
+/* The columns appended after the file's own (other libraries, Gene, Inspect)
+   hold one short value or a button, far narrower than their headings, so they
+   are centred under them. The file's own columns keep their common left edge. */
+.validationResultsTable th.centerCell,
+.validationResultsTable td.centerCell {
+    text-align: center;
+}
+
+/* Notes are sentences: wide enough to set most of them in one or two lines,
+   and clear of the column after them, which they ran into at the default
+   padding. */
+.validationResultsTable td.notesCol.wrapCell {
+    max-width: 34ch;
+}
+.validationResultsTable th.notesCol,
+.validationResultsTable td.notesCol {
+    padding-right: 24px;
+}
+
 /* The copy-number line above a result table. It explains why most of that
    column is blank, so it cannot sit in the same gray small print as the
    library and the date: a reader who skims past it reads an empty cell as

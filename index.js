@@ -689,7 +689,8 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
                 anyNote = true
                 cell = `<span class="noteCell">${safe}</span>`
             }
-            bodyHtml += `<td${cls}>${cell}</td>`
+            const colCls = j === notesCol ? (cls ? ' class="wrapCell notesCol"' : ' class="notesCol"') : cls
+            bodyHtml += `<td${colCls}>${cell}</td>`
         }
         extras.forEach((x, k) => {
             const cell = x.cell(cols) || ""
@@ -699,7 +700,7 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
             // cannot. Buttons carry no spaces outside their markup, so the
             // test looks at the text the cell will actually show.
             const text = cell.replace(/<[^>]*>/g, " ").trim()
-            bodyHtml += `<td class="gcCell${hasControls ? "" : (_wrappable(text) ? " wrapCell" : "")}">${cell}</td>`
+            bodyHtml += `<td class="gcCell centerCell${hasControls ? "" : (_wrappable(text) ? " wrapCell" : "")}">${cell}</td>`
         })
         bodyHtml += '</tr>'
     }
@@ -708,14 +709,14 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
     for (let j = 0; j < headers.length; j++) {
         const h = headers[j]
         const rich = _headerHtml[h.trim()]
-        html += `<th class="sortable${_wrappable(h) ? " wrapCell" : ""}" tabindex="0" ` +
+        html += `<th class="sortable${_wrappable(h) ? " wrapCell" : ""}${j === notesCol ? " notesCol" : ""}" tabindex="0" ` +
                 `title="Sort by this column">${rich || _escapeHtml(h)}<span class="sortMark"></span></th>`
     }
     // An appended column of values sorts like any other; one holding the
     // Context and Libraries buttons has nothing to sort by.
     extras.forEach((x, k) => {
         const sortable = !extraHasControls[k]
-        html += `<th class="${sortable ? "sortable " : ""}${_wrappable(x.header) ? "wrapCell" : ""}"` +
+        html += `<th class="centerCell ${sortable ? "sortable " : ""}${_wrappable(x.header) ? "wrapCell" : ""}"` +
                 (sortable ? ' tabindex="0" title="Sort by this column"' : "") +
                 `>${_escapeHtml(x.header)}${sortable ? '<span class="sortMark"></span>' : ""}</th>`
     })
