@@ -272,7 +272,7 @@ def main():
          uniprot(SURFACE_Q, 10090, "UniProt surfaceome, mouse"), False),
         ("cd", "CD markers", "Cluster-of-differentiation surface markers used to type and sort cells.",
          HPA_SRC, hpa("CD markers"), to_mouse(hpa("CD markers")), True),
-        ("druggable", "Druggable genome",
+        ("druggable", "Druggable genome (incl. potential)",
          "Targets of an approved drug, plus those judged tractable to small molecules or biologics.",
          HPA_SRC, hpa("FDA approved drug targets", "Potential drug targets"),
          to_mouse(hpa("FDA approved drug targets", "Potential drug targets")), True),
