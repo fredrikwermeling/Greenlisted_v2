@@ -721,7 +721,20 @@ function _gcExonSummary(bases, tx) {
     if (!tx) return "no RefSeq transcript found in this window"
     const idx = bases.findIndex(b => b.cutAfter)
     const at = bases[idx] || bases[Math.floor(bases.length / 2)]
-    if (at.exon) return `exon ${at.exon} of ${tx.exons.length} (${at.coding ? "coding" : "UTR"})`
+    if (at.exon) {
+        // How close the cut is to the end of its exon, when that is close
+        // enough to matter: the spacer and PAM cover the shading there, so the
+        // figure alone does not show it.
+        const ex = at.exon
+        var left = 0, right = 0, i
+        for (i = idx; i >= 0 && bases[i].exon === ex; i--) left++
+        const leftOpen = i < 0
+        for (i = idx + 1; i < bases.length && bases[i].exon === ex; i++) right++
+        const rightOpen = i >= bases.length
+        const edge = Math.min(leftOpen ? Infinity : left, rightOpen ? Infinity : right)
+        const near = (idx >= 0 && edge <= 50) ? `, ${edge} bp from the exon's end` : ""
+        return `exon ${ex} of ${tx.exons.length} (${at.coding ? "coding" : "UTR"})${near}`
+    }
     const pos = at.pos
     if (pos < tx.txStart || pos >= tx.txEnd) return "outside the transcript"
     // Exons are stored in plus order; number them by transcript strand.
@@ -1586,6 +1599,9 @@ function GC_copyRich() {
         if (b.spacer) s += "background:#bbf7d0;font-weight:bold;"
         else if (b.pam) s += "background:#fecaca;font-weight:bold;"
         else if (b.exon) s += b.coding ? "background:#dbeafe;" : "background:#ede9fe;"
+        // The spacer and PAM cover the exon shading; a bar under them keeps
+        // where the exon ends visible.
+        if ((b.spacer || b.pam) && b.exon) s += b.coding ? "border-bottom:3px solid #60a5fa;" : "border-bottom:3px solid #a78bfa;"
         return s
     }
     const inPrimer = new Array(v.n).fill(false)
@@ -1601,7 +1617,7 @@ function GC_copyRich() {
         html += `<span style="${style(b)}${inPrimer[i] ? "text-decoration:underline;text-decoration-color:#ea580c;color:#9a3412;" : ""}">${ch}</span>`
         if (b.cutAfter) html += `<span style="color:#dc2626;font-weight:bold">|</span>`
     })
-    html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.` +
+    html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon; a bar under the spacer or PAM marks the part that is exon. | marks the Cas9 cut site.` +
         (v.primerHits.some(p => p.hits.length) ? ` Underlined: ${_escapeHtml(_gcPrimerSummary(v))}.` : "") + `</p>`
     if (v.primerHits.some(p => p.hits.length)) {
         const td = "border:1px solid #d1d5db;padding:2px 6px;font-size:9pt;"

@@ -56,6 +56,10 @@ const _GCX = {
         pam: "#fecaca",
         exonC: "#dbeafe",
         exonU: "#ede9fe",
+        // The exon's own color is too pale to read as a thin strip, so under
+        // the spacer and PAM it is drawn a step darker.
+        exonCStrip: "#60a5fa",
+        exonUStrip: "#a78bfa",
         cut: "#dc2626",
         primer: "#ea580c",
         text: "#111827",
@@ -278,6 +282,21 @@ function GC_buildSvg(v) {
                 runStart = i; runColor = col
             }
             if (!b) break
+        }
+
+        // The spacer and PAM are painted over the exon, which hid where the
+        // exon ends, and so whether the cut is in it. A strip along the foot
+        // of every spacer or PAM base that is exonic, as on screen, keeps it.
+        for (var i = start; i < end; i++) {
+            const b = v.bases[i]
+            const stripOf = x => (x && (x.spacer || x.pam) && x.exon) ? (x.coding ? C.exonCStrip : C.exonUStrip) : null
+            const col = stripOf(b)
+            if (!col || (i > start && stripOf(v.bases[i - 1]) === col)) continue
+            var j = i
+            while (j + 1 < end && stripOf(v.bases[j + 1]) === col) j++
+            const sx0 = x0 + _gcxCol(i - start) * _GCX.advance - 0.4
+            const sx1 = x0 + (_gcxCol(j - start) + 1) * _GCX.advance + 0.4
+            seqSvg += `<rect x="${sx0.toFixed(2)}" y="${(rowY + _GCX.lineH - 5).toFixed(2)}" width="${(sx1 - sx0).toFixed(2)}" height="3.5" fill="${col}"/>\n`
         }
 
         // primer underlines, one per run of bases and broken at the ten-base
