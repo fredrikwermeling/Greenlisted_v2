@@ -1500,18 +1500,10 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     box-shadow: 0 1px 4px rgba(22, 163, 74, 0.35);
 }
 
-.gcPrimers {
-    margin: 4px 0 10px 0;
-    padding: 8px 10px;
-    border: 1px solid var(--gray-200);
-    border-radius: 4px;
-    background: #fffaf5;
-    font-size: 0.85rem;
-}
-
-.gcPrimersHead {
-    margin-bottom: 6px;
-    color: var(--gray-700);
+.gcPrimerBtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .gcPrimerRow {

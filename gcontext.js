@@ -1001,7 +1001,10 @@ function _gcView() {
         chrom: site.chrom, start1: cur.windowStart + 1, end1: cur.windowStart + n,
         spacerR: spacerR, pamR: pamR, cutAfter: cutIdx + 1,   // 1-based position of the base before the cut
         exonRanges: exonRanges, seq: seq, repeatRanges: repeatRanges,
-        primerHits: _gcPrimerFind(seq, cur.primers || [], cutIdx),
+        // Primers are named forward or reverse by the gene's strand (the
+        // guide's where there is no gene), not by the strand on screen, so a
+        // name does not change when the view is flipped.
+        primerHits: _gcPrimerFind(seq, cur.primers || [], cutIdx, viewStrand !== (cur.tx ? cur.tx.strand : site.strand)),
         // Always resolved on the plus-strand array: the flip moves the cut
         // flag to the other of the two bases it sits between, so reading it
         // off the displayed orientation would be off by one.
@@ -1169,6 +1172,7 @@ function _gcShow() {
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies the sequence to the clipboard, ready to paste. Where the destination supports it — a document, an e-mail, a slide — the exon shading, the spacer highlight and the cut mark come with it; anywhere that takes only plain text it arrives as FASTA.">Copy as text</button>` +
         `<button class="validate-btn" onclick="GC_downloadFasta()" title="A FASTA file: flanks in lower case, spacer and PAM in upper case, positions in the header. Opens in Primer3, an aligner or any sequence editor.">Download FASTA</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
+        `<button class="validate-btn" onclick="GC_copyImage()" title="Copies the annotated sequence as a picture, ready to paste into an e-mail, a document or a slide. With primers marked, the list of oligos comes with it.">Copy image</button>` +
         `<button class="validate-btn" onclick="GC_exportImage()" title="Save the annotated sequence as a figure: PNG, SVG, PDF, TIFF or a PowerPoint slide, at the width and resolution you choose.">Export image</button>` +
         `<button class="validate-btn" onclick="GC_aiExport()" title="Write a .json holding this guide, its genomic context and — if you paste them in — the Primer-BLAST candidates, each measured against the cut site. Attach it to an assistant and ask which pair to order.">Export for AI</button>` +
         `</div>` +
@@ -1176,9 +1180,8 @@ function _gcShow() {
         `On the results page the graphical view is often blank for a pasted sequence, and the banner saying the primers may not be specific ` +
         `appears whenever the genome search finds anything at all: what matters is under each pair, where the intended product should be a ` +
         `perfect match and the unintended ones should carry mismatches, above all in the last few bases at the 3' end. ` +
-        `Paste the primers you pick under <i>Mark primers</i> to see where they sit.</p>`
+        `To see where the primers you pick sit, paste them under <i>Test primers</i> below the sequence.</p>`
 
-    html += _gcPrimerBoxHtml(v)
     html += _gcSeqHtml(v)
 
     html += `<div class="gcLegend">` +
@@ -1191,6 +1194,7 @@ function _gcShow() {
         `<span><span class="gcPrimerSwatch">acgt</span>primer</span>` +
         `</div>`
 
+    html += _gcPrimerBoxHtml(v)
     html += _gcPbSettingsHtml(v)
     html += `<p class="gcFoot">Sequence and annotation from the UCSC Genome Browser API (${v.g.assembly}, ${tx ? tx.track : "RefSeq"}). ` +
             `Cut site assumes SpCas9, 3 nt from the PAM.</p>`
@@ -1293,12 +1297,11 @@ function _gcPrimerIndexes(hay, needle) {
 // Hits are 0-based, half-open [s, e) on the displayed sequence. "fwd" reads
 // like the displayed strand and points right; "rev" anneals to it and points
 // left.
-function _gcPrimerFind(seq, primers, cutIdx) {
+function _gcPrimerFind(seq, primers, cutIdx, flipped) {
     const hay = seq.toUpperCase()
-    return primers.map((p, idx) => {
+    const found = primers.map((p, idx) => {
         const clean = _gcPrimerClean(p.seq)
-        const label = String(p.label || "").trim() || `Primer ${idx + 1}`
-        const out = { idx: idx, label: label, clean: clean, hits: [], tail: 0, bad: null }
+        const out = { idx: idx, label: String(p.label || "").trim(), clean: clean, hits: [], tail: 0, bad: null }
         if (!clean) return out
         const badChar = clean.split("").find(c => !_GC_IUPAC[c])
         if (badChar) { out.bad = `"${badChar}" is not a base`; return out }
@@ -1318,8 +1321,65 @@ function _gcPrimerFind(seq, primers, cutIdx) {
         for (const h of out.hits) {
             h.toCut = h.dir === "fwd" ? cutIdx - (h.e - 1) : h.s - (cutIdx + 1)
         }
+        if (out.hits.length) out.sense = (out.hits[0].dir === "fwd") !== !!flipped ? "fw" : "rev"
         return out
     })
+    // A primer left unnamed takes the ordering name, primer_hTP53_1_fw and
+    // _rev, numbered on from the second of each.
+    const base = _gcOligoBase()
+    const seen = { fw: 0, rev: 0 }
+    for (const p of found) {
+        p.auto = null
+        if (p.sense && !p.bad) {
+            seen[p.sense]++
+            p.auto = `primer_${base}_${p.sense}${seen[p.sense] > 1 ? seen[p.sense] : ""}`
+        }
+        if (!p.label) p.label = p.auto || `Primer ${p.idx + 1}`
+    }
+    return found
+}
+
+// hTP53_1 for the first TP53 guide in a human library, mTrp53_2 in a mouse
+// one. The number is the guide's own, from its ID; a guide without one (the
+// full library output) goes unnumbered rather than guessed.
+function _gcOligoBase() {
+    const cur = _GC.current
+    if (!cur) return ""
+    const prefix = cur.species === "mouse" ? "m" : cur.species === "human" ? "h" : ""
+    const sym = String(cur.symbol || "").replace(/[^A-Za-z0-9.-]/g, "")
+    const m = /_(\d+)$/.exec(String(cur.guideId || ""))
+    return `${prefix}${sym}${m ? "_" + m[1] : ""}`
+}
+
+// Everything to order, in one list: the guide and every primer that was found.
+function _gcOligos(v) {
+    const pairs = _gcPrimerPairs(v)
+    const rows = [{
+        name: `sgRNA_${_gcOligoBase()}`, seq: v.cur.site.spacer, kind: "sgRNA spacer",
+        note: `${v.g.assembly} ${v.site.chrom}, cut between ${v.cutAfter} and ${v.cutAfter + 1} of this window`
+    }]
+    for (const p of v.primerHits) {
+        if (!p.hits.length) continue
+        const h = p.hits[0]
+        const pair = pairs.find(pr => pr.f === p || pr.r === p)
+        rows.push({
+            name: p.label, seq: p.clean, kind: p.sense === "fw" ? "forward primer" : "reverse primer",
+            note: `${h.s + 1}-${h.e}, 3' end ${h.toCut < 0 ? "over the cut" : h.toCut + " bp from the cut"}` +
+                  (p.tail ? `, ${p.tail} nt 5' tail` : "") +
+                  (p.hits.length > 1 ? `, found ${p.hits.length} times` : "") +
+                  (pair ? `, ${pair.size} bp product` : "")
+        })
+    }
+    return rows
+}
+
+function GC_downloadOligos() {
+    if (!_gcReady()) return
+    const v = _gcView()
+    const rows = [["Name", "Sequence (5'-3')", "Length (nt)", "Type", "Notes"]]
+        .concat(_gcOligos(v).map(o => [o.name, o.seq, String(o.seq.length), o.kind, o.note]))
+    const name = `${String(v.cur.guideId).replace(/[^A-Za-z0-9_.-]/g, "_")} oligos.xlsx`
+    XLSX_build([{ name: "Oligos", rows: rows }]).then(blob => _downloadBlob(blob, name))
 }
 
 // The pairs that would make a product: a primer found once pointing right,
@@ -1381,19 +1441,23 @@ function _gcPrimerReportHtml(v) {
 function _gcPrimerBoxHtml(v) {
     const rows = v.cur.primers.map((p, i) =>
         `<div class="gcPrimerRow">` +
-        `<input type="text" class="gcPrimerLabel" value="${_escapeHtml(p.label)}" placeholder="${i === 0 ? "Forward" : i === 1 ? "Reverse" : "Name"}" ` +
+        `<input type="text" class="gcPrimerLabel" value="${_escapeHtml(p.label)}" placeholder="Name (optional)" ` +
+        `title="Left blank, the primer is named primer_${_escapeHtml(_gcOligoBase())}_fw or _rev, by the strand it matches." ` +
         `aria-label="Primer name" oninput="GC_primerInput(${i}, 'label', this.value)">` +
         `<input type="text" class="gcPrimerSeq" value="${_escapeHtml(p.seq)}" placeholder="5'-sequence-3'" spellcheck="false" autocomplete="off" ` +
         `aria-label="Primer sequence" oninput="GC_primerInput(${i}, 'seq', this.value)">` +
         `<button type="button" class="gcStep" onclick="GC_primerRemove(${i})" title="Remove this primer">&times;</button>` +
         `</div>`).join("")
-    return `<div class="gcPrimers" id="gcPrimerBox">` +
-        `<div class="gcPrimersHead"><b>Mark primers</b> <span class="gcHint">Paste each primer 5'&rarr;3' and name it. ` +
-        `It is looked for on both strands and underlined in the sequence below.</span></div>` +
+    const n = v.primerHits.filter(p => p.hits.length).length
+    return `<details class="gcPb gcPrimers" id="gcPrimerBox"${v.cur.primersOpen ? " open" : ""} ontoggle="_GC.current.primersOpen = this.open">` +
+        `<summary>Test primers${n ? ` (${n} marked)` : ""}</summary>` +
+        `<p class="gcPbNote">Paste each primer 5'&rarr;3', for instance the pair Primer-BLAST suggests. It is looked for on both strands and underlined in the sequence above. ` +
+        `A primer left unnamed is called primer_${_escapeHtml(_gcOligoBase())}_fw or _rev, by the strand it matches.</p>` +
         rows +
-        `<button type="button" class="validate-btn gcPrimerAdd" onclick="GC_primerAdd()">+ Add primer</button>` +
+        `<div class="gcPrimerBtns"><button type="button" class="validate-btn gcPrimerAdd" onclick="GC_primerAdd()">+ Add primer</button>` +
+        `<button type="button" class="validate-btn gcPrimerAdd" onclick="GC_downloadOligos()" title="An Excel table of the sgRNA and every primer found, with ordering names, sequences, lengths and positions.">Download oligo table</button></div>` +
         `<div id="gcPrimerReport">${_gcPrimerReportHtml(v)}</div>` +
-        `</div>`
+        `</details>`
 }
 
 // Typing redraws only the sequence and the report, so the box being typed in
@@ -1409,6 +1473,9 @@ function _gcPrimerRefresh() {
     }
     const rep = document.getElementById("gcPrimerReport")
     if (rep) rep.innerHTML = _gcPrimerReportHtml(v)
+    const sum = document.querySelector("#gcPrimerBox > summary")
+    const n = v.primerHits.filter(p => p.hits.length).length
+    if (sum) sum.textContent = `Test primers${n ? ` (${n} marked)` : ""}`
 }
 
 function GC_primerInput(i, field, value) {
@@ -1506,6 +1573,14 @@ function GC_copyRich() {
     })
     html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.` +
         (v.primerHits.some(p => p.hits.length) ? ` Underlined: ${_escapeHtml(_gcPrimerSummary(v))}.` : "") + `</p>`
+    if (v.primerHits.some(p => p.hits.length)) {
+        const td = "border:1px solid #d1d5db;padding:2px 6px;font-size:9pt;"
+        html += `<table style="border-collapse:collapse"><tr>` +
+            ["Name", "Sequence (5'-3')", "nt", "Type"].map(h => `<th style="${td}text-align:left">${h}</th>`).join("") + `</tr>` +
+            _gcOligos(v).map(o => `<tr><td style="${td}">${_escapeHtml(o.name)}</td>` +
+                `<td style="${td}font-family:Consolas,Menlo,monospace">${o.seq}</td><td style="${td}">${o.seq.length}</td><td style="${td}">${o.kind}</td></tr>`).join("") +
+            `</table>`
+    }
     _gcCopy(GC_fastaText(), html, "Copied — paste into a document, an e-mail or a slide")
 }
 

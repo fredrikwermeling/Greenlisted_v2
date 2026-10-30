@@ -168,7 +168,16 @@ function GC_buildSvg(v) {
          _gcExonSummary(v.bases, tx)].join("  ·  ")
     ]
     const hasPrimers = v.primerHits.some(p => p.hits.length)
-    if (hasPrimers) head.push(`Primers (underlined): ${_gcPrimerSummary(v)}`)
+    // With primers marked, the figure carries the order list too: name,
+    // sequence, length and type, the guide first.
+    const oligos = hasPrimers ? _gcOligos(v) : []
+    const OL_FONT = 9.5, OL_GAP = 14, OL_ROW = 13
+    const olCols = oligos.length ? [
+        o => o.name, o => o.seq, o => `${o.seq.length} nt`, o => o.kind
+    ] : []
+    const olFace = c => c === 1 ? _GCX.face : _GCX.sans
+    const olW = olCols.map((f, c) => Math.max(...oligos.map(o => _gcxTextW(f(o), olFace(c), OL_FONT))))
+    const olTotalW = olW.reduce((a, b) => a + b, 0) + OL_GAP * Math.max(0, olW.length - 1)
 
     // Legend geometry, measured rather than guessed from character counts.
     const legendItems = [
@@ -183,7 +192,7 @@ function GC_buildSvg(v) {
     // The page is as wide as the widest thing on it.
     const headW = Math.max(...head.map((t, i) => _gcxTextW(t, _GCX.sans, i === 0 ? 12 : 10.5, i === 0)))
     const legendTotalW = legendItemW.reduce((a, b) => a + b, 0) + LEG_ITEM_GAP * (legendItems.length - 1)
-    const contentW = Math.max(x0 - _GCX.padX + seqW, headW, legendTotalW)
+    const contentW = Math.max(x0 - _GCX.padX + seqW, headW, legendTotalW, olTotalW)
     const width = Math.ceil(_GCX.padX + contentW + _GCX.padX)
     const innerW = width - _GCX.padX * 2
 
@@ -209,7 +218,8 @@ function GC_buildSvg(v) {
     const seqH = nLines * _GCX.lineH
     const legendH = 12 + legendRows.length * 15
     const footH = 8 + footLines.length * 12
-    const height = Math.ceil(headH + seqH + legendH + footH + _GCX.padY)
+    const olH = oligos.length ? 10 + oligos.length * OL_ROW : 0
+    const height = Math.ceil(headH + seqH + legendH + olH + footH + _GCX.padY)
 
     // Every mark is recorded as well as written, so the PDF writer can draw
     // the same figure as real vector art instead of embedding a picture of
@@ -332,6 +342,21 @@ function GC_buildSvg(v) {
         legY += 15
     }
 
+    // ---- oligos
+    if (oligos.length) {
+        var oy = headH + seqH + legendH + 12
+        s += `<line x1="${_GCX.padX}" y1="${oy - 10}" x2="${width - _GCX.padX}" y2="${oy - 10}" stroke="${C.rule}" stroke-width="1"/>\n`
+        for (const o of oligos) {
+            var ox = _GCX.padX
+            olCols.forEach((f, c) => {
+                const col = c === 0 ? (o.kind === "sgRNA spacer" ? C.head : C.primer) : (c === 1 ? C.text : C.muted)
+                s += `<text x="${ox.toFixed(1)}" y="${oy}" style="${_gcxFont(olFace(c), OL_FONT, `fill:${col};${c === 0 ? "font-weight:bold;" : ""}`)}">${_gcxEsc(f(o))}</text>\n`
+                ox += olW[c] + OL_GAP
+            })
+            oy += OL_ROW
+        }
+    }
+
     // ---- provenance, so a figure lifted out of context still says where it came from
     var fy = height - _GCX.padY - (footLines.length - 1) * 12
     for (const line of footLines) {
@@ -346,6 +371,36 @@ function GC_buildSvg(v) {
 // =============================================================================
 // Raster
 // =============================================================================
+
+// The figure as a PNG on the clipboard, for pasting straight into an e-mail
+// or a slide. Drawn at three times the figure's own size, which pastes sharp
+// at the width it lands at. The blob goes in as a promise so Safari still
+// counts the write as part of the click.
+function GC_copyImage() {
+    if (typeof _gcReady !== "function" || !_gcReady()) return
+    const say = (text, bad) => {
+        var el = document.getElementById("gcCopyStatus")
+        if (!el) {
+            el = document.createElement("div")
+            el.id = "gcCopyStatus"
+            const actions = document.querySelector("#gcBody .gcActions")
+            if (actions) actions.after(el)
+        }
+        el.className = bad ? "gcCopyStatus gcCopyFailed" : "gcCopyStatus"
+        el.textContent = text
+    }
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+        say("This browser cannot copy images. Use Export image instead.", true)
+        return
+    }
+    const fig = GC_buildSvg(_gcView())
+    const png = _gcxRasterise(fig.svg, fig.width, fig.height, 3)
+        .then(c => new Promise(res => c.toBlob(res, "image/png")))
+    say("Copying…")
+    navigator.clipboard.write([new ClipboardItem({ "image/png": png })])
+        .then(() => say("Image copied — paste it into an e-mail, a document or a slide"),
+              () => say("Could not copy the image. Use Export image instead.", true))
+}
 
 // The SVG drawn onto a canvas at `scale`. Routed through a blob URL rather
 // than a data: URI because Safari refuses to decode large data-URI SVGs.
