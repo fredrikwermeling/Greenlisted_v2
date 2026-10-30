@@ -57,6 +57,7 @@ const _GCX = {
         exonC: "#dbeafe",
         exonU: "#ede9fe",
         cut: "#dc2626",
+        primer: "#ea580c",
         text: "#111827",
         muted: "#6b7280",
         rule: "#d1d5db",
@@ -166,13 +167,15 @@ function GC_buildSvg(v) {
          `cut between ${v.cutAfter} and ${v.cutAfter + 1}`,
          _gcExonSummary(v.bases, tx)].join("  ·  ")
     ]
+    const hasPrimers = v.primerHits.some(p => p.hits.length)
+    if (hasPrimers) head.push(`Primers (underlined): ${_gcPrimerSummary(v)}`)
 
     // Legend geometry, measured rather than guessed from character counts.
     const legendItems = [
         ["spacer", C.spacer], ["PAM", C.pam],
         ["exon (coding)", C.exonC], ["exon (UTR)", C.exonU],
         ["intron / intergenic", "#ffffff"], ["cut site", null]
-    ]
+    ].concat(hasPrimers ? [["primer", "underline"]] : [])
     const LEG_SWATCH = 10, LEG_TEXT_GAP = 5, LEG_ITEM_GAP = 16, LEG_FONT = 9.5
     const legendItemW = legendItems.map(([label]) =>
         LEG_SWATCH + LEG_TEXT_GAP + _gcxTextW(label, _GCX.sans, LEG_FONT))
@@ -235,7 +238,9 @@ function GC_buildSvg(v) {
     // Feature panels are drawn first as runs of identical color, so a 500 bp
     // exon is one rectangle rather than 500, then the glyphs go on top.
     const bg = b => b.spacer ? C.spacer : b.pam ? C.pam : b.exon ? (b.coding ? C.exonC : C.exonU) : null
-    var seqSvg = "", textSvg = "", cutSvg = ""
+    var seqSvg = "", textSvg = "", cutSvg = "", primerSvg = ""
+    const inPrimer = new Array(v.n).fill(false)
+    for (const p of v.primerHits) for (const h of p.hits) for (var k = h.s; k < h.e; k++) inPrimer[k] = true
 
     for (var ln = 0; ln < nLines; ln++) {
         const start = ln * perLine
@@ -265,6 +270,17 @@ function GC_buildSvg(v) {
             if (!b) break
         }
 
+        // primer underlines, one per run of bases and broken at the ten-base
+        // gaps as on screen
+        for (var i = start; i < end; i++) {
+            if (!inPrimer[i] || (i > start && inPrimer[i - 1] && (i - start) % 10 !== 0)) continue
+            var j = i
+            while (j + 1 < end && inPrimer[j + 1] && (j + 1 - start) % 10 !== 0) j++
+            const ux0 = x0 + _gcxCol(i - start) * _GCX.advance
+            const ux1 = x0 + (_gcxCol(j - start) + 1) * _GCX.advance
+            primerSvg += `<line x1="${ux0.toFixed(2)}" y1="${(baseY + 2.6).toFixed(2)}" x2="${ux1.toFixed(2)}" y2="${(baseY + 2.6).toFixed(2)}" stroke="${C.primer}" stroke-width="1.6"/>\n`
+        }
+
         // glyphs, one <text> per line with per-character positioning so the
         // grouping gaps survive in every renderer
         var chars = "", xs = []
@@ -292,7 +308,7 @@ function GC_buildSvg(v) {
         // measured at a different size — the bases drift out from under their
         // own highlights and the ten-base gaps close up.
     }
-    s += seqSvg + textSvg + cutSvg
+    s += seqSvg + textSvg + primerSvg + cutSvg
 
     // ---- legend
     var legY = headH + seqH + 18
@@ -300,7 +316,9 @@ function GC_buildSvg(v) {
         var lx = _GCX.padX
         for (const idx of row) {
             const [label, col] = legendItems[idx]
-            if (col === null) {
+            if (col === "underline") {
+                s += `<line x1="${lx}" y1="${legY + 1}" x2="${lx + LEG_SWATCH}" y2="${legY + 1}" stroke="${C.primer}" stroke-width="1.6"/>\n`
+            } else if (col === null) {
                 // The cut site is a rule, not a filled patch.
                 const sx = lx + 5
                 s += `<line x1="${sx.toFixed(1)}" y1="${legY - 4}" x2="${sx.toFixed(1)}" y2="${legY + 2}" stroke="${C.cut}" stroke-width="2.2"/>\n` +

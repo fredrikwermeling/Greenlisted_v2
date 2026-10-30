@@ -1491,6 +1491,116 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     font-size: 12px;
 }
 
+/* Designing the primers is what the panel is for; the other buttons only
+   take the sequence elsewhere. */
+.gcActions .validate-btn.gcPrimary {
+    font-size: 13.5px;
+    padding: 7px 18px;
+    margin-right: 10px;
+    box-shadow: 0 1px 4px rgba(22, 163, 74, 0.35);
+}
+
+.gcPrimers {
+    margin: 4px 0 10px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--gray-200);
+    border-radius: 4px;
+    background: #fffaf5;
+    font-size: 0.85rem;
+}
+
+.gcPrimersHead {
+    margin-bottom: 6px;
+    color: var(--gray-700);
+}
+
+.gcPrimerRow {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.gcPrimerRow input[type="text"] {
+    border: 1px solid var(--gray-400);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 0.82rem;
+    min-width: 0;
+    text-align: left;
+}
+
+.gcPrimerLabel {
+    flex: 0 0 130px;
+}
+
+/* The * reset beats inheritance, so the face is named on the input itself. */
+.gcPrimerSeq {
+    flex: 1 1 auto;
+    font-family: var(--monoFont);
+}
+
+.gcPrimerAdd {
+    font-size: 12px;
+    padding: 4px 10px;
+}
+
+.gcPrimerReport {
+    margin: 8px 0 0 18px;
+    color: var(--gray-700);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.gcPrimerMiss {
+    color: #b45309;
+}
+
+.gcPrimerPair {
+    color: #9a3412;
+    font-weight: 600;
+}
+
+.gcBases .gcPrimer {
+    color: #9a3412;
+    font-weight: 700;
+    text-decoration: underline 2px #ea580c;
+    text-underline-offset: 3px;
+}
+
+/* A line carrying a primer name gets the room for it above the bases. */
+.gcLine.gcLineTag {
+    padding-top: 1.1em;
+}
+
+.gcBases .gcPTag {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    position: relative;
+}
+
+.gcPTag::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    bottom: 0.95em;
+    font-family: var(--sans-font);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #9a3412;
+    white-space: nowrap;
+}
+
+.gcPrimerSwatch {
+    font-family: var(--monoFont);
+    color: #9a3412;
+    font-weight: 700;
+    text-decoration: underline 2px #ea580c;
+    text-underline-offset: 3px;
+}
+
 .gcCopyStatus {
     font-size: 0.85rem;
     color: var(--green-800);
@@ -1791,6 +1901,15 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
 
     .gcActions .validate-btn {
         flex: 1 1 45%;
+    }
+
+    .gcActions .validate-btn.gcPrimary {
+        flex-basis: 100%;
+        margin-right: 0;
+    }
+
+    .gcPrimerLabel {
+        flex-basis: 80px;
     }
 
     /* The row of output columns in section 4 is only shown after a run, so

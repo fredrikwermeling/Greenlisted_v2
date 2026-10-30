@@ -74,7 +74,8 @@ var _GC = {
     queue: Promise.resolve(),
     current: null,        // what the modal is showing, see _gcShow()
     usedThisRun: false,   // for the methods text
-    pb: null              // Primer-BLAST settings, loaded lazily from localStorage
+    pb: null,             // Primer-BLAST settings, loaded lazily from localStorage
+    primers: new Map()    // genome|guide|spacer -> the primers marked on it, kept while the page is open
 }
 
 // A sequencing amplicon for ICE or TIDE. The primer windows are not stored
@@ -744,6 +745,11 @@ function GC_open(symbol, spacer, guideId) {
         species: _gcSpecies(), flank: _GC_FLANK_DEFAULT, pendingFlank: null, orientation: "guide",
         locus: null, site: null, tx: null, bases: null, windowStart: null
     }
+    // Primers stay with the guide, so closing the panel to check something
+    // else and coming back does not lose what was pasted.
+    const pKey = `${_GC.current.species}|${_GC.current.guideId}|${clean}`
+    if (!_GC.primers.has(pKey)) _GC.primers.set(pKey, [{ label: "", seq: "" }, { label: "", seq: "" }])
+    _GC.current.primers = _GC.primers.get(pKey)
     document.getElementById("gcModal").className = "fazeIn upset-modal-overlay"
     document.getElementById("gcTitle").textContent = `Genomic context — ${_GC.current.guideId}`
     if (!clean) {
@@ -995,6 +1001,7 @@ function _gcView() {
         chrom: site.chrom, start1: cur.windowStart + 1, end1: cur.windowStart + n,
         spacerR: spacerR, pamR: pamR, cutAfter: cutIdx + 1,   // 1-based position of the base before the cut
         exonRanges: exonRanges, seq: seq, repeatRanges: repeatRanges,
+        primerHits: _gcPrimerFind(seq, cur.primers || [], cutIdx),
         // Always resolved on the plus-strand array: the flip moves the cut
         // flag to the other of the two bases it sits between, so reading it
         // off the displayed orientation would be off by one.
@@ -1158,7 +1165,7 @@ function _gcShow() {
     html += `<div class="gcRow gcActions">` +
         // Primer-BLAST first: designing the primers is what this panel is for,
         // and the rest are ways of taking the sequence elsewhere.
-        `<button class="validate-btn" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST</button>` +
+        `<button class="validate-btn btn-primary gcPrimary" onclick="GC_openPrimerBlastForm()" title="Opens NCBI Primer-BLAST in a new tab with this sequence and every setting filled in, ready to submit. It will pause once to ask which genome hit is your intended target: tick the row for your gene and press Submit.">Open in Primer-BLAST &#8599;</button>` +
         `<button class="validate-btn" onclick="GC_copyRich()" title="Copies the sequence to the clipboard, ready to paste. Where the destination supports it — a document, an e-mail, a slide — the exon shading, the spacer highlight and the cut mark come with it; anywhere that takes only plain text it arrives as FASTA.">Copy as text</button>` +
         `<button class="validate-btn" onclick="GC_downloadFasta()" title="A FASTA file: flanks in lower case, spacer and PAM in upper case, positions in the header. Opens in Primer3, an aligner or any sequence editor.">Download FASTA</button>` +
         `<button class="validate-btn" onclick="GC_downloadGenBank()" title="A GenBank file with exon, spacer, PAM and cut-site features. Opens directly in SnapGene, Benchling, Geneious or ApE.">Download GenBank</button>` +
@@ -1168,8 +1175,10 @@ function _gcShow() {
         `<p class="gcAlt">Primer-BLAST opens with everything filled in. It pauses once to ask which genome hit is your target &mdash; tick the row for your gene and press Submit. ` +
         `On the results page the graphical view is often blank for a pasted sequence, and the banner saying the primers may not be specific ` +
         `appears whenever the genome search finds anything at all: what matters is under each pair, where the intended product should be a ` +
-        `perfect match and the unintended ones should carry mismatches, above all in the last few bases at the 3' end.</p>`
+        `perfect match and the unintended ones should carry mismatches, above all in the last few bases at the 3' end. ` +
+        `Paste the primers you pick under <i>Mark primers</i> to see where they sit.</p>`
 
+    html += _gcPrimerBoxHtml(v)
     html += _gcSeqHtml(v)
 
     html += `<div class="gcLegend">` +
@@ -1179,6 +1188,7 @@ function _gcShow() {
         `<span><span class="gcSwatch gcExonC"></span>exon (coding)</span>` +
         `<span><span class="gcSwatch gcExonU"></span>exon (UTR)</span>` +
         `<span><span class="gcSwatch"></span>intron / intergenic</span>` +
+        `<span><span class="gcPrimerSwatch">acgt</span>primer</span>` +
         `</div>`
 
     html += _gcPbSettingsHtml(v)
@@ -1199,6 +1209,16 @@ function _gcSeqHtml(v) {
         if (b.exon) c.push(b.coding ? "gcExonC" : "gcExonU")
         return c.join(" ")
     }
+    // Primer bases are underlined, and each primer is named just above its
+    // first base, with an arrow for the way it points.
+    const inPrimer = new Array(v.n).fill(false)
+    const tagAt = new Map()
+    for (const p of v.primerHits) {
+        for (const h of p.hits) {
+            for (var k = h.s; k < h.e; k++) inPrimer[k] = true
+            if (!tagAt.has(h.s)) tagAt.set(h.s, h.dir === "fwd" ? `${p.label} \u2192` : `\u2190 ${p.label}`)
+        }
+    }
     var html = `<div class="gcSeq" id="gcSeq">`
     // Which row the cut falls on, so its line number can be set in the same
     // red. Seventeen rows of sequence look alike, and a mark three pixels wide
@@ -1207,14 +1227,20 @@ function _gcSeqHtml(v) {
     for (var ci = 0; ci < v.n; ci++) if (v.bases[ci].cutAfter) { cutRow = Math.floor(ci / perLine); break }
     for (var start = 0; start < v.n; start += perLine) {
         const numCls = (start / perLine === cutRow) ? "gcNum gcNumCut" : "gcNum"
-        html += `<div class="gcLine"><span class="${numCls}">${start + 1}</span><span class="gcBases">`
+        var tagged = false
+        for (var ti = start; ti < Math.min(v.n, start + perLine); ti++) if (tagAt.has(ti)) { tagged = true; break }
+        html += `<div class="gcLine${tagged ? " gcLineTag" : ""}"><span class="${numCls}">${start + 1}</span><span class="gcBases">`
         var open = null
         for (var i = start; i < Math.min(v.n, start + perLine); i++) {
             const b = v.bases[i]
-            const c = cls(b)
+            const c = cls(b) + (inPrimer[i] ? " gcPrimer" : "")
             if (i > start && (i - start) % 10 === 0) {
                 if (open !== null) { html += "</span>"; open = null }
                 html += " "
+            }
+            if (tagAt.has(i)) {
+                if (open !== null) { html += "</span>"; open = null }
+                html += `<span class="gcPTag" data-label="${_escapeHtml(tagAt.get(i))}"></span>`
             }
             if (open !== c) {
                 if (open !== null) html += "</span>"
@@ -1231,6 +1257,186 @@ function _gcSeqHtml(v) {
         html += `</span></div>`
     }
     return html + `</div>`
+}
+
+// =============================================================================
+// Primers
+// =============================================================================
+
+// Primers the user has picked, typically from Primer-BLAST, pasted back to see
+// where they land. Each is looked for on both strands of the window as it is
+// shown. A primer for amplicon NGS usually carries an adapter tail that is not
+// in the genome, so when the whole primer is not found the 3' end is tried
+// alone, shortening down to 15 nt; it is the 3' end that has to match.
+
+const _GC_IUPAC = { A: "A", C: "C", G: "G", T: "T", U: "T", R: "AG", Y: "CT", S: "CG", W: "AT", K: "GT", M: "AC",
+                    B: "CGT", D: "AGT", H: "ACT", V: "ACG", N: "ACGT" }
+const _GC_IUPAC_COMP = { A: "T", C: "G", G: "C", T: "A", U: "A", R: "Y", Y: "R", S: "S", W: "W", K: "M", M: "K",
+                         B: "V", D: "H", H: "D", V: "B", N: "N" }
+const _GC_PRIMER_MIN = 15
+
+function _gcPrimerClean(s) {
+    // Tolerates what a paste brings along: 5'- and -3' marks, spaces, line
+    // breaks and numbering.
+    return String(s || "").replace(/5'|3'|5′|3′/g, "").replace(/[\s\d\-–—.,;:]/g, "").toUpperCase()
+}
+
+function _gcPrimerIndexes(hay, needle) {
+    const out = []
+    outer: for (var i = 0; i + needle.length <= hay.length; i++) {
+        for (var j = 0; j < needle.length; j++) if (_GC_IUPAC[needle[j]].indexOf(hay[i + j]) < 0) continue outer
+        out.push(i)
+    }
+    return out
+}
+
+// Hits are 0-based, half-open [s, e) on the displayed sequence. "fwd" reads
+// like the displayed strand and points right; "rev" anneals to it and points
+// left.
+function _gcPrimerFind(seq, primers, cutIdx) {
+    const hay = seq.toUpperCase()
+    return primers.map((p, idx) => {
+        const clean = _gcPrimerClean(p.seq)
+        const label = String(p.label || "").trim() || `Primer ${idx + 1}`
+        const out = { idx: idx, label: label, clean: clean, hits: [], tail: 0, bad: null }
+        if (!clean) return out
+        const badChar = clean.split("").find(c => !_GC_IUPAC[c])
+        if (badChar) { out.bad = `"${badChar}" is not a base`; return out }
+        if (clean.length < _GC_PRIMER_MIN) { out.bad = `too short to place, under ${_GC_PRIMER_MIN} nt`; return out }
+        for (var k = clean.length; k >= _GC_PRIMER_MIN; k--) {
+            const part = clean.slice(clean.length - k)
+            const rc = part.split("").reverse().map(c => _GC_IUPAC_COMP[c]).join("")
+            const hits = _gcPrimerIndexes(hay, part).map(s => ({ s: s, e: s + k, dir: "fwd" }))
+                .concat(_gcPrimerIndexes(hay, rc).map(s => ({ s: s, e: s + k, dir: "rev" })))
+            if (hits.length) {
+                out.hits = hits.sort((a, b) => a.s - b.s)
+                out.tail = clean.length - k
+                break
+            }
+        }
+        // Bases between the primer's 3' end and the cut, negative if it covers it.
+        for (const h of out.hits) {
+            h.toCut = h.dir === "fwd" ? cutIdx - (h.e - 1) : h.s - (cutIdx + 1)
+        }
+        return out
+    })
+}
+
+// The pairs that would make a product: a primer found once pointing right,
+// upstream of one found once pointing left.
+function _gcPrimerPairs(v) {
+    const single = v.primerHits.filter(p => p.hits.length === 1)
+    const pairs = []
+    for (const f of single) {
+        const fh = f.hits[0]
+        if (fh.dir !== "fwd") continue
+        for (const r of single) {
+            const rh = r.hits[0]
+            if (rh.dir !== "rev" || rh.e <= fh.s) continue
+            const size = rh.e - fh.s + f.tail + r.tail
+            const cutAt = v.cutAfter - fh.s + f.tail     // bases from the forward primer's 5' end to the cut
+            const spansCut = fh.s < v.cutAfter && rh.e > v.cutAfter
+            pairs.push({ f: f, r: r, size: size, cutAt: spansCut ? cutAt : null })
+        }
+    }
+    return pairs
+}
+
+function _gcPrimerSummary(v) {
+    return v.primerHits.filter(p => p.hits.length).map(p =>
+        `${p.label} ${p.hits.map(h => `${h.s + 1}-${h.e} ${h.dir === "fwd" ? "\u2192" : "\u2190"}`).join(", ")}`).join("; ")
+}
+
+function _gcPrimerReportHtml(v) {
+    const lines = []
+    for (const p of v.primerHits) {
+        if (!p.clean) continue
+        const name = `<b>${_escapeHtml(p.label)}</b>`
+        if (p.bad) { lines.push(`<li class="gcPrimerMiss">${name}: ${_escapeHtml(p.bad)}.</li>`); continue }
+        if (!p.hits.length) {
+            lines.push(`<li class="gcPrimerMiss">${name} (${p.clean.length} nt): not in this window on either strand, ` +
+                `not even its last ${_GC_PRIMER_MIN} bases. Check the sequence, or widen the flank.</li>`)
+            continue
+        }
+        const where = p.hits.map(h => {
+            const cut = h.toCut < 0
+                ? `<span class="gcPrimerMiss">covers the cut site</span>`
+                : `3' end ${h.toCut} bp ${h.dir === "fwd" ? "before" : "after"} the cut`
+            return `${h.s + 1}–${h.e}, ${h.dir === "fwd" ? "forward &rarr;" : "&larr; reverse"}, ${cut}`
+        }).join("; ")
+        var text = `${name} (${p.clean.length} nt): ${where}`
+        if (p.hits.length > 1) text += `. <span class="gcPrimerMiss">Found ${p.hits.length} times in this window.</span>`
+        if (p.tail) text += `. Only the 3'-most ${p.clean.length - p.tail} nt are here; the ${p.tail} nt at the 5' end are a tail, not genome.`
+        lines.push(`<li>${text}</li>`)
+    }
+    for (const pr of _gcPrimerPairs(v)) {
+        lines.push(`<li class="gcPrimerPair">${_escapeHtml(pr.f.label)} + ${_escapeHtml(pr.r.label)}: ` +
+            `${pr.size} bp product` +
+            (pr.cutAt != null ? `, cut ${pr.cutAt} bp in from the forward primer's 5' end (${Math.round(100 * pr.cutAt / pr.size)}% of the way along)` : `, not spanning the cut`) +
+            `.</li>`)
+    }
+    return lines.length ? `<ul class="gcPrimerReport">${lines.join("")}</ul>` : ""
+}
+
+function _gcPrimerBoxHtml(v) {
+    const rows = v.cur.primers.map((p, i) =>
+        `<div class="gcPrimerRow">` +
+        `<input type="text" class="gcPrimerLabel" value="${_escapeHtml(p.label)}" placeholder="${i === 0 ? "Forward" : i === 1 ? "Reverse" : "Name"}" ` +
+        `aria-label="Primer name" oninput="GC_primerInput(${i}, 'label', this.value)">` +
+        `<input type="text" class="gcPrimerSeq" value="${_escapeHtml(p.seq)}" placeholder="5'-sequence-3'" spellcheck="false" autocomplete="off" ` +
+        `aria-label="Primer sequence" oninput="GC_primerInput(${i}, 'seq', this.value)">` +
+        `<button type="button" class="gcStep" onclick="GC_primerRemove(${i})" title="Remove this primer">&times;</button>` +
+        `</div>`).join("")
+    return `<div class="gcPrimers" id="gcPrimerBox">` +
+        `<div class="gcPrimersHead"><b>Mark primers</b> <span class="gcHint">Paste each primer 5'&rarr;3' and name it. ` +
+        `It is looked for on both strands and underlined in the sequence below.</span></div>` +
+        rows +
+        `<button type="button" class="validate-btn gcPrimerAdd" onclick="GC_primerAdd()">+ Add primer</button>` +
+        `<div id="gcPrimerReport">${_gcPrimerReportHtml(v)}</div>` +
+        `</div>`
+}
+
+// Typing redraws only the sequence and the report, so the box being typed in
+// keeps its focus.
+function _gcPrimerRefresh() {
+    if (!_gcReady()) return
+    const v = _gcView()
+    const seqEl = document.getElementById("gcSeq")
+    if (seqEl) {
+        const scroll = seqEl.scrollLeft
+        seqEl.outerHTML = _gcSeqHtml(v)
+        document.getElementById("gcSeq").scrollLeft = scroll
+    }
+    const rep = document.getElementById("gcPrimerReport")
+    if (rep) rep.innerHTML = _gcPrimerReportHtml(v)
+}
+
+function GC_primerInput(i, field, value) {
+    if (!_gcReady() || !_GC.current.primers[i]) return
+    _GC.current.primers[i][field] = value
+    _gcPrimerRefresh()
+}
+
+function _gcPrimerRedrawBox() {
+    const box = document.getElementById("gcPrimerBox")
+    if (box) box.outerHTML = _gcPrimerBoxHtml(_gcView())
+    _gcPrimerRefresh()
+}
+
+function GC_primerAdd() {
+    if (!_gcReady()) return
+    _GC.current.primers.push({ label: "", seq: "" })
+    _gcPrimerRedrawBox()
+    const labels = document.querySelectorAll("#gcPrimerBox .gcPrimerLabel")
+    if (labels.length) labels[labels.length - 1].focus()
+}
+
+function GC_primerRemove(i) {
+    if (!_gcReady()) return
+    const list = _GC.current.primers
+    list.splice(i, 1)
+    if (!list.length) list.push({ label: "", seq: "" })
+    _gcPrimerRedrawBox()
 }
 
 // =============================================================================
@@ -1285,18 +1491,21 @@ function GC_copyRich() {
         else if (b.exon) s += b.coding ? "background:#dbeafe;" : "background:#ede9fe;"
         return s
     }
+    const inPrimer = new Array(v.n).fill(false)
+    for (const p of v.primerHits) for (const h of p.hits) for (var k = h.s; k < h.e; k++) inPrimer[k] = true
     // One unbroken run of bases rather than numbered 60-base lines: the fixed
     // breaks survive the paste as hard line ends, which cannot be reflowed and
     // leave stray characters behind if the sequence is copied onward. Word
     // wraps the run to the page instead.
     var html = `<p style="font-family:Consolas,Menlo,monospace;font-size:10pt">${_escapeHtml(_gcFastaHeader(v))}</p>` +
                `<p style="font-family:Consolas,Menlo,monospace;font-size:10pt;word-wrap:break-word;word-break:break-all;overflow-wrap:break-word">`
-    v.bases.forEach(b => {
+    v.bases.forEach((b, i) => {
         const ch = (b.spacer || b.pam) ? b.base.toUpperCase() : b.base.toLowerCase()
-        html += `<span style="${style(b)}">${ch}</span>`
+        html += `<span style="${style(b)}${inPrimer[i] ? "text-decoration:underline;text-decoration-color:#ea580c;color:#9a3412;" : ""}">${ch}</span>`
         if (b.cutAfter) html += `<span style="color:#dc2626;font-weight:bold">|</span>`
     })
-    html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.</p>`
+    html += `</p><p style="font-size:9pt">Green: spacer. Red: PAM. Blue: coding exon. Violet: UTR exon. | marks the Cas9 cut site.` +
+        (v.primerHits.some(p => p.hits.length) ? ` Underlined: ${_escapeHtml(_gcPrimerSummary(v))}.` : "") + `</p>`
     _gcCopy(GC_fastaText(), html, "Copied — paste into a document, an e-mail or a slide")
 }
 
@@ -1349,6 +1558,14 @@ function GC_genBankText() {
     feat("misc_feature", `${v.cutAfter}^${v.cutAfter + 1}`, [
         `/label="Cas9 cut site"`
     ])
+    for (const p of v.primerHits) {
+        for (const h of p.hits) {
+            feat("primer_bind", h.dir === "fwd" ? `${h.s + 1}..${h.e}` : `complement(${h.s + 1}..${h.e})`, [
+                `/label="${p.label.replace(/"/g, "'")}"`,
+                `/note="5'-${p.clean}-3'${p.tail ? `, ${p.tail} nt 5' tail not in this sequence` : ""}"`
+            ])
+        }
+    }
     lines.push("ORIGIN")
     const seq = v.seq.toLowerCase()
     for (var i = 0; i < seq.length; i += 60) {
