@@ -75,7 +75,8 @@ var _GC = {
     current: null,        // what the modal is showing, see _gcShow()
     usedThisRun: false,   // for the methods text
     pb: null,             // Primer-BLAST settings, loaded lazily from localStorage
-    primers: new Map()    // genome|guide|spacer -> the primers marked on it, kept while the page is open
+    primers: new Map(),   // genome|guide|spacer -> the primers marked on it, kept while the page is open
+    oligoNum: new Map()   // same key -> the number the user gave the guide in oligo names
 }
 
 // A sequencing amplicon for ICE or TIDE. The primer windows are not stored
@@ -750,6 +751,7 @@ function GC_open(symbol, spacer, guideId) {
     const pKey = `${_GC.current.species}|${_GC.current.guideId}|${clean}`
     if (!_GC.primers.has(pKey)) _GC.primers.set(pKey, [{ label: "", seq: "" }, { label: "", seq: "" }])
     _GC.current.primers = _GC.primers.get(pKey)
+    _GC.current.pKey = pKey
     document.getElementById("gcModal").className = "fazeIn upset-modal-overlay"
     document.getElementById("gcTitle").textContent = `Genomic context — ${_GC.current.guideId}`
     if (!clean) {
@@ -1347,8 +1349,29 @@ function _gcOligoBase() {
     if (!cur) return ""
     const prefix = cur.species === "mouse" ? "m" : cur.species === "human" ? "h" : ""
     const sym = String(cur.symbol || "").replace(/[^A-Za-z0-9.-]/g, "")
+    const num = _gcOligoNum()
+    return `${prefix}${sym}${num ? "_" + num : ""}`
+}
+
+// The guide's number in the names: what the user typed, else the number in
+// the guide's ID. Cleared to nothing, the names go unnumbered.
+function _gcOligoNum() {
+    const cur = _GC.current
+    if (!cur) return ""
+    if (_GC.oligoNum.has(cur.pKey)) return _GC.oligoNum.get(cur.pKey)
     const m = /_(\d+)$/.exec(String(cur.guideId || ""))
-    return `${prefix}${sym}${m ? "_" + m[1] : ""}`
+    return m ? m[1] : ""
+}
+
+function GC_oligoNumInput(value) {
+    if (!_gcReady()) return
+    _GC.oligoNum.set(_GC.current.pKey, String(value).replace(/[^A-Za-z0-9]/g, ""))
+    _gcPrimerRefresh()
+}
+
+function _gcOligoNamesText() {
+    const b = _gcOligoBase()
+    return `sgRNA_${b}, primer_${b}_fw, primer_${b}_rev`
 }
 
 // Everything to order, in one list: the guide and every primer that was found.
@@ -1442,7 +1465,7 @@ function _gcPrimerBoxHtml(v) {
     const rows = v.cur.primers.map((p, i) =>
         `<div class="gcPrimerRow">` +
         `<input type="text" class="gcPrimerLabel" value="${_escapeHtml(p.label)}" placeholder="Name (optional)" ` +
-        `title="Left blank, the primer is named primer_${_escapeHtml(_gcOligoBase())}_fw or _rev, by the strand it matches." ` +
+        `title="Left blank, the primer is named after the guide, fw or rev by the strand it matches." ` +
         `aria-label="Primer name" oninput="GC_primerInput(${i}, 'label', this.value)">` +
         `<input type="text" class="gcPrimerSeq" value="${_escapeHtml(p.seq)}" placeholder="5'-sequence-3'" spellcheck="false" autocomplete="off" ` +
         `aria-label="Primer sequence" oninput="GC_primerInput(${i}, 'seq', this.value)">` +
@@ -1452,7 +1475,12 @@ function _gcPrimerBoxHtml(v) {
     return `<details class="gcPb gcPrimers" id="gcPrimerBox"${v.cur.primersOpen ? " open" : ""} ontoggle="_GC.current.primersOpen = this.open">` +
         `<summary>Test primers${n ? ` (${n} marked)` : ""}</summary>` +
         `<p class="gcPbNote">Paste each primer 5'&rarr;3', for instance the pair Primer-BLAST suggests. It is looked for on both strands and underlined in the sequence above. ` +
-        `A primer left unnamed is called primer_${_escapeHtml(_gcOligoBase())}_fw or _rev, by the strand it matches.</p>` +
+        `A primer left unnamed is named after the guide, fw or rev by the strand it matches.</p>` +
+        `<div class="gcPrimerRow gcOligoNumRow"><label for="gcOligoNum">Guide number in names</label>` +
+        `<input type="text" id="gcOligoNum" value="${_escapeHtml(_gcOligoNum())}" placeholder="none" spellcheck="false" autocomplete="off" ` +
+        `title="The number the guide and its primers carry in their names, for instance the guide's number in your own list. Clear it to leave the names unnumbered." ` +
+        `oninput="GC_oligoNumInput(this.value)">` +
+        `<span class="gcHint" id="gcOligoNames">${_escapeHtml(_gcOligoNamesText())}</span></div>` +
         rows +
         `<div class="gcPrimerBtns"><button type="button" class="validate-btn gcPrimerAdd" onclick="GC_primerAdd()">+ Add primer</button>` +
         `<button type="button" class="validate-btn gcPrimerAdd" onclick="GC_downloadOligos()" title="An Excel table of the sgRNA and every primer found, with ordering names, sequences, lengths and positions.">Download oligo table</button></div>` +
@@ -1476,6 +1504,8 @@ function _gcPrimerRefresh() {
     const sum = document.querySelector("#gcPrimerBox > summary")
     const n = v.primerHits.filter(p => p.hits.length).length
     if (sum) sum.textContent = `Test primers${n ? ` (${n} marked)` : ""}`
+    const names = document.getElementById("gcOligoNames")
+    if (names) names.textContent = _gcOligoNamesText()
 }
 
 function GC_primerInput(i, field, value) {

@@ -1500,6 +1500,16 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     box-shadow: 0 1px 4px rgba(22, 163, 74, 0.35);
 }
 
+.gcOligoNumRow label {
+    flex: 0 0 auto;
+    color: var(--gray-600);
+}
+
+.gcOligoNumRow #gcOligoNum {
+    flex: 0 0 4.5em;
+    text-align: center;
+}
+
 .gcPrimerBtns {
     display: flex;
     flex-wrap: wrap;
