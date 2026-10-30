@@ -2965,12 +2965,25 @@ body.modal-open {
     font-size: 14px;
 }
 
+/* Unticked: the box is empty, but the - and + stay legible in grey, so the
+   row reads as a control waiting to be switched on rather than as a smudge.
+   Fading the whole stepper on top of the disabled buttons' own pale grey
+   left almost nothing to see. */
 .ctrlStepperOff {
-    opacity: 0.5;
+    border-color: var(--gray-200);
+    background: #fafafa;
 }
 
-.ctrlStepperOff .ctrlStep {
+.ctrlStepperOff .ctrlStep,
+.ctrlStepperOff .ctrlStep:disabled {
+    color: var(--gray-400);
+    background: var(--gray-100);
+    opacity: 1;
     cursor: default;
+}
+
+.ctrlStepperOff input[type="number"] {
+    background: #fafafa;
 }
 
 /* Height set by _alignSymbolColumn(); nothing of its own to show. */
