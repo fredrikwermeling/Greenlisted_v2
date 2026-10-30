@@ -130,7 +130,9 @@ async function init() {
 async function loadTestSettings() {
     if (_validateState.isValidateMode && _validateState.activeSpecies) {
         const textarea = document.getElementById("searchSymbols")
-        textarea.value = _testSequences[_validateState.activeSpecies]
+        textarea.value = _validateState.activeSpecies === "both"
+            ? _testSequences.human + "\n" + _testSequences.mouse
+            : _testSequences[_validateState.activeSpecies]
         changeSymbols()
         return false
     }
@@ -344,11 +346,13 @@ async function runValidation() {
 
     const species = _validateState.activeSpecies
     try {
-        const isLoaded = species === "human" ? _validateState.humanLoaded : _validateState.mouseLoaded
-        if (!isLoaded) {
-            _setStatus("statusSearch", `Loading ${species} validation index...`)
-            await new Promise(r => setTimeout(r, 50))
-            await VAL_loadIndex(species)
+        for (const sp of VAL_speciesList(species)) {
+            const isLoaded = sp === "human" ? _validateState.humanLoaded : _validateState.mouseLoaded
+            if (!isLoaded) {
+                _setStatus("statusSearch", `Loading ${sp} validation index...`)
+                await new Promise(r => setTimeout(r, 50))
+                await VAL_loadIndex(sp)
+            }
         }
 
         const rawInput = document.getElementById("searchSymbols").value

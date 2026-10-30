@@ -306,7 +306,8 @@ function _methValidate() {
     // One sequence can be a top pick in several libraries, so hits are rows,
     // not sequences.
     const matched = new Set(resultLines.slice(1).map(l => l.split("\t")[0])).size
-    const species = _validateState.activeSpecies === "mouse" ? "mouse" : "human"
+    const species = _validateState.activeSpecies === "mouse" ? "mouse"
+        : _validateState.activeSpecies === "both" ? "human and mouse" : "human"
     const total = matched + notFound
 
     const short = `sgRNA sequences were checked against the published ${species} CRISPR knockout ` +

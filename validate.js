@@ -10,7 +10,7 @@ var _validateState = {
     indexMapMouse: null,
     humanLoaded: false,
     mouseLoaded: false,
-    activeSpecies: null,      // "human" or "mouse"
+    activeSpecies: null,      // "human", "mouse" or "both"
     isValidateMode: false,
     resultsOutput: "",
     notFoundOutput: ""
@@ -56,39 +56,50 @@ async function VAL_loadIndex(species) {
     }
 }
 
+// The indexes a run searches. "both" looks in the human and the mouse one,
+// for a guide that may come from either, or to see whether it sits in a
+// region conserved between the two.
+function VAL_speciesList(species) {
+    return species === "both" ? ["human", "mouse"] : [species]
+}
+
 function VAL_search(sgRNAList) {
-    const map = _validateState.activeSpecies === "human"
-        ? _validateState.indexMapHuman
-        : _validateState.indexMapMouse
+    const list = VAL_speciesList(_validateState.activeSpecies)
+    const maps = list.map(sp => [sp, sp === "human" ? _validateState.indexMapHuman : _validateState.indexMapMouse])
 
     const found = []
     const notFound = []
 
     for (const seq of sgRNAList) {
         const key = seq.toUpperCase()
-        if (map.has(key)) {
-            const entries = map.get(key)
-            for (const entry of entries) {
+        var hit = false
+        for (const [sp, map] of maps) {
+            if (!map.has(key)) continue
+            hit = true
+            for (const entry of map.get(key)) {
                 found.push({
                     sgRNA: seq,
+                    species: sp,
                     library: entry.library,
                     symbol: entry.symbol,
                     geneId: entry.geneId,
                     scores: entry.scores
                 })
             }
-        } else {
-            notFound.push(seq)
         }
+        if (!hit) notFound.push(seq)
     }
     return { found, notFound }
 }
 
 function VAL_createResultsOutput(results) {
     var out = "# Sequences identified as top picks in libraries extracted from https://www.addgene.org/pooled-library/#crispr and https://portals.broadinstitute.org/gpp/public/pool/index\n"
-    out += "sgRNA Sequence\tLibrary\tGene Symbol\tGene ID\tScores\n"
+    // A Species column only when both were searched; with one it says the
+    // same thing on every row.
+    const both = _validateState.activeSpecies === "both"
+    out += "sgRNA Sequence\t" + (both ? "Species\t" : "") + "Library\tGene Symbol\tGene ID\tScores\n"
     for (const row of results.found) {
-        out += `${_spreadsheetSafe(row.sgRNA)}\t${_spreadsheetSafe(row.library)}\t${_spreadsheetSafe(row.symbol)}\t${_spreadsheetSafe(row.geneId)}\t${_spreadsheetSafe(row.scores)}\n`
+        out += `${_spreadsheetSafe(row.sgRNA)}\t${both ? row.species + "\t" : ""}${_spreadsheetSafe(row.library)}\t${_spreadsheetSafe(row.symbol)}\t${_spreadsheetSafe(row.geneId)}\t${_spreadsheetSafe(row.scores)}\n`
     }
     return out
 }
