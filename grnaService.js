@@ -8,8 +8,8 @@
 //const SETTINGS_URL = 'settingsDefault.json'
 const SETTINGS_URL = 'settingsDefault.json'
 // Versioned so a browser holding an old copy sees libraries added since.
-const LIBRARY_INFO_VERSION = 2
-const LIBRARIES_URL = 'settingsLibraries.json?v=2'
+const LIBRARY_INFO_VERSION = 3
+const LIBRARIES_URL = 'settingsLibraries.json?v=3'
 const SYNONYM_URL = 'settingsSynonyms.json'
 const TEST_SETTINGS_URL = 'settingsTestData.json' //loads when user requests test data
 

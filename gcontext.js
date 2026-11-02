@@ -779,8 +779,11 @@ function GC_open(symbol, spacer, guideId) {
         return
     }
     if (!_GC.current.species) {
+        const why = _gcSharedRow(clean)
+            ? "The guide is in both a human and a mouse library; open it in each to compare."
+            : "The uploaded library does not say."
         _gcMessage(
-            `<p>Which genome should <b>${_escapeHtml(symbol)}</b> be looked up in? The uploaded library does not say.</p>` +
+            `<p>Which genome should <b>${_escapeHtml(symbol)}</b> be looked up in? ${why}</p>` +
             `<div class="gcRow gcCenter">` +
             `<button class="validate-btn" onclick="GC_setSpecies('human')">Human (hg38)</button>` +
             `<button class="validate-btn" onclick="GC_setSpecies('mouse')">Mouse (mm39)</button></div>`)
@@ -796,7 +799,26 @@ function GC_close() {
 function GC_setSpecies(species) {
     if (!_GC.current) return
     _GC.current.species = species
+    // In the human-mouse shared set the guide's gene has a name in each
+    // species, and the lookup wants the one of the genome chosen: Trp53 on
+    // mm39, not the TP53 the user may have searched.
+    const row = _gcSharedRow(_GC.current.spacer)
+    if (row) {
+        const col = species === "mouse" ? 3 : 0   // Human gene, Mouse gene
+        const name = String(row[col] || "").split("|")[0].trim()
+        if (name) _GC.current.symbol = name
+    }
     _gcRun()
+}
+
+// The shared-set row holding this spacer, or null outside that set.
+function _gcSharedRow(spacer) {
+    const name = (typeof settings !== "undefined" && settings.libraryName) || ""
+    if (!/^Human-mouse shared/.test(name) || !spacer || typeof _library === "undefined") return null
+    for (const rows of Object.values(_library.libraryMap || {})) {
+        for (const row of rows) if (String(row[(_library.rnaColumn || 2) - 1] || "").trim().toUpperCase() === spacer) return row
+    }
+    return null
 }
 
 // Typing only stages a value; nothing is fetched until it is applied. Keeps

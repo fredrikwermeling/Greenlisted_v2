@@ -2496,23 +2496,24 @@ function _renderSymbolSuggestions(unmatched) {
 }
 
 // For the human-mouse shared set: the unmatched symbols that the synonym table
-// knows as genes, each with its official name in the library's species.
+// knows as genes, each with its official name. The set searches both species,
+// so the combined table is in use and p53 names TP53 and TRP53 both; the
+// table does not say which is which, so they are written in capitals.
 function _sharedSetKnownGenes(unmatched) {
     if (!/^Human-mouse shared/.test((settings && settings.libraryName) || "")) return []
     const syn = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
     if (!syn) return []
     const official = _library.officialGroup || {}
-    // "(mouse)", not "mouse": every name here starts "Human-mouse".
-    const mouse = /\(mouse\)/i.test(settings.libraryName)
-    const spell = k => mouse ? k.charAt(0).toUpperCase() + k.slice(1) : k.toUpperCase()
     const out = []
     for (const typed of unmatched) {
         const q = String(typed).toLowerCase().trim()
         if (!syn[q]) continue
-        // The official symbol it stands for; a spelling shared by several
-        // genes keeps the one that was typed.
+        // The official symbol(s) it stands for. A spelling claimed by genes
+        // of different groups is a name shared by unrelated genes, and keeps
+        // the one that was typed.
         const names = q in official ? [q] : [...syn[q]].filter(k => k in official)
-        out.push({ typed: typed, name: names.length === 1 ? spell(names[0]) : typed })
+        const groups = new Set(names.map(k => official[k]))
+        out.push({ typed: typed, name: names.length && groups.size === 1 ? names.map(k => k.toUpperCase()).join(" / ") : typed })
     }
     return out
 }

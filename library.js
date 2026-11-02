@@ -285,7 +285,9 @@ function LIB_setLibraryData(librarySettings, fileData, citationInfo) {
     // Kept so borrowed control guides can be shaped like this library's rows.
     _library.symbolColumn = librarySettings.symbolColumn
     _library.rnaColumn = librarySettings.RNAColumn
-    var libraryMap = _createLibraryMap(fileData, librarySettings.symbolColumn, librarySettings.RNAColumn, librarySettings.rankingColumn, _library.synonymMap)
+    var libraryMap = librarySettings.nameColumns
+        ? _createMultiNameMap(fileData, librarySettings.nameColumns, librarySettings.RNAColumn)
+        : _createLibraryMap(fileData, librarySettings.symbolColumn, librarySettings.RNAColumn, librarySettings.rankingColumn, _library.synonymMap)
     _library.librarySymbolSet = new Set(Object.keys(libraryMap)), //a set containing all symbols in the library
         _library.libraryMap = libraryMap
 }
@@ -429,6 +431,51 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
         const example = Object.keys(libraryMap).some(k => k.startsWith("ensmusg")) ? "ENSMUSG00000059552" : "ENSG00000141510"
         _library.libraryStatus += `<br>Ensembl gene IDs (e.g. ${example}) can be searched too`
     }
+    return libraryMap
+}
+
+// A library whose guides answer to names in more than one column: the
+// human-mouse shared set, one row per guide with the human gene in one column
+// and the mouse gene in another, so one list serves a search in either
+// species. A guide annotated to several genes lists them with "|".
+//
+// Two names that reach exactly the same guides (TP53 and Trp53, usually)
+// share one row array, so a search for both lists the guides once. The output
+// names each gene as the column spells it, so a mouse search reads Trp53_1.
+function _createMultiNameMap(fileData, nameColumns, RNAColumn) {
+    _library.libraryStatus = "Parsing library"
+    const rows = fileData.trim().split("\n").map(row => row.split("\t"))
+    _library.headers = rows.shift()
+    const libraryMap = {}
+    const display = {}
+    const perColumn = nameColumns.map(() => new Set())
+    for (const row of rows) {
+        const keys = new Set()
+        nameColumns.forEach((col, i) => {
+            for (const raw of String(row[col - 1] || "").split("|")) {
+                const name = raw.trim()
+                if (!name) continue
+                const key = name.toLowerCase()
+                perColumn[i].add(key)
+                keys.add(key)
+                if (!display[key]) display[key] = name
+            }
+        })
+        for (const key of keys) (libraryMap[key] = libraryMap[key] || []).push(row)
+    }
+    const bySignature = {}
+    for (const key of Object.keys(libraryMap)) {
+        const sig = libraryMap[key].map(r => r[RNAColumn - 1]).join(",")
+        if (bySignature[sig]) libraryMap[key] = bySignature[sig]
+        else bySignature[sig] = libraryMap[key]
+    }
+    _library.aliasDisplay = display
+    _library.idKeys = new Set()
+    const label = (_library.headers[nameColumns[0] - 1] || "").replace(/ gene$/i, "").toLowerCase()
+    const label2 = (_library.headers[nameColumns[1] - 1] || "").replace(/ gene$/i, "").toLowerCase()
+    _library.libraryStatus = nameColumns.length === 2
+        ? `${perColumn[0].size} ${label} and ${perColumn[1].size} ${label2} symbols found`
+        : `${Object.keys(libraryMap).length} symbols found`
     return libraryMap
 }
 

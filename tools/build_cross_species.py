@@ -4,7 +4,7 @@ Find the sgRNAs that sit in both a human and a mouse library.
 
     python3 tools/build_cross_species.py
 
-Reads the two Validate sgRNA indexes and writes three files:
+Reads the two Validate sgRNA indexes and writes two files:
 
   libraries/sgRNA_cross_species.txt
       One line per shared spacer: the human libraries and genes, the mouse
@@ -12,11 +12,9 @@ Reads the two Validate sgRNA indexes and writes three files:
       where the two 35 MB indexes are not, so the result tables can say for
       each guide whether the other species' libraries carry it too.
 
-  libraries/Human-mouse shared (human).txt
-  libraries/Human-mouse shared (mouse).txt
-      The same guides laid out as a library, one row per guide and gene, so
-      they can be searched like any other: by human symbol in the first, by
-      mouse symbol in the second. A guide that targets the same gene in both
+  libraries/Human-mouse shared.txt
+      The same guides laid out as a library, one row per guide, searched by
+      either the human or the mouse symbol. A guide that targets the same gene in both
       species can then be used in a screen run in human and mouse cells.
 
 A guide is shared when its spacer is identical in both indexes. Most of them
@@ -76,26 +74,23 @@ def main():
             h, m = human[seq], mouse[seq]
             f.write(f"{seq}\t{join(h['libs'])}\t{join(syms(h))}\t{join(m['libs'])}\t{join(syms(m))}\n")
 
+    # One row per guide. Both gene columns are searched (see nameColumns in
+    # settingsLibraries.json), so the one file serves a human or a mouse
+    # search. A guide annotated to more than one gene lists them with "|".
     same_count = 0
-    for species, mine, other in (("human", human, mouse), ("mouse", mouse, human)):
-        cap = species.capitalize()
-        oth = "Mouse" if species == "human" else "Human"
-        path = os.path.join(LIB, f"Human-mouse shared ({species}).txt")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(f"Gene Symbol\tsgRNA\tLibraries (both species)\t{cap} libraries\t"
-                    f"{oth} libraries\t{oth} gene\tSame gene in both\n")
-            for seq in shared:
-                a, b = mine[seq], other[seq]
-                other_upper = set(b["genes"])
-                n = len(a["libs"]) + len(b["libs"])
-                for up, (sym, _gid) in sorted(a["genes"].items()):
-                    same = "yes" if up in other_upper else "no"
-                    if species == "human" and same == "yes":
-                        same_count += 1
-                    f.write(f"{sym}\t{seq}\t{n}\t{join(a['libs'])}\t{join(b['libs'])}\t"
-                            f"{join(syms(b))}\t{same}\n")
+    path = os.path.join(LIB, "Human-mouse shared.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("Human gene\tsgRNA\tLibraries (both species)\tMouse gene\t"
+                "Human libraries\tMouse libraries\tSame gene in both\n")
+        for seq in shared:
+            h, m = human[seq], mouse[seq]
+            same = "yes" if set(h["genes"]) & set(m["genes"]) else "no"
+            same_count += same == "yes"
+            pipe = lambda e: "|".join(sorted(syms(e), key=str.lower))
+            n = len(h["libs"]) + len(m["libs"])
+            f.write(f"{pipe(h)}\t{seq}\t{n}\t{pipe(m)}\t{join(h['libs'])}\t{join(m['libs'])}\t{same}\n")
 
-    print(f"{len(shared):,} shared spacers; {same_count:,} human rows name the same gene in mouse")
+    print(f"{len(shared):,} shared spacers; {same_count:,} name the same gene in both")
 
 
 if __name__ == "__main__":
