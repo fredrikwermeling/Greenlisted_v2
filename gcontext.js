@@ -339,6 +339,10 @@ async function _gcSequence(genome, chrom, start, end) {
     const d = await _gcFetch(`/getData/sequence?genome=${genome};chrom=${chrom};start=${start};end=${end}`)
     if (!d || typeof d.dna !== "string") throw new Error("The UCSC API returned no sequence for this region.")
     const dna = d.dna.toUpperCase()
+    // The bases are drawn into the page as they are, so anything but a base
+    // letter (IUPAC, as UCSC writes N for gaps) means the reply is not a
+    // sequence and is refused rather than shown.
+    if (!/^[ACGTNRYKMSWBDHV]*$/.test(dna)) throw new Error("The UCSC API returned something other than a DNA sequence for this region.")
     _GC.seq.set(key, dna)
     return dna
 }
@@ -353,7 +357,10 @@ function _gcGeneSpan(search, symbol) {
     for (const pm of matches) byTrack[pm.trackName] = pm.matches || []
 
     const parse = m => {
-        const r = /^(chr[^:]+):(\d+)-(\d+)$/.exec(m.position || "")
+        // Chromosome names are letters, digits and underscores (chr17,
+        // chrUn_KI270742v1). Anything else in this field is not a position,
+        // and the name goes into the page and into later request URLs.
+        const r = /^(chr[A-Za-z0-9_]+):(\d+)-(\d+)$/.exec(m.position || "")
         if (!r) return null
         const name = String(m.posName || "").replace(/\s*\(.*$/, "").trim()
         return { chrom: r[1], start: parseInt(r[2], 10) - 1, end: parseInt(r[3], 10), name: name }
@@ -930,14 +937,14 @@ async function _gcRun() {
     if (locus.status === "noHit") {
         const s = locus.searched
         _gcMessage(`<p class="gcError">${cur.spacer} followed by NGG was not found on either strand within ` +
-                   `${s.chrom}:${(s.start + 1).toLocaleString()}-${s.end.toLocaleString()} (${_escapeHtml(cur.symbol)} ± 2 kb, ${g.assembly}).</p>` +
+                   `${_escapeHtml(s.chrom)}:${(s.start + 1).toLocaleString()}-${s.end.toLocaleString()} (${_escapeHtml(cur.symbol)} ± 2 kb, ${g.assembly}).</p>` +
                    `<p>The guide may target a different gene under this symbol, or a region the current assembly places elsewhere.</p>` + retry)
         return
     }
     if (locus.status === "multi") {
         var list = `<p>${cur.spacer} + NGG occurs ${locus.sites.length} times within ${_escapeHtml(cur.symbol)}. Pick the site to show:</p><ul class="gcSites">`
         locus.sites.forEach((s, i) => {
-            list += `<li><button class="validate-btn" onclick="GC_pickSite(${i})">${s.chrom}:${(s.spacerStart + 1).toLocaleString()} (${s.strand})</button></li>`
+            list += `<li><button class="validate-btn" onclick="GC_pickSite(${i})">${_escapeHtml(s.chrom)}:${(s.spacerStart + 1).toLocaleString()} (${s.strand})</button></li>`
         })
         _gcMessage(list + "</ul>")
         return
@@ -1038,7 +1045,7 @@ function _gcShow() {
     const meta = []
     meta.push(["Guide", `${_escapeHtml(cur.guideId)} — 5'-${cur.spacer}-3'` +
         (cur.site.trimmed ? ` (matched without the leading G: ${cur.site.spacer})` : "")])
-    meta.push(["Region", `${v.g.assembly} ${v.region}, ${v.n.toLocaleString("en-US")} bp, ${strandWord(v.viewStrand)} strand shown` +
+    meta.push(["Region", `${v.g.assembly} ${_escapeHtml(v.region)}, ${v.n.toLocaleString("en-US")} bp, ${strandWord(v.viewStrand)} strand shown` +
         (v.viewStrand === "-" ? " (reverse complement of the reference)" : "")])
     meta.push(["Guide strand", `${strandWord(cur.site.strand)} (reference)`])
     if (cur.locus && cur.locus.renamed) {

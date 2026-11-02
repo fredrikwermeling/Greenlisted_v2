@@ -5,23 +5,43 @@ on:
     branches:
       - main
 
+# The job only reads the repository; nothing here needs to write to it.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     if: contains(github.event.head_commit.message, 'deploy')
     runs-on: ubuntu-latest
 
     steps:
+    # Actions are pinned to a commit, not a tag: a tag can be moved to other
+    # code, and the SSH step is handed the deploy key. The comment says which
+    # release the commit is.
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      with:
+        persist-credentials: false
 
     - name: Set up SSH agent
-      uses: webfactory/ssh-agent@v0.7.0
+      uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Copy files via SSH 
+    # The server's host key is checked when the SSH_KNOWN_HOSTS secret holds
+    # it (the output of `ssh-keyscan <host>`). Without it the deploy still
+    # runs as before, unchecked, and says so in the log.
+    - name: Copy files via SSH
       run: |
-        rsync -avz --delete --exclude='.*' -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.SSH_SERVER }}
+        mkdir -p ~/.ssh
+        if [ -n "$SSH_KNOWN_HOSTS" ]; then
+          printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          CHECK="StrictHostKeyChecking=yes"
+        else
+          echo "::warning::SSH_KNOWN_HOSTS is not set, so the server's host key is not checked"
+          CHECK="StrictHostKeyChecking=no"
+        fi
+        rsync -avz --delete --exclude='.*' -e "ssh -o $CHECK" ./ "$SSH_SERVER"
       env:
         SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-
+        SSH_SERVER: ${{ secrets.SSH_SERVER }}

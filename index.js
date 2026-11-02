@@ -625,20 +625,24 @@ function _renderTsvAsTable(tsv, delimiter, rowExtra) {
         const line = lines[i]
         if (line.startsWith("#") || !line.includes(delimiter)) {
             const displayText = line.startsWith("# ") ? line.substring(2) : line
-            // Comment rows are written by this app and may carry deliberate
-            // markup; everything below is data and gets escaped.
+            // Comment rows are escaped like the data below. Most are written by
+            // this app, but some quote the library file (the name of its score
+            // column, or its whole header row when that starts with "#"), and
+            // an uploaded library can come from anyone. Lines meant to carry
+            // markup get it from _headerHtml, which builds it from escaped text.
+            const safe = _escapeHtml(displayText)
             // The run banner is the only line specific to this file, so it is
             // drawn as a callout instead of a fourth line of gray small print.
             // Two of these lines are not small print. The run banner says what
             // this file is, and the copy-number line says why most of a column
             // is empty — a reader who misses it reads blank cells as missing
             // data. Both are drawn as callouts; everything else stays quiet.
-            const rich = _headerHtml[displayText.trim()] || displayText
+            const rich = _headerHtml[displayText.trim()] || safe
             infoHtml += /^THIS RUN:/.test(displayText)
-                ? `<p class="runBanner">${displayText}</p>`
+                ? `<p class="runBanner">${safe}</p>`
                 : /^Copy number:/.test(displayText)
                 ? `<p class="cnNote">${rich}</p>`
-                : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
+                : `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${safe}</p>`
             dataStart = i + 1
         } else {
             break
@@ -758,9 +762,8 @@ function _renderValidationTsvAsTable(tsv) {
     for (var i = 0; i < lines.length; i++) {
         if (lines[i].startsWith("#")) {
             const displayText = lines[i].startsWith("# ") ? lines[i].substring(2) : lines[i].substring(1)
-            // Comment rows are written by this app and may carry deliberate
-            // markup; everything below is data and gets escaped.
-            infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${displayText}</p>`
+            // Escaped like the data below; see _renderTsvAsTable.
+            infoHtml += `<p style="font-size: 0.8rem; color: #666; margin-bottom: 2px;">${_escapeHtml(displayText)}</p>`
             dataStart = i + 1
         } else {
             break
@@ -1363,7 +1366,11 @@ function _createMAGeCKOutput(libraryMap) {
         for (var i = 0; i < libraryMap[symbol].length; i++) {
             const row = libraryMap[symbol][i]
             const capitalizedSymbol = row[settings.symbolColumn - 1].trim()
-            out = out + `${_spreadsheetSafe(capitalizedSymbol + "_" + (i + 1))},${_spreadsheetSafe(_applyTrim(row[settings.RNAColumn - 1]))},${_spreadsheetSafe(capitalizedSymbol)}\n`
+            // Quoted as well as guarded: a value from an uploaded library can
+            // hold a comma, and the text after it would otherwise start a cell
+            // of its own that the guard never saw.
+            const fields = [capitalizedSymbol + "_" + (i + 1), _applyTrim(row[settings.RNAColumn - 1]), capitalizedSymbol]
+            out = out + fields.map(f => _csvField(_spreadsheetSafe(f))).join(",") + "\n"
         }
     }
     return out
@@ -1466,7 +1473,9 @@ function _createFullTxtOutput(libraryMap, headers) {
     const cl = (typeof _hotCellLine === "function") ? _hotCellLine() : null
     const synonymMap = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
     if (cl) out += _cnColumnNote(cl) + "\n"
-    var out = out + headers.join("\t") + `\t${_NOTES_COLUMN}` + "\n" //the original headers are placed att the top of the output
+    // The original headers are placed at the top of the output. They come from
+    // the library file, so they get the same formula guard as the rows.
+    var out = out + headers.map(_spreadsheetSafe).join("\t") + `\t${_NOTES_COLUMN}` + "\n"
     for (var symbol of Object.keys(libraryMap)) {
         const notes = _rowNotes(symbol, cl, synonymMap)
         libraryMap[symbol].forEach(row => {
@@ -2402,7 +2411,28 @@ function _renderSymbolSuggestions(unmatched) {
     if (!box) return
     box.innerHTML = ""
     box.hidden = true
-    if (!unmatched || unmatched.length === 0 || unmatched.length > _SUGGEST_MAX_SYMBOLS) return
+    if (!unmatched || unmatched.length === 0) return
+
+    // The human-mouse shared set holds only the genes that have a guide in
+    // both species, about 7,000. A real gene missing from it is not a typo,
+    // and guessing at a spelling from that short list offers nonsense (p53 ->
+    // H13). Genes the synonym table knows are named as having no shared guide
+    // instead, and only the rest get spelling suggestions.
+    const noShared = _sharedSetKnownGenes(unmatched)
+    if (noShared.length) {
+        const head = document.createElement("div")
+        head.className = "symSuggestHead"
+        head.textContent = `No guide shared between human and mouse for ${noShared.length === 1 ? "this gene" : "these genes"}:`
+        box.appendChild(head)
+        const row = document.createElement("div")
+        row.className = "symSuggestRow symNoShared"
+        row.textContent = noShared.map(g => g.name.toLowerCase() === String(g.typed).toLowerCase() ? g.name : `${g.name} (${g.typed})`).join(", ")
+        box.appendChild(row)
+        box.hidden = false
+        const known = new Set(noShared.map(g => g.typed))
+        unmatched = unmatched.filter(u => !known.has(u))
+    }
+    if (unmatched.length === 0 || unmatched.length > _SUGGEST_MAX_SYMBOLS) return
     if (typeof SER_suggestSymbols !== "function") return
 
     const suggestions = SER_suggestSymbols(unmatched, 3)
@@ -2458,6 +2488,27 @@ function _renderSymbolSuggestions(unmatched) {
     // The panel starts folded on a phone, and a suggestion nobody can see is
     // no better than none.
     if (typeof PHONE_openPanel === "function") PHONE_openPanel(/^Symbols not found/i)
+}
+
+// For the human-mouse shared set: the unmatched symbols that the synonym table
+// knows as genes, each with its official name in the library's species.
+function _sharedSetKnownGenes(unmatched) {
+    if (!/^Human-mouse shared/.test((settings && settings.libraryName) || "")) return []
+    const syn = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
+    if (!syn) return []
+    const official = _library.officialGroup || {}
+    const mouse = /mouse/i.test(settings.libraryName)
+    const spell = k => mouse ? k.charAt(0).toUpperCase() + k.slice(1) : k.toUpperCase()
+    const out = []
+    for (const typed of unmatched) {
+        const q = String(typed).toLowerCase().trim()
+        if (!syn[q]) continue
+        // The official symbol it stands for; a spelling shared by several
+        // genes keeps the one that was typed.
+        const names = q in official ? [q] : [...syn[q]].filter(k => k in official)
+        out.push({ typed: typed, name: names.length === 1 ? spell(names[0]) : typed })
+    }
+    return out
 }
 
 // Swap one or more symbols for suggested spellings, keeping everything else in
@@ -3078,6 +3129,7 @@ function _escapeHtml(s) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
 }
 
 function _sexGlyph(sex) {

@@ -776,7 +776,7 @@ function GC_exportImage() {
             `<label class="gcxFmt"><input type="radio" name="gcxFmt" value="${f.id}" ${p.format === f.id ? "checked" : ""} onchange="GC_xUpdate()">` +
             `<span class="gcxFmtName">${f.label}</span><span class="gcxFmtNote">${_gcxEsc(f.note)}</span></label>`).join("") +
         `</div>` +
-        `<div class="gcxRow"><label>Width <input type="number" id="gcxW" min="5" max="60" step="1" value="${p.widthCm}" onchange="GC_xUpdate()"> cm</label>` +
+        `<div class="gcxRow"><label>Width <input type="number" id="gcxW" min="5" max="60" step="1" value="${Number(p.widthCm) || 10}" onchange="GC_xUpdate()"> cm</label>` +
         `<label id="gcxDpiWrap">Resolution <select id="gcxDpi" onchange="GC_xUpdate()">` +
         _GCX_DPIS.map(d => `<option value="${d}" ${Number(p.dpi) === d ? "selected" : ""}>${d} dpi</option>`).join("") +
         `</select></label></div>` +
