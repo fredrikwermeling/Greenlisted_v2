@@ -3059,3 +3059,14 @@ body.modal-open {
     font-size: 13px;
     white-space: nowrap;
 }
+
+/* Human above mouse, one pair of lines per row of sequence. */
+.gcCmp .gcCmpGap {
+    margin-bottom: 8px;
+}
+
+.gcBases .gcDiff {
+    color: #b91c1c;
+    font-weight: 700;
+    text-decoration: underline;
+}

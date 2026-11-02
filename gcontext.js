@@ -786,7 +786,9 @@ function GC_open(symbol, spacer, guideId) {
             `<p>Which genome should <b>${_escapeHtml(symbol)}</b> be looked up in? ${why}</p>` +
             `<div class="gcRow gcCenter">` +
             `<button class="validate-btn" onclick="GC_setSpecies('human')">Human (hg38)</button>` +
-            `<button class="validate-btn" onclick="GC_setSpecies('mouse')">Mouse (mm39)</button></div>`)
+            `<button class="validate-btn" onclick="GC_setSpecies('mouse')">Mouse (mm39)</button>` +
+            (_gcSharedRow(clean) ? `<button class="validate-btn" onclick="GC_compareSpecies()">Compare human and mouse</button>` : "") +
+            `</div>`)
         return
     }
     _gcRun()
@@ -809,6 +811,135 @@ function GC_setSpecies(species) {
         if (name) _GC.current.symbol = name
     }
     _gcRun()
+}
+
+// =============================================================================
+// Human and mouse side by side
+// =============================================================================
+
+// For a guide of the human-mouse shared set: the stretch around the cut in
+// each genome, one above the other. Both are read on the guide's own strand
+// with the same flank on each side, so the spacers line up base for base and
+// so does everything around them, up to the first indel between the species.
+// That is not an alignment; it is meant to show whether the guide's
+// surroundings, and the exon it cuts, are conserved, which is what decides
+// whether one guide behaves alike in both.
+const _GC_CMP_FLANK = 50
+
+async function GC_compareSpecies() {
+    const cur = _GC.current
+    if (!cur) return
+    const row = _gcSharedRow(cur.spacer)
+    if (!row) return
+    _gcStatus(`Looking up ${cur.spacer} in hg38 and mm39…`, `From the ${_GC_SOURCE}.`)
+    const names = { human: String(row[0] || "").split("|")[0].trim(), mouse: String(row[3] || "").split("|")[0].trim() }
+    const out = {}
+    for (const sp of ["human", "mouse"]) {
+        try {
+            out[sp] = await _gcCompareOne(sp, names[sp], cur.spacer)
+        } catch (e) {
+            out[sp] = { error: e.message }
+        }
+        if (_GC.current !== cur) return
+    }
+    _gcMessage(_gcCompareHtml(cur, names, out))
+}
+
+async function _gcCompareOne(species, symbol, spacer) {
+    const g = _GC_GENOMES[species]
+    const locus = await _gcLocate(species, symbol, spacer)
+    if (locus.status === "noGene") return { error: `${symbol} was not found in ${g.assembly}.` }
+    if (locus.status === "tooLong") return { error: `${symbol} is too long to search.` }
+    if (locus.status === "noHit") return { error: `The spacer + NGG was not found in ${symbol} ± 2 kb.` }
+    const site = locus.sites[0]
+    const L = site.spacer.length
+    const ws = Math.max(0, site.spacerStart - _GC_CMP_FLANK)
+    const we = site.spacerStart + L + _GC_CMP_FLANK
+    const dna = await _gcSequence(g.genome, site.chrom, ws, we)
+    const txList = await _gcTranscripts(g.genome, site.chrom, ws, we)
+    const tx = _gcPickTranscript(txList, locus.usedSymbol || symbol, site)
+    const plus = _gcBuildPlus(site, tx, _GC_CMP_FLANK, dna, ws)
+    const bases = site.strand === "+" ? plus : _gcFlip(plus)
+    return {
+        g: g, site: site, tx: tx, bases: bases, sites: locus.sites.length,
+        summary: _gcExonSummary(bases, tx),
+        coding: _gcCodingPosition(tx, (plus.find(b => b.cutAfter) || {}).pos),
+        region: `${site.chrom}:${(ws + 1).toLocaleString("en-US")}-${we.toLocaleString("en-US")} (${site.strand})`
+    }
+}
+
+function _gcCompareHtml(cur, names, out) {
+    const label = { human: "Human", mouse: "Mouse" }
+    var meta = `<div class="gcMeta">` +
+        `<div class="gcKey">Guide</div><div class="gcVal">${_escapeHtml(cur.guideId)} — 5'-${cur.spacer}-3'</div>`
+    for (const sp of ["human", "mouse"]) {
+        const r = out[sp]
+        var val
+        if (r.error) {
+            val = `<span class="gcError">${_escapeHtml(r.error)}</span>`
+        } else {
+            val = `<i>${_escapeHtml(r.tx ? r.tx.gene : names[sp])}</i>, ${r.g.assembly} ${_escapeHtml(r.region)}; cut in ${_escapeHtml(r.summary)}` +
+                (r.coding ? `, codon ${r.coding.codon} of ${r.coding.proteinLength}` : "") +
+                (r.sites > 1 ? `; the spacer occurs ${r.sites} times here, the first is shown` : "")
+        }
+        meta += `<div class="gcKey">${label[sp]}</div><div class="gcVal">${val}</div>`
+    }
+    meta += `</div>`
+
+    const open = `<div class="gcRow gcCenter">` +
+        `<button class="validate-btn" onclick="GC_setSpecies('human')">Open in human (hg38)</button>` +
+        `<button class="validate-btn" onclick="GC_setSpecies('mouse')">Open in mouse (mm39)</button></div>`
+    const h = out.human, m = out.mouse
+    if (h.error || m.error) return meta + open
+
+    // Same length by construction unless one sits at a chromosome end.
+    const n = Math.min(h.bases.length, m.bases.length)
+    var same = 0, flank = 0, exonSame = 0, exonAll = 0
+    for (var i = 0; i < n; i++) {
+        const hb = h.bases[i], mb = m.bases[i]
+        if (hb.spacer || hb.pam) continue
+        const eq = hb.base.toUpperCase() === mb.base.toUpperCase()
+        flank++
+        if (eq) same++
+        // Exon in both: the part a frameshift or in-frame repair acts on.
+        if (hb.exon && mb.exon) { exonAll++; if (eq) exonSame++ }
+    }
+    const pct = flank ? Math.round(100 * same / flank) : 0
+    const perLine = window.innerWidth < 700 ? 30 : 60
+    const cls = (b, diff) => {
+        const c = []
+        if (b.spacer) c.push("gcSpacer")
+        else if (b.pam) c.push("gcPam")
+        if (b.exon) c.push(b.coding ? "gcExonC" : "gcExonU")
+        if (diff) c.push("gcDiff")
+        return c.join(" ")
+    }
+    const line = (bases, other, from, to) => {
+        var html = ""
+        for (var i = from; i < to; i++) {
+            if (i > from && (i - from) % 10 === 0) html += " "
+            const b = bases[i]
+            const diff = b.base.toUpperCase() !== other[i].base.toUpperCase()
+            const text = (b.spacer || b.pam) ? b.base.toUpperCase() : b.base.toLowerCase()
+            html += `<span class="${cls(b, diff)}">${text}</span>`
+            if (b.cutAfter) html += `<span class="gcCut" title="Cas9 cut site"></span>`
+        }
+        return html
+    }
+    var seq = `<div class="gcSeq gcCmp">`
+    for (var start = 0; start < n; start += perLine) {
+        const end = Math.min(n, start + perLine)
+        seq += `<div class="gcLine"><span class="gcNum">Hs</span><span class="gcBases">${line(h.bases, m.bases, start, end)}</span></div>` +
+               `<div class="gcLine gcCmpGap"><span class="gcNum">Mm</span><span class="gcBases">${line(m.bases, h.bases, start, end)}</span></div>`
+    }
+    seq += `</div>`
+
+    const note = `<p class="gcSource">${_GC_CMP_FLANK} bp each side of the spacer + PAM, on the guide's strand, base for base. ` +
+        `Outside the spacer and PAM, ${same} of ${flank} bases (${pct}%) are the same in both` +
+        (exonAll ? `, ${exonSame} of ${exonAll} where both are exon` : "") + `; differences are marked. ` +
+        `This is not an alignment: an insertion or deletion between the species shifts everything after it. ` +
+        `Blue is coding exon and violet UTR, from each species' RefSeq transcript.</p>`
+    return meta + seq + note + open
 }
 
 // The shared-set row holding this spacer, or null outside that set.
