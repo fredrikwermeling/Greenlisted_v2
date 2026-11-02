@@ -14,7 +14,9 @@ function SCR_startScreening(library, settings, usedSynonyms) {
         machingSymbols.push(...Object.values(usedSynonyms).flat()) //synonym maches
     }
     else {
-        machingSymbols = Object.keys(library.libraryMap).filter(librarySymbol =>
+        // Ensembl IDs are names for exact searches only; see _addEnsemblIds.
+        const idKeys = library.idKeys || new Set()
+        machingSymbols = Object.keys(library.libraryMap).filter(librarySymbol => !idKeys.has(librarySymbol) &&
             settings.searchSymbols.some(searchSymbol => librarySymbol.includes(searchSymbol))
         )
     }

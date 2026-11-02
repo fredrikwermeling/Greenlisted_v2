@@ -423,8 +423,65 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
         aliasDisplay[alias] = claim.name
     }
     _library.aliasDisplay = aliasDisplay
+    _library.idKeys = _addEnsemblIds(libraryMap, rows, symbolColumn, aliasDisplay)
     _library.libraryStatus = additionalStatus + `${realSymbolCount} symbols found`
     return libraryMap
+}
+
+// Jacquere and Julianna give each guide an Ensembl gene ID, and 472 human
+// genes there have no symbol at all: the file writes "nan" for them, so their
+// 1,017 guides sat under one label and no gene could be asked for on its own.
+// Each ID is registered as a name for the guides that carry it.
+//
+// Where an ID covers exactly the guides of its label, it shares that label's
+// row array, so a search for both the symbol and the ID lists the guides once
+// (the search tells entries apart by identity). The output then names the
+// gene by its symbol; a gene with no symbol is named by its ID.
+//
+// The IDs are kept out of partial matching: "n" would otherwise find every
+// ENSG key on top of the "nan" label and list those guides twice.
+function _addEnsemblIds(libraryMap, rows, symbolColumn, aliasDisplay) {
+    const idKeys = new Set()
+    const isId = v => /^ENS[A-Z]*G\d+/i.test(v)
+    const sample = rows.slice(0, 200)
+    let idColumn = -1
+    for (let c = 0; c < (_library.headers || []).length; c++) {
+        if (c === symbolColumn - 1) continue
+        const hits = sample.filter(r => isId(String(r[c] || "").trim())).length
+        if (hits > sample.length / 2) { idColumn = c; break }
+    }
+    if (idColumn < 0) return idKeys
+
+    const byId = {}
+    for (const row of rows) {
+        // Read-through genes carry two IDs, "ENSG…|ENSG…", one per parent.
+        for (const raw of String(row[idColumn] || "").split("|")) {
+            const id = raw.trim().replace(/\.\d+$/, "")
+            if (!isId(id)) continue
+            const key = id.toLowerCase()
+            if (!byId[key]) byId[key] = { id: id.toUpperCase(), rows: [] }
+            byId[key].rows.push(row)
+        }
+    }
+    for (const key in byId) {
+        if (libraryMap[key]) continue
+        const entry = byId[key]
+        const labels = new Set(entry.rows.map(r => String(r[symbolColumn - 1] || "").trim().toLowerCase()))
+        const label = labels.size === 1 ? [...labels][0] : null
+        const own = label && libraryMap[label]
+        if (own && own.length === entry.rows.length) {
+            libraryMap[key] = own
+            // "TSPAN7|nan" is TSPAN7; "nan", or two names, gets the ID.
+            const names = new Set(String(own[0][symbolColumn - 1]).split("|").map(x => x.trim())
+                .filter(x => x && x.toLowerCase() !== "nan"))
+            aliasDisplay[key] = names.size === 1 ? [...names][0] : entry.id
+        } else {
+            libraryMap[key] = entry.rows
+            aliasDisplay[key] = entry.id
+        }
+        idKeys.add(key)
+    }
+    return idKeys
 }
 
 // What to call a gene the user found under one of those labels: the name they
@@ -573,6 +630,7 @@ function _librarySymbolDisplay() {
         // The piped labels are not names anyone should be offered; each part
         // of them is a key of its own, and those are.
         if (key.indexOf("|") !== -1) continue
+        if (_library.idKeys && _library.idKeys.has(key)) continue
         const rows = _library.libraryMap[key]
         const raw = rows && rows[0] && rows[0][col]
         display.set(key, LIB_displayFor(key, (raw && String(raw).trim()) || key.toUpperCase()))
