@@ -221,6 +221,80 @@ function LIBX_columnFor(spacerOf, labelOf) {
     }
 }
 
+// =============================================================================
+// The other species
+// =============================================================================
+
+// Whether the guide is also in a library of the other species. About 13,000
+// spacers are identical in a human and a mouse library, mostly in sequence the
+// two genomes share. They are listed in a file of their own (built by
+// tools/build_cross_species.py) of about 1 MB, so this column does not need
+// the other species' 35 MB index.
+
+var _xspState = { map: null, loading: null }
+
+function _xspOther(species) { return species === "human" ? "mouse" : "human" }
+
+function XSP_load() {
+    if (_xspState.map) return Promise.resolve(true)
+    if (_xspState.loading) return _xspState.loading
+    _xspState.loading = FH_fetchTextFile("libraries/sgRNA_cross_species.txt?v=1")
+        .then(text => {
+            const map = new Map()
+            for (const line of text.split("\n")) {
+                if (!line || line[0] === "#" || line.startsWith("sgRNA Sequence")) continue
+                const c = line.split("\t")
+                if (c.length < 5) continue
+                const split = s => s ? s.split("; ") : []
+                map.set(c[0], {
+                    human: { libs: split(c[1]), genes: split(c[2]) },
+                    mouse: { libs: split(c[3]), genes: split(c[4].trim()) }
+                })
+            }
+            _xspState.map = map
+            return true
+        })
+        .catch(e => { console.warn("Cross-species list failed to load:", e); return false })
+        .finally(() => { _xspState.loading = null })
+    return _xspState.loading
+}
+
+// The other species' libraries and genes for a spacer: null while the list is
+// loading, false when the other species has no library with it.
+function XSP_lookup(spacer, species) {
+    if (!_xspState.map) return null
+    const hit = _xspState.map.get(String(spacer || "").trim().toUpperCase())
+    return hit ? hit[_xspOther(species)] : false
+}
+
+function XSP_loadAndRefresh() {
+    if (_xspState.map) return
+    XSP_load().then(ok => { if (ok) _libxRefreshVisible() })
+}
+
+// A rowExtra descriptor like LIBX_columnFor. The gene is shown rather than a
+// count: whether the guide hits the ortholog is the thing to know, and the
+// libraries are in the tooltip.
+function XSP_columnFor(spacerOf) {
+    const species = _libxSpecies()
+    if (!species) return null
+    const other = _xspOther(species)
+    if (!_xspState.map) XSP_loadAndRefresh()
+    return {
+        header: `In ${other} libraries`,
+        cell: cols => {
+            const spacer = spacerOf(cols)
+            if (!spacer) return ""
+            const hit = XSP_lookup(spacer, species)
+            if (hit === null) return `<span class="libxDim">…</span>`
+            if (!hit) return `<span class="libxNone" title="No ${other} library in the index has this spacer.">none</span>`
+            const genes = hit.genes.length ? hit.genes.join(", ") : "?"
+            return `<span class="xspHit" title="Same spacer in ${_escapeHtml(hit.libs.join(", "))}, annotated to ${_escapeHtml(genes)}.">` +
+                   `<i>${_escapeHtml(genes)}</i> <span class="xspN">in ${hit.libs.length}</span></span>`
+        }
+    }
+}
+
 // The line above the table offering to fetch the index, shown only while it
 // would actually change anything. Pressing Run starts the load, so the offer
 // is what the user sees for the moment before that, or if it failed.

@@ -98,5 +98,25 @@
         "citationFileName": "libraries/VBC (mouse).html",
         "synonymName": "Mouse",
         "defaultRangingOrder": 1
+    },
+    {
+        "name": "Human-mouse shared (human)",
+        "fileName": "libraries/Human-mouse shared (human).txt",
+        "symbolColumn": 1,
+        "RNAColumn": 2,
+        "RankColumn": 3,
+        "citationFileName": "libraries/Human-mouse shared (human).html",
+        "synonymName": "Human",
+        "defaultRangingOrder": 0
+    },
+    {
+        "name": "Human-mouse shared (mouse)",
+        "fileName": "libraries/Human-mouse shared (mouse).txt",
+        "symbolColumn": 1,
+        "RNAColumn": 2,
+        "RankColumn": 3,
+        "citationFileName": "libraries/Human-mouse shared (mouse).html",
+        "synonymName": "Mouse",
+        "defaultRangingOrder": 0
     }
 ]

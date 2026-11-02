@@ -127,6 +127,13 @@ function _methDesign() {
     const lib = _methLibraryCite()
     const libName = settings.libraryName || "the selected library"
     const libCite = (lib && lib.short) ? ` (${lib.short})` : ""
+    // The human-mouse shared set is not a published library, so it is named
+    // for what it is rather than as "the ... library".
+    const sharedSet = /^Human-mouse shared/.test(settings.libraryName || "")
+    const libPhrase = sharedSet
+        ? `the sgRNAs shared between human and mouse libraries, i.e. whose spacer is ` +
+          `identical in at least one library of each species`
+        : `the ${libName} library${libCite}`
 
     const added = searchOutput.controlsAdded || {}
     const borrowed = searchOutput.controlsBorrowedFrom || {}
@@ -157,7 +164,7 @@ function _methDesign() {
 
     var short = `sgRNAs were designed using the Green Listed software ` +
                 `(${_METH_APP.url}; ${_METH_APP.short}), selecting ` +
-                `${selection}${fromList} from the ${libName} library${libCite}`
+                `${selection}${fromList} from ${libPhrase}`
     // The total is worth stating when it is not already the number just
     // given — with controls, or when it was only implied by "n per gene".
     const totalStated = oneGene && !ctrlShort.length
@@ -171,7 +178,7 @@ function _methDesign() {
         `A custom sgRNA library was designed using Green Listed v2.0 ` +
         `(${_METH_APP.url}; ${_METH_APP.short}). Guides targeting ` +
         (oneGene ? geneName : `${geneSymbols.length} ${_methPlural(geneSymbols.length, "gene")}`) +
-        ` were selected from the ${libName} library${libCite}, giving ` +
+        ` were selected from ${libPhrase}, giving ` +
         `${geneGuides} ${_methPlural(geneGuides, "sgRNA")}` +
         (oneGene ? "." : ` (${perGeneText} per gene).`)
     )
@@ -279,7 +286,9 @@ function _methDesign() {
 
     // Genomic context, when a guide was looked up for primer design during
     // this run. Reported like everything else: only if it happened.
-    const refs = lib ? [{ label: `Library (${libName})`, text: lib.full }] : []
+    // The shared set's info page describes it rather than citing a paper; the
+    // libraries each guide comes from are listed per guide in the output.
+    const refs = (lib && !sharedSet) ? [{ label: `Library (${libName})`, text: lib.full }] : []
     if (typeof GC_methodsSentence === "function") {
         const gcSentence = GC_methodsSentence()
         if (gcSentence) {

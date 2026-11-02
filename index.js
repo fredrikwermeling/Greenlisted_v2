@@ -1610,6 +1610,8 @@ function _guideRowExtras(which) {
                 : (cols => ({ symbol: _gcUnquote(symbolOf(cols)), id: _gcUnquote(symbolOf(cols)) }))
             const col = LIBX_columnFor(spacerOf, labelOf)
             if (col) extras.push(col)
+            const xsp = (typeof XSP_columnFor === "function") ? XSP_columnFor(spacerOf) : null
+            if (xsp) extras.push(xsp)
         }
     }
     extras.push(_geneColumnFor(symbolOf))
