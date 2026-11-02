@@ -1881,6 +1881,11 @@ async function changeLibrary() {
 
                 if (synonymNames.includes(librarySettings.synonymName)) {
                     document.getElementById("synonymSelect").value = librarySettings.synonymName
+                    // Load the table the dropdown now shows. Setting the value
+                    // alone fires no change event, so the table loaded at
+                    // start (Human+Mouse) stayed in use under a "Human" or
+                    // "Mouse" label, and p53 found TP53 and Trp53 both.
+                    if (settings.synonymName !== librarySettings.synonymName) await changeSynonyms()
                 }
             }
             // update the settings based on the values in the UI
@@ -2497,7 +2502,8 @@ function _sharedSetKnownGenes(unmatched) {
     const syn = (typeof _library !== "undefined" && _library) ? _library.synonymMap : null
     if (!syn) return []
     const official = _library.officialGroup || {}
-    const mouse = /mouse/i.test(settings.libraryName)
+    // "(mouse)", not "mouse": every name here starts "Human-mouse".
+    const mouse = /\(mouse\)/i.test(settings.libraryName)
     const spell = k => mouse ? k.charAt(0).toUpperCase() + k.slice(1) : k.toUpperCase()
     const out = []
     for (const typed of unmatched) {

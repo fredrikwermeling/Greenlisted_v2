@@ -77,7 +77,12 @@ async function SER_selectLibrary(libraryName) {
     }
 }
 
+// Two loads can overlap: the start-up one and the one a library choice asks
+// for. Only the latest request is applied, whichever finishes last.
+var _synonymRequest = 0
+
 async function SER_changeSynonyms(synonymName) {
+    const request = ++_synonymRequest
     var synonymList = []
     try {
         synonymList = await FH_fetchJsonFile(SYNONYM_URL)
@@ -93,6 +98,7 @@ async function SER_changeSynonyms(synonymName) {
     catch {
         throw new Error(`Could not find synonym file named: ${synonymInfo} for name ${synonymName}`)
     }
+    if (request !== _synonymRequest) return
     LIB_changeSynonyms(synonymData)
 }
 
