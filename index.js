@@ -1312,6 +1312,10 @@ function _orderNote(headers) {
     // libraries call it anything from "Pick Order" to "Auto-pick top sgRNAs",
     // and only some of those read as part of a sentence.
     const name = (headers && headers[col - 1]) ? String(headers[col - 1]).trim() : ""
+    if (/^Human-mouse shared/.test(settings.libraryName || "")) {
+        return "Order: for each gene, the sgRNAs picked by the most libraries (human and mouse together) are listed first. " +
+               "That is a count of design choices, not experimental validation."
+    }
     return "Order: for each gene, the sgRNAs are listed best first, using the library's own ranking" +
            (name ? ` (${name})` : "") +
            ". That ranking comes from the design algorithm and is a prediction, not experimental validation."
@@ -1621,6 +1625,8 @@ function _guideRowExtras(which) {
             if (col) extras.push(col)
             const xsp = (typeof XSP_columnFor === "function") ? XSP_columnFor(spacerOf) : null
             if (xsp) extras.push(xsp)
+            const shared = (typeof XSP_sharedColumnFor === "function") ? XSP_sharedColumnFor(spacerOf, labelOf) : null
+            if (shared) extras.push(shared)
         }
     }
     extras.push(_geneColumnFor(symbolOf))

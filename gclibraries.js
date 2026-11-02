@@ -295,6 +295,50 @@ function XSP_columnFor(spacerOf) {
     }
 }
 
+// The human-mouse shared set has no one species, so neither column above
+// applies. This one gives, per guide, how many libraries of each species pick
+// it, as a button that lists them with the gene each annotates it to.
+function XSP_sharedColumnFor(spacerOf, labelOf) {
+    const name = (typeof settings !== "undefined" && settings.libraryName) || ""
+    if (!/^Human-mouse shared/.test(name)) return null
+    if (!_xspState.map) XSP_loadAndRefresh()
+    return {
+        header: "Libraries",
+        cell: cols => {
+            const spacer = spacerOf(cols)
+            if (!spacer) return ""
+            if (!_xspState.map) return `<span class="libxDim">…</span>`
+            const hit = _xspState.map.get(String(spacer).trim().toUpperCase())
+            if (!hit) return ""
+            const label = (typeof labelOf === "function") ? labelOf(cols) : { symbol: cols[0], id: cols[1] }
+            const list = sp => hit[sp].libs.join(", ")
+            return `<button class="libxCountBtn xspBtn" data-spacer="${spacer}" ` +
+                   `data-id="${_escapeHtml(String(label.id || label.symbol || ""))}" onclick="XSP_openFromButton(this)" ` +
+                   `title="Human: ${_escapeHtml(list("human"))}. Mouse: ${_escapeHtml(list("mouse"))}. Press for the list.">` +
+                   `${hit.human.libs.length} human · ${hit.mouse.libs.length} mouse</button>`
+        }
+    }
+}
+
+function XSP_openFromButton(btn) {
+    const spacer = btn.dataset.spacer
+    const hit = _xspState.map && _xspState.map.get(spacer)
+    if (!hit) return
+    document.getElementById("libxModal").className = "fazeIn upset-modal-overlay"
+    document.getElementById("libxTitle").textContent = `Libraries with this guide — ${btn.dataset.id || spacer}`
+    const row = sp => {
+        const genes = hit[sp].genes.length ? hit[sp].genes.map(g => `<i>${_escapeHtml(g)}</i>`).join(", ") : "?"
+        return `<div class="gcKey">${sp === "human" ? "Human" : "Mouse"}</div><div class="gcVal">` +
+               `${genes} — ${hit[sp].libs.map(_escapeHtml).join(", ")}</div>`
+    }
+    document.getElementById("libxBody").innerHTML =
+        `<div class="gcMeta">` +
+        `<div class="gcKey">Guide</div><div class="gcVal">5'-${_escapeHtml(spacer)}-3'</div>` +
+        row("human") + row("mouse") +
+        `</div>` +
+        `<p class="libxMsg">The spacer is identical in each of these libraries. Each library chose it for its own genome; open <em>Context</em> in each species to see where it cuts there.</p>`
+}
+
 // The line above the table offering to fetch the index, shown only while it
 // would actually change anything. Pressing Run starts the load, so the offer
 // is what the user sees for the moment before that, or if it failed.
