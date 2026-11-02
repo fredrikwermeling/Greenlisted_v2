@@ -425,6 +425,10 @@ function _createLibraryMap(fileData, symbolColumn, RNAColumn, rankingColumn, syn
     _library.aliasDisplay = aliasDisplay
     _library.idKeys = _addEnsemblIds(libraryMap, rows, symbolColumn, aliasDisplay)
     _library.libraryStatus = additionalStatus + `${realSymbolCount} symbols found`
+    if (_library.idKeys.size) {
+        const example = Object.keys(libraryMap).some(k => k.startsWith("ensmusg")) ? "ENSMUSG00000059552" : "ENSG00000141510"
+        _library.libraryStatus += `<br>Ensembl gene IDs (e.g. ${example}) can be searched too`
+    }
     return libraryMap
 }
 

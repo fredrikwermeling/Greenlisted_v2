@@ -2590,12 +2590,26 @@ function SYM_split(text) {
         .filter(Boolean)
 }
 
+// The input box says Ensembl IDs work when the library carries them
+// (Jacquere, Julianna), and nothing about them for the others.
+function _placeholderForIds() {
+    const box = document.getElementById("searchSymbols")
+    if (!box) return
+    if (box.dataset.basePlaceholder === undefined) box.dataset.basePlaceholder = box.placeholder
+    const base = box.dataset.basePlaceholder
+    box.placeholder = (_library.idKeys && _library.idKeys.size)
+        ? base.replace("gene symbols here", "gene symbols or Ensembl IDs here")
+              .replace("(One gene symbol per line", "(One gene symbol or ID per line")
+        : base
+}
+
 function _statusUpdateSymbols() {
     const synonymMap = SER_getSynonymMap(settings.searchSymbols)
     _displaySymbolsNotFound(synonymMap)
 
     const statusSymbols = SER_statusLibrarySymbols()
     _setStatus("symbolsFound", statusSymbols)
+    _placeholderForIds()
 
     // Tidy the box — trim blanks and drop repeats — but keep the user's own
     // spelling. settings.searchSymbols is lower-cased for matching, and writing
