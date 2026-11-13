@@ -1276,9 +1276,12 @@ body:not(.validate-mode):not(.cn-mode) #designButton {
     text-align: center;
 }
 
+/* One per row, all down the table: at the weight and size of a button meant
+   to be pressed once they read as the point of the row, which is the guide. */
 .gcBtn {
-    font-size: 14px;
-    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 9px;
     white-space: nowrap;
 }
 
@@ -2412,11 +2415,12 @@ textarea::placeholder {
 a.gcBtnLink {
     display: inline-block;
     text-decoration: none;
+    font-size: 12px;
     /* The chrome the base rule gives a <button>, which does not reach an
        anchor: without it these two sat in the row as bare text beside the
        buttons they belong with. */
     border-radius: var(--inputRadius);
-    font-weight: 600;
+    font-weight: 500;
     font-family: var(--ui-font);
     background: var(--gray-100);
     color: var(--gray-700);
