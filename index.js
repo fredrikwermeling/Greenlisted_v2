@@ -1654,7 +1654,7 @@ function _geneColumnFor(symbolOf) {
             return `<a class="gcBtn gcBtnLink" href="${_correlateGeneUrl(sym.toUpperCase())}" ` +
                    `target="_blank" rel="noopener noreferrer" ` +
                    `title="Open ${_escapeHtml(sym)} in Correlate: its gene effect across the DepMap cell lines, ` +
-                   `by tissue.">Gene effect</a>`
+                   `by tissue."><i>${_escapeHtml(sym.toUpperCase())}</i> gene effect</a>`
         }
     }
 }
